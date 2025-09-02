@@ -1,0 +1,361 @@
+{% extends 'base.html' %}
+
+{% block title %}Panel de Administración - GanaControl{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sidebar {
+        background-color: #343a40;
+        min-height: calc(100vh - 56px);
+        position: sticky;
+        top: 56px;
+    }
+    .sidebar-link {
+        color: rgba(255,255,255,.75);
+        transition: all 0.3s;
+    }
+    .sidebar-link:hover, .sidebar-link.active {
+        color: #fff;
+        background-color: rgba(255,255,255,.1);
+    }
+    .stat-card {
+        border-left: 4px solid var(--primary-color);
+        transition: transform 0.3s, box-shadow 0.3s;
+        border-radius: 15px;
+        overflow: hidden;
+        background: linear-gradient(145deg, #ffffff, #f5f5f5);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    .stat-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+    }
+    .card-body {
+        padding: 1.5rem;
+    }
+    .dashboard-card {
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s, box-shadow 0.3s;
+    }
+    .dashboard-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+    }
+    .card-icon {
+        font-size: 2.5rem;
+        color: var(--primary-color);
+        background-color: rgba(26, 157, 89, 0.1);
+        border-radius: 50%;
+        width: 60px;
+        height: 60px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s ease;
+    }
+    .stat-card:hover .card-icon {
+        transform: rotateY(180deg);
+    }
+    
+    /* Estilo específico para el ícono de la vaca */
+    .fa-cow {
+        font-size: 2.2rem; /* Ligeramente más pequeño para que se vea bien */
+    }
+    .admin-header {
+        background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+        color: white;
+        padding: 25px;
+        border-radius: 15px;
+        margin-bottom: 25px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    .card-title {
+        font-size: 0.9rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    h2.mb-0 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: #333;
+    }
+    .small.text-success {
+        display: flex;
+        align-items: center;
+        font-weight: 500;
+    }
+</style>
+{% endblock %}
+
+{% block navbar %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand d-flex align-items-center" href="#">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="40" class="me-2 navbar-logo">
+            <span class="brand-text">GanaControl - Admin</span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+            <ul class="navbar-nav align-items-center">
+                <li class="nav-item me-3">
+                    <a href="#" class="nav-link">
+                        <i class="fas fa-bell position-relative">
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.5rem;">3</span>
+                        </i>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <span class="nav-link">Bienvenido, <strong>{{ session['nombre_usuario'] }}</strong></span>
+                </li>
+                <li class="nav-item ms-2">
+                    <a class="btn btn-outline-light btn-sm rounded-pill" href="{{ url_for('logout') }}">
+                        <i class="fas fa-sign-out-alt me-1"></i> Cerrar Sesión
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3 col-lg-2 d-md-block sidebar p-0">
+            <div class="position-sticky">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link active py-3 px-3" href="#">
+                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link py-3 px-3" href="#">
+                            <i class="fas fa-users me-2"></i> Gestión de Usuarios
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link py-3 px-3" href="#">
+                            <i class="fas fa-farm me-2"></i> Gestión de Fincas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link py-3 px-3" href="#">
+                            <i class="fas fa-cow me-2"></i> Gestión de Ganado
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link py-3 px-3" href="#">
+                            <i class="fas fa-chart-bar me-2"></i> Reportes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link py-3 px-3" href="#">
+                            <i class="fas fa-cog me-2"></i> Configuración
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+            <div class="admin-header">
+                <h3 class="mb-0"><i class="fas fa-user-shield me-2"></i> Panel de Administración Root</h3>
+                <p class="mb-0">Gestiona todos los aspectos del sistema desde este panel</p>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title text-muted">Usuarios Totales</h6>
+                                    <h2 class="mb-0">{{ total_usuarios }}</h2>
+                                </div>
+                                <div class="card-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                            </div>
+                            <p class="small text-success mt-3 mb-0">
+                                <i class="fas fa-arrow-up me-1"></i> Actualizado en tiempo real
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title text-muted">Fincas Registradas</h6>
+                                    <h2 class="mb-0">{{ total_fincas }}</h2>
+                                </div>
+                                <div class="card-icon">
+                                    <i class="fas fa-home"></i>
+                                </div>
+                            </div>
+                            <p class="small text-success mt-3 mb-0">
+                                <i class="fas fa-arrow-up me-1"></i> Actualizado en tiempo real
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title text-muted">Cabezas de Ganado</h6>
+                                    <h2 class="mb-0">{{ total_ganado }}</h2>
+                                </div>
+                                <div class="card-icon">
+                                    <i class="fas fa-cow"></i>
+                                </div>
+                            </div>
+                            <p class="small text-success mt-3 mb-0">
+                                <i class="fas fa-arrow-up me-1"></i> Actualizado en tiempo real
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title text-muted">Reportes Generados</h6>
+                                    <h2 class="mb-0">{{ total_reportes }}</h2>
+                                </div>
+                                <div class="card-icon">
+                                    <i class="fas fa-file-alt"></i>
+                                </div>
+                            </div>
+                            <p class="small text-success mt-3 mb-0">
+                                <i class="fas fa-chart-line me-1"></i> 15% este mes
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Functions -->
+            <h5 class="mb-3">Funciones Principales</h5>
+            <div class="row mb-4">
+                <div class="col-md-4 mb-3">
+                    <div class="card dashboard-card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="mb-0"><i class="fas fa-users me-2"></i> Gestión de Usuarios</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">Administra usuarios, roles y permisos del sistema.</p>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check-circle text-success me-2"></i> Crear nuevos usuarios</li>
+                                <li><i class="fas fa-check-circle text-success me-2"></i> Asignar roles y permisos</li>
+                                <li><i class="fas fa-check-circle text-success me-2"></i> Gestionar accesos</li>
+                            </ul>
+                            <a href="#" class="btn btn-primary mt-2">
+                                <i class="fas fa-cog me-1"></i> Administrar
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card dashboard-card h-100">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0"><i class="fas fa-home me-2"></i> Gestión de Fincas</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">Administra todas las fincas registradas en el sistema.</p>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check-circle text-success me-2"></i> Registrar nuevas fincas</li>
+                                <li><i class="fas fa-check-circle text-success me-2"></i> Asignar propietarios</li>
+                                <li><i class="fas fa-check-circle text-success me-2"></i> Gestionar ubicaciones</li>
+                            </ul>
+                            <a href="#" class="btn btn-success mt-2">
+                                <i class="fas fa-cog me-1"></i> Administrar
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <div class="card dashboard-card h-100">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="fas fa-cog me-2"></i> Configuración</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="card-text">Configura parámetros generales del sistema.</p>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-check-circle text-success me-2"></i> Parámetros globales</li>
+                                <li><i class="fas fa-check-circle text-success me-2"></i> Copias de seguridad</li>
+                                <li><i class="fas fa-check-circle text-success me-2"></i> Registro de actividades</li>
+                            </ul>
+                            <a href="#" class="btn btn-info mt-2 text-white">
+                                <i class="fas fa-cog me-1"></i> Configurar
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="row">
+                <div class="col-12">
+                    <div class="card dashboard-card">
+                        <div class="card-header bg-dark text-white">
+                            <h5 class="mb-0"><i class="fas fa-history me-2"></i> Actividad Reciente</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Usuario</th>
+                                            <th>Acción</th>
+                                            <th>Elemento</th>
+                                            <th>Fecha</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if actividades_recientes %}
+                                            {% for actividad in actividades_recientes %}
+                                            <tr>
+                                                <td>{{ actividad.usuario }}</td>
+                                                <td>{{ actividad.accion }}</td>
+                                                <td>{{ actividad.elemento }}</td>
+                                                <td>{{ actividad.fecha }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        {% else %}
+                                            <tr>
+                                                <td colspan="4" class="text-center">No hay actividades recientes</td>
+                                            </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block footer %}{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Aquí podrías añadir código JavaScript para gráficos o funcionalidades adicionales
+    // Por ejemplo, usando Chart.js para visualizaciones
+</script>
+{% endblock %}

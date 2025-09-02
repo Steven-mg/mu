@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Crear Nueva Finca - GanaControl{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h3 class="mb-0">Registrar Nueva Finca</h3>
+                </div>
+                <div class="card-body">
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="alert alert-{{ category }}" role="alert">
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    
+                    <form method="POST" action="{{ url_for('crear_finca') }}">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            {{ form.nombre_finca.label(class="form-label") }}
+                            {{ form.nombre_finca(class="form-control") }}
+                            {% if form.nombre_finca.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.nombre_finca.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.localizacion.label(class="form-label") }}
+                            {{ form.localizacion(class="form-control") }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.correo.label(class="form-label") }}
+                            {{ form.correo(class="form-control") }}
+                            {% if form.correo.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.correo.errors %}
+                                        <span>{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.telefono.label(class="form-label") }}
+                            {{ form.telefono(class="form-control") }}
+                        </div>
+                        
+                        <div class="mb-3">
+                            {{ form.nombreEncargado.label(class="form-label") }}
+                            {{ form.nombreEncargado(class="form-control") }}
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                {{ form.pais.label(class="form-label") }}
+                                {{ form.pais(class="form-control") }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                {{ form.departamento.label(class="form-label") }}
+                                {{ form.departamento(class="form-control") }}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                {{ form.ciudad.label(class="form-label") }}
+                                {{ form.ciudad(class="form-control") }}
+                            </div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            {{ form.submit(class="btn btn-primary") }}
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

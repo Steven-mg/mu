@@ -1,0 +1,154 @@
+{% extends 'base.html' %}
+
+{% block title %}GanaControl - Gestión Inteligente de Ganado{% endblock %}
+
+{% block content %}
+    {% include 'components/carousel.html' %}
+    
+    <!-- Sección de Características -->
+    <section class="py-5 bg-light feature-section">
+        <div class="container">
+            <div class="text-center mb-5">
+                <span class="badge bg-success px-3 py-2 mb-2">NUESTRAS SOLUCIONES</span>
+                <h2 class="fw-bold section-title">Tecnología avanzada para el manejo eficiente</h2>
+                <div class="title-underline mx-auto"></div>
+            </div>
+            
+            <div class="row g-4">
+                <div class="col-md-6 col-lg-3">
+                    <div class="card h-100 border-0 shadow-sm feature-card">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon-container mb-3">
+                                <i class="fas fa-cow fa-2x"></i>
+                            </div>
+                            <h5 class="card-title fw-bold">Gestión de Ganado</h5>
+                            <p class="card-text text-muted">Control completo de tu inventario ganadero con seguimiento individual.</p>
+                            <a href="#" class="btn btn-link text-success p-0 mt-2">Saber más <i class="fas fa-arrow-right ms-1"></i></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="card h-100 border-0 shadow-sm feature-card">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon-container mb-3">
+                                <i class="fas fa-heartbeat fa-2x"></i>
+                            </div>
+                            <h5 class="card-title fw-bold">Salud Animal</h5>
+                            <p class="card-text text-muted">Monitoreo de salud y programación de tratamientos veterinarios.</p>
+                            <a href="#" class="btn btn-link text-success p-0 mt-2">Saber más <i class="fas fa-arrow-right ms-1"></i></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="card h-100 border-0 shadow-sm feature-card">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon-container mb-3">
+                                <i class="fas fa-chart-bar fa-2x"></i>
+                            </div>
+                            <h5 class="card-title fw-bold">Análisis y Reportes</h5>
+                            <p class="card-text text-muted">Estadísticas detalladas y reportes personalizados para toma de decisiones.</p>
+                            <a href="#" class="btn btn-link text-success p-0 mt-2">Saber más <i class="fas fa-arrow-right ms-1"></i></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-3">
+                    <div class="card h-100 border-0 shadow-sm feature-card">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon-container mb-3">
+                                <i class="fas fa-mobile-alt fa-2x"></i>
+                            </div>
+                            <h5 class="card-title fw-bold">Acceso Móvil</h5>
+                            <p class="card-text text-muted">Gestiona tu ganado desde cualquier lugar con nuestra aplicación móvil.</p>
+                            <a href="#" class="btn btn-link text-success p-0 mt-2">Saber más <i class="fas fa-arrow-right ms-1"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Sección de Beneficios -->
+    <section class="py-5 bg-success text-white">
+        <div class="container">
+            <div class="text-center mb-5">
+                <h2 class="fw-bold">Beneficios de usar GanaControl</h2>
+            </div>
+            
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="benefit-card text-center p-4">
+                        <div class="benefit-icon mb-3">
+                            <i class="fas fa-chart-line fa-3x"></i>
+                        </div>
+                        <h4 class="fw-bold mb-3">Aumento de Productividad</h4>
+                        <p>Incrementa hasta un 30% la productividad de tu finca con nuestro sistema de gestión integral.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="benefit-card text-center p-4">
+                        <div class="benefit-icon mb-3">
+                            <i class="fas fa-money-bill-wave fa-3x"></i>
+                        </div>
+                        <h4 class="fw-bold mb-3">Reducción de Costos</h4>
+                        <p>Optimiza recursos y reduce gastos operativos gracias a la planificación eficiente y control de inventario.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="benefit-card text-center p-4">
+                        <div class="benefit-icon mb-3">
+                            <i class="fas fa-tasks fa-3x"></i>
+                        </div>
+                        <h4 class="fw-bold mb-3">Toma de Decisiones</h4>
+                        <p>Accede a datos precisos en tiempo real para tomar decisiones estratégicas basadas en información confiable.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="row g-4 mt-3">
+                <div class="col-md-4">
+                    <div class="benefit-card text-center p-4">
+                        <div class="benefit-icon mb-3">
+                            <i class="fas fa-shield-alt fa-3x"></i>
+                        </div>
+                        <h4 class="fw-bold mb-3">Prevención de Enfermedades</h4>
+                        <p>Anticípate a problemas de salud con alertas y seguimiento de vacunaciones y tratamientos.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="benefit-card text-center p-4">
+                        <div class="benefit-icon mb-3">
+                            <i class="fas fa-sync fa-3x"></i>
+                        </div>
+                        <h4 class="fw-bold mb-3">Mejora Continua</h4>
+                        <p>Identifica áreas de oportunidad y optimiza constantemente tus procesos ganaderos.</p>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="benefit-card text-center p-4">
+                        <div class="benefit-icon mb-3">
+                            <i class="fas fa-users fa-3x"></i>
+                        </div>
+                        <h4 class="fw-bold mb-3">Colaboración en Equipo</h4>
+                        <p>Facilita la comunicación entre trabajadores, veterinarios y propietarios con acceso compartido a la información.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Sección de Contacto -->
+    <section class="py-5">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-lg-6 mb-4 mb-lg-0">
+                    <h2 class="fw-bold mb-4">¿Listo para optimizar tu ganadería?</h2>
+                    <p class="lead mb-4">Contáctanos hoy mismo para una demostración personalizada de nuestras soluciones.</p>
+                    <a href="#" class="btn btn-success btn-lg px-4">Solicitar Demostración</a>
+                </div>
+                <div class="col-lg-6">
+                    <img src="{{ url_for('static', filename='img/contact.jpg') }}" alt="Contacto" class="img-fluid rounded shadow">
+                </div>
+            </div>
+        </div>
+    </section>
+{% endblock %}

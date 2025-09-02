@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block title %}Registro - GanaControl{% endblock %}
+
+{% block content %}
+<div class="login-container">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="login-card">
+                    <div class="login-header text-center">
+                        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="login-logo mb-3">
+                        <h2 class="login-title">Registrarse</h2>
+                        <p class="text-muted">Crea tu cuenta de dueño de finca</p>
+                    </div>
+                    <div class="login-body p-4">
+                        <form method="POST" action="">
+                            {{ form.hidden_tag() }}
+                            <div class="form-floating mb-3">
+                                {{ form.nik_name(class="form-control login-input", id="floatingUsername", placeholder="Nombre de Usuario (Nickname)") }}
+                                {{ form.nik_name.label(for="floatingUsername") }}
+                                {% for error in form.nik_name.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="form-floating mb-3">
+                                {{ form.nombres(class="form-control login-input", id="floatingNombres", placeholder="Nombres") }}
+                                {{ form.nombres.label(for="floatingNombres") }}
+                                {% for error in form.nombres.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="form-floating mb-3">
+                                {{ form.apellidos(class="form-control login-input", id="floatingApellidos", placeholder="Apellidos") }}
+                                {{ form.apellidos.label(for="floatingApellidos") }}
+                                {% for error in form.apellidos.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="form-floating mb-3">
+                                {{ form.correo(class="form-control login-input", id="floatingEmail", placeholder="Correo Electrónico") }}
+                                {{ form.correo.label(for="floatingEmail") }}
+                                {% for error in form.correo.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="form-floating mb-3">
+                                {{ form.contraseña(class="form-control login-input", id="floatingPassword", placeholder="Contraseña") }}
+                                {{ form.contraseña.label(for="floatingPassword") }}
+                                {% for error in form.contraseña.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="form-floating mb-3">
+                                {{ form.confirmar_contraseña(class="form-control login-input", id="floatingConfirmPassword", placeholder="Confirmar Contraseña") }}
+                                {{ form.confirmar_contraseña.label(for="floatingConfirmPassword") }}
+                                {% for error in form.confirmar_contraseña.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="form-floating mb-3">
+                                {{ form.direccion(class="form-control login-input", id="floatingAddress", placeholder="Dirección") }}
+                                {{ form.direccion.label(for="floatingAddress") }}
+                                {% for error in form.direccion.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="form-floating mb-4">
+                                {{ form.telefono(class="form-control login-input", id="floatingPhone", placeholder="Teléfono") }}
+                                {{ form.telefono.label(for="floatingPhone") }}
+                                {% for error in form.telefono.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <!-- Nuevos campos agregados: país, departamento y ciudad -->
+                            <div class="form-floating mb-3">
+                                {{ form.pais(class="form-control login-input", id="floatingCountry", placeholder="País") }}
+                                {{ form.pais.label(for="floatingCountry") }}
+                                {% for error in form.pais.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="form-floating mb-3">
+                                {{ form.departamento(class="form-control login-input", id="floatingRegion", placeholder="Región/Departamento") }}
+                                {{ form.departamento.label(for="floatingRegion") }}
+                                {% for error in form.departamento.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="form-floating mb-4">
+                                {{ form.ciudad(class="form-control login-input", id="floatingCity", placeholder="Ciudad/Localidad") }}
+                                {{ form.ciudad.label(for="floatingCity") }}
+                                {% for error in form.ciudad.errors %}
+                                    <div class="text-danger small mt-1">{{ error }}</div>
+                                {% endfor %}
+                            </div>
+                            <div class="d-grid gap-2">
+                                {{ form.submit(class="btn btn-success login-btn") }}
+                            </div>
+                            <!-- Añadir después del botón de registro -->
+                            <div class="text-center mt-3">
+                                <p class="text-muted">O regístrate con:</p>
+                                <a href="{{ url_for('login_google') }}" class="btn btn-outline-secondary w-100 rounded-pill" style="background-color: white; border: 1px solid #dadce0;">
+                                    <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" width="18" height="18" class="me-2">
+                                    Registrarse con Google
+                                </a>
+                            </div>
+                            <div class="text-center mt-3">
+                                <a href="{{ url_for('login') }}" class="text-decoration-none text-success small">¿Ya tienes una cuenta? Inicia sesión</a>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                <div class="text-center mt-4 text-muted">
+                    <small>© 2025 GanaControl. Todos los derechos reservados.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    body {
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}

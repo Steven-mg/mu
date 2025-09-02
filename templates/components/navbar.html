@@ -1,0 +1,31 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand d-flex align-items-center" href="#">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="40" class="navbar-logo me-2">
+            <span class="brand-text">GanaControl</span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Servicios</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Nosotros</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="#">Contacto</a>
+                </li>
+                <!-- Modificar el botón de registro para que apunte a la ruta correcta -->
+                <li class="nav-item ms-lg-3 me-lg-2">
+                    <a class="btn btn-outline-light" href="{{ url_for('registro') }}">Registrarse</a>
+                </li>
+                <li class="nav-item">
+                    <a class="btn btn-success" href="{{ url_for('login') }}">Iniciar Sesión</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>

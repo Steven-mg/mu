@@ -1,0 +1,54 @@
+<div id="heroCarousel" class="carousel slide carousel-fade" data-bs-ride="carousel">
+    <div class="carousel-inner">
+        <div class="carousel-item active" style="height: 80vh;">
+            <img src="{{ url_for('static', filename='img/ganado1.jpg') }}" class="d-block w-100 h-100 object-fit-cover" alt="Ganado">
+            <div class="carousel-caption d-flex flex-column justify-content-center h-100">
+                <div class="container text-start">
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <h1 class="display-4 fw-bold">Optimiza tu Ganadería con Tecnología de Punta</h1>
+                            <p class="lead mb-4">Ofrecemos soluciones avanzadas para la gestión eficiente de tu rebaño, mejorando la productividad y la rentabilidad.</p>
+                            <a href="#" class="btn btn-success btn-lg px-4">Solicita una Demostración</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="carousel-item" style="height: 80vh;">
+            <img src="{{ url_for('static', filename='img/ganado2.jpg') }}" class="d-block w-100 h-100 object-fit-cover" alt="Tecnología">
+            <div class="carousel-caption d-flex flex-column justify-content-center h-100">
+                <div class="container text-start">
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <h1 class="display-4 fw-bold">Monitoreo en Tiempo Real</h1>
+                            <p class="lead mb-4">Controla la salud y ubicación de tu ganado con nuestra plataforma inteligente.</p>
+                            <a href="#" class="btn btn-success btn-lg px-4">Conoce Más</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="carousel-item" style="height: 80vh;">
+            <img src="{{ url_for('static', filename='img/ganado3.jpg') }}" class="d-block w-100 h-100 object-fit-cover" alt="Análisis">
+            <div class="carousel-caption d-flex flex-column justify-content-center h-100">
+                <div class="container text-start">
+                    <div class="row">
+                        <div class="col-lg-6">
+                            <h1 class="display-4 fw-bold">Análisis de Datos Avanzados</h1>
+                            <p class="lead mb-4">Toma decisiones basadas en datos con nuestros reportes y análisis predictivos.</p>
+                            <a href="#" class="btn btn-success btn-lg px-4">Ver Planes</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <button class="carousel-control-prev" type="button" data-bs-target="#heroCarousel" data-bs-slide="prev">
+        <span class="carousel-control-prev-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Anterior</span>
+    </button>
+    <button class="carousel-control-next" type="button" data-bs-target="#heroCarousel" data-bs-slide="next">
+        <span class="carousel-control-next-icon" aria-hidden="true"></span>
+        <span class="visually-hidden">Siguiente</span>
+    </button>
+</div>
