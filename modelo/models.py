@@ -70,7 +70,8 @@ class Animal(db.Model):
     id_padre = db.Column(db.Integer, db.ForeignKey('animal.id_animal'), nullable=True)
     id_madre = db.Column(db.Integer, db.ForeignKey('animal.id_animal'), nullable=True)
     ubicacion_animal = db.Column(db.Enum('en finca', 'fuera de la finca', 'desconocido'), nullable=False)
-    id_cria = db.Column(db.Integer, nullable=True)
+    # Eliminar la línea siguiente:
+    # id_cria = db.Column(db.Integer, nullable=True)
     id_estado_reprod = db.Column(db.Integer, db.ForeignKey('estado_reproductivo.id_estado_reprod'), nullable=True)
 
     padre = db.relationship('Animal', foreign_keys=[id_padre], remote_side=[id_animal], backref='crias_padre')
@@ -188,3 +189,17 @@ class ActividadReciente(db.Model):
     
     # Relación con el usuario que realizó la acción
     usuario = db.relationship('Usuario', backref='actividades')
+
+# Agregar esta nueva clase
+class Cria(db.Model):
+    __tablename__ = 'cria'
+    id_cria = db.Column(db.Integer, primary_key=True)
+    id_padre = db.Column(db.Integer, db.ForeignKey('animal.id_animal'), nullable=False)
+    id_madre = db.Column(db.Integer, db.ForeignKey('animal.id_animal'), nullable=False)
+    id_animal = db.Column(db.Integer, db.ForeignKey('animal.id_animal'), nullable=False)
+    nombre_cria = db.Column(db.String(30), nullable=True)
+    
+    # Relaciones
+    animal = db.relationship('Animal', foreign_keys=[id_animal], backref='crias')
+    padre = db.relationship('Animal', foreign_keys=[id_padre], backref='crias_como_padre')
+    madre = db.relationship('Animal', foreign_keys=[id_madre], backref='crias_como_madre')

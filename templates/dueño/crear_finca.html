@@ -3,88 +3,126 @@
 {% block title %}Crear Nueva Finca - GanaControl{% endblock %}
 
 {% block content %}
-<div class="container mt-5">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow">
-                <div class="card-header bg-primary text-white">
-                    <h3 class="mb-0">Registrar Nueva Finca</h3>
+<div class="login-container">
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="login-card">
+                    <div class="login-header text-center">
+                        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="login-logo mb-3">
+                        <h2 class="login-title">Registrar Nueva Finca</h2>
+                        <p class="text-muted">Complete los datos para registrar su finca</p>
+                    </div>
+                    <div class="login-body p-4">
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ category }}" role="alert">
+                                        {{ message }}
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+                        
+                        <form method="POST" action="{{ url_for('crear_finca') }}">
+                            {{ form.hidden_tag() }}
+                            
+                            <div class="form-floating mb-3">
+                                {{ form.nombre_finca(class="form-control login-input", id="floatingNombreFinca", placeholder="Nombre de la Finca") }}
+                                {{ form.nombre_finca.label(for="floatingNombreFinca") }}
+                                {% if form.nombre_finca.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.nombre_finca.errors %}
+                                            <span>{{ error }}</span>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-floating mb-3">
+                                {{ form.localizacion(class="form-control login-input", id="floatingLocalizacion", placeholder="Localización") }}
+                                {{ form.localizacion.label(for="floatingLocalizacion") }}
+                            </div>
+                            
+                            <div class="form-floating mb-3">
+                                {{ form.correo(class="form-control login-input", id="floatingCorreo", placeholder="Correo Electrónico") }}
+                                {{ form.correo.label(for="floatingCorreo") }}
+                                {% if form.correo.errors %}
+                                    <div class="text-danger small mt-1">
+                                        {% for error in form.correo.errors %}
+                                            <span>{{ error }}</span>
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <div class="form-floating mb-3">
+                                {{ form.telefono(class="form-control login-input", id="floatingTelefono", placeholder="Teléfono") }}
+                                {{ form.telefono.label(for="floatingTelefono") }}
+                            </div>
+                            
+                            <div class="form-floating mb-3">
+                                {{ form.nombreEncargado(class="form-control login-input", id="floatingEncargado", placeholder="Nombre del Encargado") }}
+                                {{ form.nombreEncargado.label(for="floatingEncargado") }}
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        {{ form.pais(class="form-control login-input", id="floatingPais", placeholder="País") }}
+                                        {{ form.pais.label(for="floatingPais") }}
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        {{ form.departamento(class="form-control login-input", id="floatingDepartamento", placeholder="Departamento") }}
+                                        {{ form.departamento.label(for="floatingDepartamento") }}
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="form-floating">
+                                        {{ form.ciudad(class="form-control login-input", id="floatingCiudad", placeholder="Ciudad/Localidad") }}
+                                        {{ form.ciudad.label(for="floatingCiudad") }}
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-grid gap-2 mt-4">
+                                {{ form.submit(class="btn btn-success login-btn") }}
+                            </div>
+                        </form>
+                    </div>
                 </div>
-                <div class="card-body">
-                    {% with messages = get_flashed_messages(with_categories=true) %}
-                        {% if messages %}
-                            {% for category, message in messages %}
-                                <div class="alert alert-{{ category }}" role="alert">
-                                    {{ message }}
-                                </div>
-                            {% endfor %}
-                        {% endif %}
-                    {% endwith %}
-                    
-                    <form method="POST" action="{{ url_for('crear_finca') }}">
-                        {{ form.hidden_tag() }}
-                        
-                        <div class="mb-3">
-                            {{ form.nombre_finca.label(class="form-label") }}
-                            {{ form.nombre_finca(class="form-control") }}
-                            {% if form.nombre_finca.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.nombre_finca.errors %}
-                                        <span>{{ error }}</span>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="mb-3">
-                            {{ form.localizacion.label(class="form-label") }}
-                            {{ form.localizacion(class="form-control") }}
-                        </div>
-                        
-                        <div class="mb-3">
-                            {{ form.correo.label(class="form-label") }}
-                            {{ form.correo(class="form-control") }}
-                            {% if form.correo.errors %}
-                                <div class="text-danger">
-                                    {% for error in form.correo.errors %}
-                                        <span>{{ error }}</span>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </div>
-                        
-                        <div class="mb-3">
-                            {{ form.telefono.label(class="form-label") }}
-                            {{ form.telefono(class="form-control") }}
-                        </div>
-                        
-                        <div class="mb-3">
-                            {{ form.nombreEncargado.label(class="form-label") }}
-                            {{ form.nombreEncargado(class="form-control") }}
-                        </div>
-                        
-                        <div class="row">
-                            <div class="col-md-4 mb-3">
-                                {{ form.pais.label(class="form-label") }}
-                                {{ form.pais(class="form-control") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.departamento.label(class="form-label") }}
-                                {{ form.departamento(class="form-control") }}
-                            </div>
-                            <div class="col-md-4 mb-3">
-                                {{ form.ciudad.label(class="form-label") }}
-                                {{ form.ciudad(class="form-control") }}
-                            </div>
-                        </div>
-                        
-                        <div class="d-grid gap-2">
-                            {{ form.submit(class="btn btn-primary") }}
-                        </div>
-                    </form>
+                <div class="text-center mt-4 text-muted">
+                    <small>© 2025 GanaControl. Todos los derechos reservados.</small>
                 </div>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .login-container {
+        background: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+    }
+    
+    .login-card {
+        animation: fadeInUp 0.8s ease-out;
+    }
+    
+    .btn-success {
+        background-color: var(--primary-color);
+        border-color: var(--primary-color);
+        transition: all 0.3s ease;
+    }
+    
+    .btn-success:hover {
+        background-color: var(--secondary-color);
+        border-color: var(--secondary-color);
+        transform: translateY(-3px);
+        box-shadow: 0 6px 15px rgba(26, 157, 89, 0.3);
+    }
+</style>
 {% endblock %}

@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()  # Cargar variables de entorno
+
 from flask import render_template, request, session, flash, redirect, url_for
 from werkzeug.security import generate_password_hash, check_password_hash
 from forms.login_form import LoginForm

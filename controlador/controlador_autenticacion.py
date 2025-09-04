@@ -17,7 +17,9 @@ def configurar_google_oauth(app):
         client_id=app.config['GOOGLE_CLIENT_ID'],
         client_secret=app.config['GOOGLE_CLIENT_SECRET'],
         scope=['profile', 'email'],
-        redirect_url='http://localhost:5000/login/google/authorized'
+        redirect_url='http://127.0.0.1:5000/login/google/authorized',
+        # Usar offline=True para solicitar acceso offline
+        offline=True
     )
     app.register_blueprint(blueprint, url_prefix='/login')
     return blueprint
