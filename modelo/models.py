@@ -147,8 +147,8 @@ class ServiciosSalud(db.Model):
 class UsuarioFinca(db.Model):
     __tablename__ = 'usuario_finca'
     id = db.Column(db.Integer, primary_key=True)
-    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
-    finca_id = db.Column(db.Integer, db.ForeignKey('finca.id_finca'), nullable=False)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id', ondelete='CASCADE'), nullable=False)
+    finca_id = db.Column(db.Integer, db.ForeignKey('finca.id_finca', ondelete='CASCADE'), nullable=False)
 
 class CicloReproductivo(db.Model):
     __tablename__ = 'ciclo_reproductivo'

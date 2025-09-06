@@ -38,7 +38,6 @@ def google_login():
         usuario = Usuario.query.filter_by(correo=email).first()
         
         if not usuario:
-            # En la función google_login (línea 35-40)
             # Crear nuevo usuario
             nik_name = email.split('@')[0]  # Usar parte del email como nik_name
             # Verificar si el nik_name ya existe
@@ -62,10 +61,16 @@ def google_login():
             db.session.add(usuario)
             db.session.commit()
         
-        # Iniciar sesión
+        # Iniciar sesión con Flask-Login
+        login_user(usuario)
+        
+        # Iniciar sesión en la sesión
         session['usuario_id'] = usuario.id
         session['tipo_usuario'] = usuario.tipo_usuario
-        session['nombre_usuario'] = usuario.nombre_usuario
+        session['nik_name'] = usuario.nik_name  # Corregir nombre_usuario por nik_name
+        
+        # Configurar la sesión para que expire al cerrar el navegador
+        session.permanent = False
         
         flash('Has iniciado sesión con Google correctamente', 'success')
         
@@ -103,12 +108,16 @@ def ruta_login():
         
         # Verificar si el usuario existe y la contraseña es correcta
         if usuario and usuario.contraseña and bcrypt.checkpw(form.contraseña.data.encode('utf-8'), usuario.contraseña.encode('utf-8')):
-            # Guardar información del usuario en la sesión
-            # En la función google_login
-            # Iniciar sesión
+            # Iniciar sesión con Flask-Login
+            login_user(usuario)
+            
+            # Iniciar sesión en la sesión (mantener esto también)
             session['usuario_id'] = usuario.id
             session['tipo_usuario'] = usuario.tipo_usuario
-            session['nik_name'] = usuario.nik_name  # Cambiar nombre_usuario por nik_name
+            session['nik_name'] = usuario.nik_name  # Corregir nombre_usuario por nik_name
+            
+            # Configurar la sesión para que expire al cerrar el navegador
+            session.permanent = False
             
             flash('Has iniciado sesión correctamente', 'success')
             
@@ -126,10 +135,13 @@ def ruta_login():
 
 # Función para manejar la ruta de cierre de sesión
 def ruta_logout():
+    # Cerrar sesión con Flask-Login
+    logout_user()
+    
     # Eliminar datos de la sesión
     session.pop('usuario_id', None)
     session.pop('tipo_usuario', None)
-    session.pop('nombre_usuario', None)
+    session.pop('nik_name', None)  # Corregir nombre_usuario por nik_name
     flash('Has cerrado sesión correctamente', 'success')
     return redirect(url_for('pagina_inicio'))
 

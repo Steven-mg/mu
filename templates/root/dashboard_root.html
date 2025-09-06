@@ -359,3 +359,8 @@
     // Por ejemplo, usando Chart.js para visualizaciones
 </script>
 {% endblock %}
+
+<!-- Agregar en la sección donde se listan los usuarios -->
+<form action="{{ url_for('eliminar_usuario', usuario_id=usuario.id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.')">
+    <button type="submit" class="btn btn-danger btn-sm">Eliminar</button>
+</form>

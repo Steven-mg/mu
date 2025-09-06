@@ -125,7 +125,7 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link sidebar-link" href="#">
+                        <a class="nav-link sidebar-link" href="{{ url_for('mis_fincas') }}">
                             <i class="fas fa-farm me-2"></i> Mis Fincas
                         </a>
                     </li>
@@ -178,14 +178,10 @@
                                 <h6 class="card-title text-muted">Mis Fincas</h6>
                                 <h2 class="mb-0">{{ total_fincas }}</h2>
                                 <small class="text-success"><i class="fas fa-check-circle me-1"></i> Activas</small>
-                                <div class="mt-2">
-                                    <a href="{{ url_for('crear_finca') }}" class="btn btn-sm btn-success">
-                                        <i class="fas fa-plus-circle me-1"></i> Agregar Finca
-                                    </a>
-                                </div>
                             </div>
                         </div>
                     </div>
+                    <!-- Se eliminó el botón de agregar finca que estaba aquí -->
                 </div>
                 <div class="col-md-6 col-lg-3 mb-3">
                     <div class="card stat-card h-100">
@@ -308,3 +304,8 @@
     </div>
 </div>
 {% endblock %}
+
+<!-- Agregar en la sección donde se muestra la información de la finca -->
+<form action="{{ url_for('eliminar_finca', finca_id=finca.id_finca) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar esta finca? Se eliminarán todos los datos relacionados con ella. Esta acción no se puede deshacer.')">
+    <button type="submit" class="btn btn-danger">Eliminar Finca</button>
+</form>

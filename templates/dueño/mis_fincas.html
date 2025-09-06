@@ -1,0 +1,185 @@
+{% extends 'base.html' %}
+
+{% block title %}Mis Fincas - GanaControl{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sidebar {
+        background-color: #343a40;
+        min-height: calc(100vh - 56px);
+        position: sticky;
+        top: 56px;
+    }
+    .sidebar-link {
+        color: rgba(255,255,255,.75);
+        transition: all 0.3s;
+    }
+    .sidebar-link:hover, .sidebar-link.active {
+        color: #fff;
+        background-color: rgba(255,255,255,.1);
+    }
+    .finca-card {
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s, box-shadow 0.3s;
+        margin-bottom: 20px;
+    }
+    .finca-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+    }
+    .finca-header {
+        background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+        color: white;
+        padding: 15px;
+    }
+    .finca-body {
+        padding: 20px;
+    }
+    .finca-footer {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-top: 1px solid #eee;
+    }
+    .owner-header {
+        background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+        color: white;
+        padding: 25px;
+        border-radius: 15px;
+        margin-bottom: 25px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    .add-finca-btn {
+        border-radius: 50px;
+        padding: 10px 20px;
+        font-weight: 600;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+</style>
+{% endblock %}
+
+{% block navbar %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand d-flex align-items-center" href="#">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="40" class="me-2 navbar-logo">
+            <span class="brand-text">GanaControl - Dueño</span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <span class="nav-link">Bienvenido, {{ session['nik_name'] }}</span>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('logout') }}">Cerrar Sesión</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+            <div class="position-sticky pt-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="{{ url_for('dashboard_dueno') }}">
+                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link active" href="{{ url_for('mis_fincas') }}">
+                            <i class="fas fa-farm me-2"></i> Mis Fincas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="#">
+                            <i class="fas fa-cow me-2"></i> Gestión de Animales
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="#">
+                            <i class="fas fa-chart-line me-2"></i> Producción
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="#">
+                            <i class="fas fa-users me-2"></i> Trabajadores
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="#">
+                            <i class="fas fa-file-alt me-2"></i> Reportes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="#">
+                            <i class="fas fa-cog me-2"></i> Configuración
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+            <!-- Header -->
+            <div class="owner-header d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-0">Mis Fincas</h1>
+                    <p class="mb-0">Gestiona tus propiedades y su información</p>
+                </div>
+                <a href="{{ url_for('crear_finca') }}" class="btn btn-light add-finca-btn">
+                    <i class="fas fa-plus-circle me-2"></i> Agregar Nueva Finca
+                </a>
+            </div>
+
+            <!-- Fincas List -->
+            <div class="row">
+                {% if fincas %}
+                    {% for finca in fincas %}
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card finca-card">
+                            <div class="finca-header">
+                                <h5 class="mb-0">{{ finca.nombre_finca }}</h5>
+                            </div>
+                            <div class="finca-body">
+                                <p><i class="fas fa-map-marker-alt me-2 text-success"></i> {{ finca.localizacion or 'No especificada' }}</p>
+                                <p><i class="fas fa-envelope me-2 text-success"></i> {{ finca.correo }}</p>
+                                <p><i class="fas fa-phone me-2 text-success"></i> {{ finca.telefono or 'No especificado' }}</p>
+                                <p><i class="fas fa-user me-2 text-success"></i> {{ finca.nombreEncargado or 'No especificado' }}</p>
+                                <p><i class="fas fa-map me-2 text-success"></i> {{ finca.ciudad }}, {{ finca.departamento }}, {{ finca.pais }}</p>
+                            </div>
+                            <div class="finca-footer d-flex justify-content-between">
+                                <a href="#" class="btn btn-outline-success btn-sm">
+                                    <i class="fas fa-edit me-1"></i> Editar
+                                </a>
+                                <form action="{{ url_for('eliminar_finca', finca_id=finca.id_finca) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar esta finca? Se eliminarán todos los datos relacionados con ella. Esta acción no se puede deshacer.')">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <i class="fas fa-trash-alt me-1"></i> Eliminar
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                <div class="col-12">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i> No tienes fincas registradas. ¡Agrega tu primera finca!
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+        </main>
+    </div>
+</div>
+{% endblock %}
