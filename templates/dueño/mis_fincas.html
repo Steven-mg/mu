@@ -41,6 +41,18 @@
         background-color: #f8f9fa;
         padding: 15px;
         border-top: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+    }
+    .finca-footer a, .finca-footer form {
+        flex: 0 0 auto;
+        margin: 0 5px;
+    }
+    .finca-footer a:first-child {
+        margin-left: 0;
+    }
+    .finca-footer form:last-child {
+        margin-right: 0;
     }
     .owner-header {
         background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
@@ -161,6 +173,9 @@
                             <div class="finca-footer d-flex justify-content-between">
                                 <a href="#" class="btn btn-outline-success btn-sm">
                                     <i class="fas fa-edit me-1"></i> Editar
+                                </a>
+                                <a href="#" class="btn btn-outline-primary btn-sm">
+                                    <i class="fas fa-cogs me-1"></i> Gestionar
                                 </a>
                                 <form action="{{ url_for('eliminar_finca', finca_id=finca.id_finca) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar esta finca? Se eliminarán todos los datos relacionados con ella. Esta acción no se puede deshacer.')">
                                     <button type="submit" class="btn btn-outline-danger btn-sm">

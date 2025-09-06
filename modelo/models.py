@@ -203,3 +203,134 @@ class Cria(db.Model):
     animal = db.relationship('Animal', foreign_keys=[id_animal], backref='crias')
     padre = db.relationship('Animal', foreign_keys=[id_padre], backref='crias_como_padre')
     madre = db.relationship('Animal', foreign_keys=[id_madre], backref='crias_como_madre')
+
+class Potrero(db.Model):
+    __tablename__ = 'potrero'
+    id_potrero = db.Column(db.Integer, primary_key=True)
+    nombre_potrero = db.Column(db.String(50), nullable=False)
+    id_finca = db.Column(db.Integer, db.ForeignKey('finca.id_finca'), nullable=False)
+    area = db.Column(db.Float, nullable=False, comment='Área en hectáreas')
+    capacidad_animal = db.Column(db.Integer, nullable=True, comment='Capacidad máxima de animales')
+    tipo_pasto = db.Column(db.String(50), nullable=True)
+    estado_actual = db.Column(db.Enum('disponible', 'ocupado', 'en descanso', 'en mantenimiento'), nullable=False, default='disponible')
+    fecha_ultimo_uso = db.Column(db.Date, nullable=True)
+    notas = db.Column(db.Text, nullable=True)
+    
+    # Relaciones
+    finca = db.relationship('Finca', backref='potreros')
+    rotaciones = db.relationship('RotacionPotrero', backref='potrero')
+
+class GrupoAnimal(db.Model):
+    __tablename__ = 'grupo_animal'
+    id_grupo = db.Column(db.Integer, primary_key=True)
+    nombre_grupo = db.Column(db.String(50), nullable=False)
+    id_finca = db.Column(db.Integer, db.ForeignKey('finca.id_finca'), nullable=False)
+    tipo_grupo = db.Column(db.Enum('cría', 'levante', 'ceba', 'producción', 'reproducción', 'otro'), nullable=False)
+    fecha_creacion = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    descripcion = db.Column(db.Text, nullable=True)
+    
+    # Relaciones
+    finca = db.relationship('Finca', backref='grupos_animales')
+    animales = db.relationship('Animal', secondary='animal_grupo', backref='grupos')
+
+# Tabla de relación muchos a muchos entre Animal y GrupoAnimal
+class AnimalGrupo(db.Model):
+    __tablename__ = 'animal_grupo'
+    id = db.Column(db.Integer, primary_key=True)
+    id_animal = db.Column(db.Integer, db.ForeignKey('animal.id_animal', ondelete='CASCADE'), nullable=False)
+    id_grupo = db.Column(db.Integer, db.ForeignKey('grupo_animal.id_grupo', ondelete='CASCADE'), nullable=False)
+    fecha_ingreso = db.Column(db.Date, nullable=False, default=datetime.utcnow)
+    fecha_salida = db.Column(db.Date, nullable=True)
+    motivo_salida = db.Column(db.String(100), nullable=True)
+
+class RotacionPotrero(db.Model):
+    __tablename__ = 'rotacion_potrero'
+    id_rotacion = db.Column(db.Integer, primary_key=True)
+    id_potrero = db.Column(db.Integer, db.ForeignKey('potrero.id_potrero'), nullable=False)
+    id_grupo = db.Column(db.Integer, db.ForeignKey('grupo_animal.id_grupo'), nullable=False)
+    fecha_ingreso = db.Column(db.DateTime, nullable=False)
+    fecha_salida = db.Column(db.DateTime, nullable=True)
+    cantidad_animales = db.Column(db.Integer, nullable=False)
+    motivo_salida = db.Column(db.String(100), nullable=True)
+    observaciones = db.Column(db.Text, nullable=True)
+    
+    # Relaciones
+    grupo_animal = db.relationship('GrupoAnimal', backref='rotaciones')
+
+class EstadoGeneral(db.Model):
+    __tablename__ = 'estado_general'
+    id_estado_general = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(50), nullable=False)
+    descripcion = db.Column(db.Text, nullable=True)
+    categoria = db.Column(db.Enum('normal', 'alerta', 'crítico'), nullable=False, default='normal')
+    requiere_atencion = db.Column(db.Boolean, nullable=False, default=False)
+
+class EstadoSalud(db.Model):
+    __tablename__ = 'estado_salud'
+    id_estado_salud = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(50), nullable=False)
+    descripcion = db.Column(db.Text, nullable=True)
+    nivel_gravedad = db.Column(db.Enum('leve', 'moderado', 'grave', 'crítico'), nullable=False)
+    requiere_aislamiento = db.Column(db.Boolean, nullable=False, default=False)
+    requiere_tratamiento = db.Column(db.Boolean, nullable=False, default=True)
+    recomendaciones = db.Column(db.Text, nullable=True)
+
+class HistorialEstadoSalud(db.Model):
+    __tablename__ = 'historial_estado_salud'
+    id_historial = db.Column(db.Integer, primary_key=True)
+    id_animal = db.Column(db.Integer, db.ForeignKey('animal.id_animal'), nullable=False)
+    id_estado_salud = db.Column(db.Integer, db.ForeignKey('estado_salud.id_estado_salud'), nullable=False)
+    fecha_inicio = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    fecha_fin = db.Column(db.DateTime, nullable=True)
+    observaciones = db.Column(db.Text, nullable=True)
+    id_veterinario = db.Column(db.Integer, db.ForeignKey('veterinario.id_veterinario'), nullable=True)
+    tratamiento_aplicado = db.Column(db.Text, nullable=True)
+    resultado = db.Column(db.Enum('recuperado', 'en tratamiento', 'crónico', 'fallecido'), nullable=True)
+    
+    # Relaciones
+    animal = db.relationship('Animal', backref='historial_salud')
+    estado_salud = db.relationship('EstadoSalud', backref='historiales')
+    veterinario = db.relationship('Veterinario', backref='historiales_salud')
+
+class HistorialEstadoReproductivo(db.Model):
+    __tablename__ = 'historial_estado_reproductivo'
+    id_historial = db.Column(db.Integer, primary_key=True)
+    id_animal = db.Column(db.Integer, db.ForeignKey('animal.id_animal'), nullable=False)
+    id_estado_reprod = db.Column(db.Integer, db.ForeignKey('estado_reproductivo.id_estado_reprod'), nullable=False)
+    fecha_inicio = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    fecha_fin = db.Column(db.DateTime, nullable=True)
+    observaciones = db.Column(db.Text, nullable=True)
+    
+    # Relaciones
+    animal = db.relationship('Animal', backref='historial_reproductivo')
+    estado_reproductivo = db.relationship('EstadoReproductivo', backref='historiales')
+
+class TipoServicioSexual(db.Model):
+    __tablename__ = 'tipo_servicio_sexual'
+    id_tipo_servicio = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(50), nullable=False)
+    descripcion = db.Column(db.Text, nullable=True)
+    metodo = db.Column(db.Enum('monta natural', 'inseminación artificial', 'transferencia de embriones', 'otro'), nullable=False)
+    costo_referencia = db.Column(db.Numeric(10, 2), nullable=True)
+    
+    # Relaciones
+    servicios = db.relationship('ServiciosSexuales', backref='tipo_servicio')
+
+class ServiciosSexuales(db.Model):
+    __tablename__ = 'servicios_sexuales'
+    id_servicio = db.Column(db.Integer, primary_key=True)
+    id_animal_hembra = db.Column(db.Integer, db.ForeignKey('animal.id_animal'), nullable=False)
+    id_animal_macho = db.Column(db.Integer, db.ForeignKey('animal.id_animal'), nullable=True)
+    id_tipo_servicio = db.Column(db.Integer, db.ForeignKey('tipo_servicio_sexual.id_tipo_servicio'), nullable=False)
+    fecha_servicio = db.Column(db.DateTime, nullable=False)
+    exitoso = db.Column(db.Boolean, nullable=True)
+    id_cria_resultante = db.Column(db.Integer, db.ForeignKey('animal.id_animal'), nullable=True)
+    notas = db.Column(db.Text, nullable=True)
+    costo = db.Column(db.Numeric(10, 2), nullable=True)
+    id_veterinario = db.Column(db.Integer, db.ForeignKey('veterinario.id_veterinario'), nullable=True)
+    
+    # Relaciones
+    hembra = db.relationship('Animal', foreign_keys=[id_animal_hembra], backref='servicios_como_hembra')
+    macho = db.relationship('Animal', foreign_keys=[id_animal_macho], backref='servicios_como_macho')
+    cria = db.relationship('Animal', foreign_keys=[id_cria_resultante], backref='servicio_origen')
+    veterinario = db.relationship('Veterinario', backref='servicios_sexuales')
