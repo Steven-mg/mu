@@ -1,0 +1,525 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestión de Finca - GanaControl{% endblock %}
+
+{% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/finca.css') }}">
+{% endblock %}
+
+{% block extra_css %}
+<!-- Aquí puedes mantener estilos específicos que solo aplican a esta página -->
+{% endblock %}
+
+{% block navbar %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand d-flex align-items-center" href="#">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="40" class="me-2 navbar-logo">
+            <span class="brand-text">GanaControl - Gestión de Finca</span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <span class="nav-link">Bienvenido, {{ session['nik_name'] }}</span>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('logout') }}">Cerrar Sesión</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+            <div class="position-sticky pt-3">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="{{ url_for('dashboard_dueno') }}">
+                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="{{ url_for('mis_fincas') }}">
+                            <i class="fas fa-farm me-2"></i> Mis Fincas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link active" href="#">
+                            <i class="fas fa-map-marked-alt me-2"></i> Gestión de Potreros
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="#">
+                            <i class="fas fa-cow me-2"></i> Gestión de Animales
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="#">
+                            <i class="fas fa-chart-line me-2"></i> Producción
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="#">
+                            <i class="fas fa-users me-2"></i> Trabajadores
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="#">
+                            <i class="fas fa-file-alt me-2"></i> Reportes
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">Gestión de Potreros</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#nuevoPotrero">
+                        <i class="fas fa-plus me-2"></i>Nuevo Potrero
+                    </button>
+                </div>
+            </div>
+
+            <!-- Filtros y búsqueda -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="fas fa-search"></i></span>
+                        <input type="text" class="form-control" placeholder="Buscar potrero..." id="buscarPotrero">
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="filtroEstado">
+                        <option value="">Todos los estados</option>
+                        <option value="disponible">Disponible</option>
+                        <option value="ocupado">Ocupado</option>
+                        <option value="en descanso">En descanso</option>
+                        <option value="en mantenimiento">En mantenimiento</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <select class="form-select" id="ordenarPor">
+                        <option value="nombre">Ordenar por nombre</option>
+                        <option value="area">Ordenar por área</option>
+                        <option value="capacidad">Ordenar por capacidad</option>
+                        <option value="ultimo_uso">Ordenar por último uso</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Pestañas de navegación -->
+            <ul class="nav nav-tabs" id="myTab" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="potreros-tab" data-bs-toggle="tab" data-bs-target="#potreros" type="button" role="tab" aria-controls="potreros" aria-selected="true">Potreros</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="rotaciones-tab" data-bs-toggle="tab" data-bs-target="#rotaciones" type="button" role="tab" aria-controls="rotaciones" aria-selected="false">Rotaciones</button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="estadisticas-tab" data-bs-toggle="tab" data-bs-target="#estadisticas" type="button" role="tab" aria-controls="estadisticas" aria-selected="false">Estadísticas</button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="myTabContent">
+                <!-- Pestaña de Potreros -->
+                <div class="tab-pane fade show active" id="potreros" role="tabpanel" aria-labelledby="potreros-tab">
+                    <!-- Reemplazar la sección donde se cargan los potreros dinámicamente -->
+                    <div class="row" id="listaPotreros">
+                        {% if potreros %}
+                            {% for potrero in potreros %}
+                            <div class="col-md-4 mb-4">
+                                <div class="card potrero-card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h5 class="mb-0">{{ potrero.nombre_potrero }}</h5>
+                                        <span class="badge {% if potrero.estado_actual == 'disponible' %}bg-success{% elif potrero.estado_actual == 'ocupado' %}bg-danger{% elif potrero.estado_actual == 'en descanso' %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                                            {{ potrero.estado_actual|capitalize }}
+                                        </span>
+                                    </div>
+                                    <div class="card-body">
+                                        <p><strong>Área:</strong> {{ potrero.area }} hectáreas</p>
+                                        <p><strong>Capacidad:</strong> {{ potrero.capacidad_animal or 'No especificada' }} animales</p>
+                                        <p><strong>Tipo de pasto:</strong> {{ potrero.tipo_pasto or 'No especificado' }}</p>
+                                        <p><strong>Último uso:</strong> {{ potrero.fecha_ultimo_uso.strftime('%d/%m/%Y') if potrero.fecha_ultimo_uso else 'Sin uso registrado' }}</p>
+                                    </div>
+                                    <div class="card-footer d-flex justify-content-between">
+                                        <a href="{{ url_for('editar_potrero', potrero_id=potrero.id_potrero) }}" class="btn btn-sm btn-outline-primary">
+                                            <i class="fas fa-edit me-1"></i>Editar
+                                        </a>
+                                        <button class="btn btn-sm btn-outline-success" data-bs-toggle="modal" data-bs-target="#rotarAnimales" data-potrero-id="{{ potrero.id_potrero }}">
+                                            <i class="fas fa-random me-1"></i>Rotar
+                                        </button>
+                                        <form action="{{ url_for('eliminar_potrero', potrero_id=potrero.id_potrero) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar este potrero? Esta acción no se puede deshacer.')">
+                                            <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                <i class="fas fa-trash me-1"></i>Eliminar
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="col-12 text-center py-5">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i> No hay potreros registrados para esta finca.
+                                </div>
+                                <p>Comienza creando un nuevo potrero con el botón "Nuevo Potrero".</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Pestaña de Rotaciones -->
+                <div class="tab-pane fade" id="rotaciones" role="tabpanel" aria-labelledby="rotaciones-tab">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">Historial de Rotaciones</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>Potrero</th>
+                                            <th>Grupo Animal</th>
+                                            <th>Fecha Ingreso</th>
+                                            <th>Fecha Salida</th>
+                                            <th>Cantidad Animales</th>
+                                            <th>Motivo Salida</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if rotaciones %}
+                                            {% for rotacion in rotaciones %}
+                                            <tr>
+                                                <td>{{ rotacion.potrero.nombre_potrero }}</td>
+                                                <td>{{ rotacion.grupo_animal.nombre_grupo }}</td>
+                                                <td>{{ rotacion.fecha_ingreso.strftime('%d/%m/%Y') }}</td>
+                                                <td>{{ rotacion.fecha_salida.strftime('%d/%m/%Y') if rotacion.fecha_salida else 'En curso' }}</td>
+                                                <td>{{ rotacion.cantidad_animales }}</td>
+                                                <td>{{ rotacion.motivo_salida or 'No especificado' }}</td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-info"><i class="fas fa-eye"></i></button>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        {% else %}
+                                            <tr>
+                                                <td colspan="7" class="text-center">
+                                                    <div class="alert alert-info mb-0">
+                                                        <i class="fas fa-info-circle me-2"></i> No hay rotaciones registradas para esta finca.
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pestaña de Estadísticas -->
+                <div class="tab-pane fade" id="estadisticas" role="tabpanel" aria-labelledby="estadisticas-tab">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Uso de Potreros</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="chartUsoPotreros" height="250"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="card">
+                                <div class="card-header">
+                                    <h5 class="mb-0">Capacidad vs Ocupación</h5>
+                                </div>
+                                <div class="card-body">
+                                    <canvas id="chartCapacidadOcupacion" height="250"></canvas>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Nuevo Potrero -->
+<div class="modal fade" id="nuevoPotrero" tabindex="-1" aria-labelledby="nuevoPotreroLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="nuevoPotreroLabel">Registrar Nuevo Potrero</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formNuevoPotrero">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="nombrePotrero" class="form-label">Nombre del Potrero</label>
+                            <input type="text" class="form-control" id="nombrePotrero" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="fincaPotrero" class="form-label">Finca</label>
+                            <select class="form-select" id="fincaPotrero" required>
+                                <option value="">Seleccione una finca</option>
+                                <!-- Aquí se cargarán las fincas dinámicamente -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="areaPotrero" class="form-label">Área (hectáreas)</label>
+                            <input type="number" class="form-control" id="areaPotrero" step="0.1" min="0.1" required>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="capacidadPotrero" class="form-label">Capacidad (animales)</label>
+                            <input type="number" class="form-control" id="capacidadPotrero" min="1">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="tipoPasto" class="form-label">Tipo de Pasto</label>
+                            <input type="text" class="form-control" id="tipoPasto">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="estadoPotrero" class="form-label">Estado</label>
+                            <select class="form-select" id="estadoPotrero" required>
+                                <option value="disponible">Disponible</option>
+                                <option value="ocupado">Ocupado</option>
+                                <option value="en descanso">En descanso</option>
+                                <option value="en mantenimiento">En mantenimiento</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="ultimoUso" class="form-label">Fecha Último Uso</label>
+                            <input type="date" class="form-control" id="ultimoUso">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="notasPotrero" class="form-label">Notas</label>
+                        <textarea class="form-control" id="notasPotrero" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <!-- Se eliminó el botón de Guardar Potrero -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal para Rotar Animales -->
+<div class="modal fade" id="rotarAnimales" tabindex="-1" aria-labelledby="rotarAnimalesLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="rotarAnimalesLabel">Rotar Animales</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formRotarAnimales">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="potreroOrigen" class="form-label">Potrero Origen</label>
+                            <select class="form-select" id="potreroOrigen" required>
+                                <option value="">Seleccione un potrero</option>
+                                <!-- Aquí se cargarán los potreros dinámicamente -->
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="potreroDestino" class="form-label">Potrero Destino</label>
+                            <select class="form-select" id="potreroDestino" required>
+                                <option value="">Seleccione un potrero</option>
+                                <!-- Aquí se cargarán los potreros dinámicamente -->
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="grupoAnimal" class="form-label">Grupo de Animales</label>
+                            <select class="form-select" id="grupoAnimal" required>
+                                <option value="">Seleccione un grupo</option>
+                                <!-- Aquí se cargarán los grupos dinámicamente -->
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="cantidadAnimales" class="form-label">Cantidad de Animales</label>
+                            <input type="number" class="form-control" id="cantidadAnimales" min="1" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="fechaIngreso" class="form-label">Fecha de Ingreso</label>
+                            <input type="datetime-local" class="form-control" id="fechaIngreso" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="fechaSalida" class="form-label">Fecha de Salida Estimada</label>
+                            <input type="datetime-local" class="form-control" id="fechaSalida">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="observacionesRotacion" class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="observacionesRotacion" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btnGuardarRotacion">Guardar Rotación</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Cargar las fincas del usuario en el dropdown
+        cargarFincasUsuario();
+        
+        // Inicializar gráficos de estadísticas
+        if (document.getElementById('chartUsoPotreros')) {
+            const ctxUso = document.getElementById('chartUsoPotreros').getContext('2d');
+            new Chart(ctxUso, {
+                type: 'pie',
+                data: {
+                    labels: ['Disponible', 'Ocupado', 'En descanso', 'En mantenimiento'],
+                    datasets: [{
+                        data: [2, 3, 1, 1],
+                        backgroundColor: ['#28a745', '#ffc107', '#17a2b8', '#dc3545']
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Estado actual de potreros'
+                        }
+                    }
+                }
+            });
+        }
+
+        if (document.getElementById('chartCapacidadOcupacion')) {
+            const ctxCap = document.getElementById('chartCapacidadOcupacion').getContext('2d');
+            new Chart(ctxCap, {
+                type: 'bar',
+                data: {
+                    labels: ['Potrero 1', 'Potrero 2', 'Potrero 3', 'Potrero 4', 'Potrero 5'],
+                    datasets: [{
+                        label: 'Capacidad',
+                        data: [20, 15, 25, 18, 22],
+                        backgroundColor: 'rgba(26, 157, 89, 0.7)'
+                    }, {
+                        label: 'Ocupación actual',
+                        data: [18, 0, 20, 15, 0],
+                        backgroundColor: 'rgba(255, 193, 7, 0.7)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Capacidad vs Ocupación actual'
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Número de animales'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Función para cargar las fincas del usuario en el dropdown
+        function cargarFincasUsuario() {
+            fetch('/obtener-fincas-usuario')
+                .then(response => response.json())
+                .then(data => {
+                    const selectFinca = document.getElementById('fincaPotrero');
+                    
+                    // Limpiar opciones existentes (excepto la primera)
+                    while (selectFinca.options.length > 1) {
+                        selectFinca.remove(1);
+                    }
+                    
+                    // Agregar las fincas del usuario
+                    data.forEach(finca => {
+                        const option = document.createElement('option');
+                        option.value = finca.id;
+                        option.textContent = finca.nombre;
+                        selectFinca.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error al cargar las fincas:', error));
+        }
+
+        // Funcionalidad para filtrar potreros
+        document.getElementById('buscarPotrero').addEventListener('input', function(e) {
+            // Aquí iría la lógica para filtrar potreros por nombre
+            console.log('Buscando: ' + e.target.value);
+        });
+
+        document.getElementById('filtroEstado').addEventListener('change', function(e) {
+            // Aquí iría la lógica para filtrar potreros por estado
+            console.log('Filtrando por estado: ' + e.target.value);
+        });
+
+        document.getElementById('ordenarPor').addEventListener('change', function(e) {
+            // Aquí iría la lógica para ordenar potreros
+            console.log('Ordenando por: ' + e.target.value);
+        });
+
+        // Guardar nuevo potrero
+        document.getElementById('btnGuardarPotrero').addEventListener('click', function() {
+            // Aquí iría la lógica para guardar un nuevo potrero
+            console.log('Guardando nuevo potrero');
+            // Cerrar modal después de guardar
+            const modal = bootstrap.Modal.getInstance(document.getElementById('nuevoPotrero'));
+            modal.hide();
+        });
+
+        // Guardar rotación
+        document.getElementById('btnGuardarRotacion').addEventListener('click', function() {
+            // Aquí iría la lógica para guardar una nueva rotación
+            console.log('Guardando nueva rotación');
+            // Cerrar modal después de guardar
+            const modal = bootstrap.Modal.getInstance(document.getElementById('rotarAnimales'));
+            modal.hide();
+        });
+    });
+</script>
+{% endblock %}

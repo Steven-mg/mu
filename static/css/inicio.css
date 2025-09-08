@@ -1,0 +1,98 @@
+/* Estilos para las tarjetas de características */
+.feature-card {
+    transition: all 0.3s ease;
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+}
+
+.feature-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.1) !important;
+    background-color: rgba(26, 157, 89, 0.05); /* Verde claro al hacer hover */
+}
+
+.feature-icon-container {
+    width: 70px;
+    height: 70px;
+    border-radius: 50%;
+    background-color: rgba(26, 157, 89, 0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    color: var(--primary-color);
+    transition: all 0.3s ease;
+}
+
+.feature-card:hover .feature-icon-container {
+    background-color: #8fd3a8; /* Verde claro */
+    color: var(--primary-color);
+    transform: rotateY(360deg);
+    transition: transform 0.8s, background-color 0.3s, color 0.3s;
+}
+
+/* Estilos para los botones de "Saber más" */
+.btn-link.text-success {
+    transition: all 0.3s ease;
+    position: relative;
+    display: inline-block;
+}
+
+.btn-link.text-success:hover {
+    transform: translateX(5px);
+    color: #0e7d42 !important; /* Verde más oscuro en lugar de #8fd3a8 */
+}
+
+.btn-link.text-success:hover i {
+    transform: translateX(3px);
+    color: #0e7d42; /* Verde más oscuro */
+}
+
+.btn-link.text-success i {
+    transition: transform 0.3s ease;
+}
+
+.btn-link.text-success:hover i {
+    transform: translateX(3px);
+    color: #8fd3a8; /* Verde claro */
+}
+
+/* Estilos para la sección de beneficios */
+.benefit-card {
+    transition: transform 0.3s ease, background-color 0.3s ease;
+    height: 100%;
+    border-radius: 10px;
+    background-color: rgba(255, 255, 255, 0.1);
+    padding: 20px;
+}
+
+.benefit-card:hover {
+    transform: translateY(-5px);
+    background-color: rgba(14, 125, 66, 0.2); /* Verde más oscuro */
+}
+
+.benefit-icon {
+    display: inline-block;
+    height: 80px;
+    width: 80px;
+    line-height: 80px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.2);
+    margin-bottom: 20px;
+    transition: transform 0.3s ease, background-color 0.3s ease;
+}
+
+.benefit-card:hover .benefit-icon {
+    transform: scale(1.1);
+    background-color: rgba(14, 125, 66, 0.4); /* Verde más oscuro */
+}
+
+.benefit-icon i {
+    color: white;
+    transition: transform 0.3s ease;
+}
+
+.benefit-card:hover .benefit-icon i {
+    transform: scale(1.1);
+}

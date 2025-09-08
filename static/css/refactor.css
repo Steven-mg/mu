@@ -1,0 +1,239 @@
+/* Refactor estético para GanaControl */
+:root {
+    --primary-color: #1a9d59;
+    --secondary-color: #0d8c4b;
+    --dark-color: #2c3e50;
+    --light-color: #f8f9fa;
+    --accent-color: #3498db;
+    --text-light: #ffffff;
+    --text-dark: #333333;
+    --shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Estilos para el header */
+.navbar-dark {
+    background: linear-gradient(to right, #1a9d59, #0d8c4b) !important;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    border-bottom: 3px solid #0d8c4b;
+}
+
+/* Mejora de visibilidad del logo */
+.navbar-logo {
+    height: 50px !important; /* Aumentar más el tamaño */
+    filter: drop-shadow(0 0 5px rgba(255, 255, 255, 0.9)); /* Resplandor más intenso */
+    padding: 3px;
+    background-color: rgba(255, 255, 255, 0.3); /* Fondo más visible */
+    border-radius: 8px;
+    border: 2px solid rgba(255, 255, 255, 0.5); /* Borde para destacar */
+    margin-right: 10px !important; /* Más separación del texto */
+    transition: all 0.3s ease;
+}
+
+.navbar-logo:hover {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 8px rgba(255, 255, 255, 1));
+    background-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Mejorar el texto de la marca junto al logo */
+.navbar-dark .navbar-brand .brand-text {
+    color: #ffffff;
+    font-weight: 700;
+    font-size: 1.3rem; /* Texto más grande */
+    letter-spacing: 0.5px; /* Mejor espaciado entre letras */
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5); /* Sombra más pronunciada */
+}
+
+.navbar-dark .nav-link {
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.navbar-dark .nav-link:hover {
+    color: #ffffff !important;
+    transform: translateY(-2px);
+}
+
+/* Estilos para la barra lateral */
+.sidebar {
+    background: linear-gradient(to bottom, #2c3e50, #1a2a3a);
+    min-height: calc(100vh - 56px);
+    position: sticky;
+    top: 56px;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+    border-right: 1px solid rgba(255,255,255,0.1);
+}
+
+.sidebar-link {
+    color: rgba(255,255,255,.85) !important;
+    transition: all 0.3s;
+    border-radius: 8px;
+    margin: 5px 10px;
+    padding: 10px 15px;
+    font-weight: 500;
+}
+
+.sidebar-link:hover, .sidebar-link.active {
+    color: #fff !important;
+    background-color: var(--primary-color);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+    transform: translateX(3px);
+}
+
+.sidebar-link i {
+    margin-right: 8px;
+    width: 20px;
+    text-align: center;
+}
+
+/* Estilos para la sección de fincas */
+.finca-card {
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    margin-bottom: 20px;
+    border: none;
+}
+
+.finca-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+}
+
+.finca-header {
+    background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 15px;
+    font-weight: 600;
+}
+
+/* Ocultar el botón de Agregar Finca */
+.add-finca-btn {
+    display: none !important; /* Ocultar el botón */
+}
+
+/* Ajustar el header para compensar la ausencia del botón */
+.owner-header {
+    background: linear-gradient(120deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 25px;
+    margin-top: 20px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+    text-align: center; /* Centrar el contenido ahora que no hay botón */
+}
+
+/* Estilos para mejorar la visibilidad en la sección de fincas */
+.mis-fincas-section {
+    padding: 20px 0;
+}
+
+.mis-fincas-title {
+    font-weight: 700;
+    color: var(--dark-color);
+    margin-bottom: 20px;
+    border-left: 5px solid var(--primary-color);
+    padding-left: 15px;
+}
+
+/* Ajustes para la sección de administrador */
+.admin-section {
+    background-color: var(--light-color);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow);
+}
+
+/* Mejoras para botones de acción */
+.action-btn {
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    padding: 8px 15px;
+}
+
+.action-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Estilos para modales */
+.modal-content {
+    border-radius: 15px;
+    border: none;
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+    overflow: hidden;
+}
+
+.modal-header {
+    background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 1.25rem 1.5rem;
+    border-bottom: none;
+}
+
+.modal-title {
+    font-weight: 600;
+    font-size: 1.4rem;
+    text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.modal-body {
+    padding: 1.5rem 2rem;
+}
+
+.modal-footer {
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 1.25rem 1.5rem;
+}
+
+/* Estilos para inputs en modales */
+.modal .form-control, .modal .form-select {
+    border-radius: 10px;
+    border: 2px solid #e1e5ea;
+    padding: 0.6rem 1rem;
+    transition: all 0.3s ease;
+}
+
+.modal .form-control:focus, .modal .form-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 0.25rem rgba(26, 157, 89, 0.15);
+}
+
+.modal .form-label {
+    font-weight: 500;
+    color: var(--dark-color);
+    margin-bottom: 0.5rem;
+}
+
+/* Botones en modales */
+.modal .btn-success {
+    background-color: var(--primary-color);
+    border: none;
+    font-weight: 600;
+    padding: 0.6rem 1.5rem;
+    border-radius: 10px;
+    transition: all 0.3s ease;
+}
+
+.modal .btn-success:hover {
+    background-color: var(--secondary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(26, 157, 89, 0.3);
+}
+
+.modal .btn-secondary {
+    font-weight: 500;
+    border-radius: 10px;
+    padding: 0.6rem 1.5rem;
+    transition: all 0.3s ease;
+}
+
+.modal .btn-secondary:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}

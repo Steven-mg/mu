@@ -2,90 +2,12 @@
 
 {% block title %}Panel de Dueño de Finca - GanaControl{% endblock %}
 
+{% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+{% endblock %}
+
 {% block extra_css %}
-<style>
-    .sidebar {
-        background-color: #343a40;
-        min-height: calc(100vh - 56px);
-        position: sticky;
-        top: 56px;
-    }
-    .sidebar-link {
-        color: rgba(255,255,255,.75);
-        transition: all 0.3s;
-    }
-    .sidebar-link:hover, .sidebar-link.active {
-        color: #fff;
-        background-color: rgba(255,255,255,.1);
-    }
-    .stat-card {
-        border-left: 4px solid var(--primary-color);
-        transition: transform 0.3s, box-shadow 0.3s;
-        border-radius: 15px;
-        overflow: hidden;
-        background: linear-gradient(145deg, #ffffff, #f5f5f5);
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-    }
-    .stat-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
-    }
-    .card-body {
-        padding: 1.5rem;
-    }
-    .dashboard-card {
-        border-radius: 15px;
-        overflow: hidden;
-        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
-        transition: transform 0.3s, box-shadow 0.3s;
-    }
-    .dashboard-card:hover {
-        transform: translateY(-5px);
-        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
-    }
-    .card-icon {
-        font-size: 2.5rem;
-        color: var(--primary-color);
-        background-color: rgba(26, 157, 89, 0.1);
-        border-radius: 50%;
-        width: 60px;
-        height: 60px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.3s ease;
-    }
-    .stat-card:hover .card-icon {
-        transform: rotateY(180deg);
-    }
-    .fa-cow {
-        font-size: 2.2rem;
-    }
-    .owner-header {
-        background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
-        color: white;
-        padding: 25px;
-        border-radius: 15px;
-        margin-bottom: 25px;
-        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
-    }
-    .card-title {
-        font-size: 0.9rem;
-        font-weight: 600;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    h2.mb-0 {
-        font-size: 2.5rem;
-        font-weight: 700;
-        color: #333;
-    }
-    .small.text-success {
-        display: flex;
-        align-items: center;
-        font-weight: 500;
-    }
-</style>
+<!-- Aquí puedes mantener estilos específicos que solo aplican a esta página -->
 {% endblock %}
 
 {% block navbar %}
@@ -164,6 +86,25 @@
             <div class="owner-header">
                 <h1 class="h2 mb-0">Panel de Dueño de Finca</h1>
                 <p class="mb-0">Gestiona tus fincas, animales y producción de manera eficiente</p>
+            </div>
+
+            <!-- Dashboard Summary Widget -->
+            <div class="dashboard-summary">
+                <div class="summary-welcome">
+                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo GanaControl">
+                    <div class="summary-welcome-text">
+                        <h3>Bienvenido de nuevo, {{ session['nik_name'] }}</h3>
+                        <p>
+                            <span class="current-time">{{ now.strftime('%d/%m/%Y %H:%M') }}</span><br>
+                            <span class="last-login">Último inicio de sesión: {{ session.get('last_login', 'Primera sesión') }}</span>
+                        </p>
+                    </div>
+                </div>
+                <div class="summary-actions">
+                    <a href="{{ url_for('mis_fincas') }}" class="btn btn-outline-success">
+                        <i class="fas fa-plus-circle"></i> Agregar Finca
+                    </a>
+                </div>
             </div>
 
             <!-- Stats Cards -->

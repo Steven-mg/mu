@@ -2,6 +2,10 @@
 
 {% block title %}Iniciar Sesión - GanaControl{% endblock %}
 
+{% block page_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+{% endblock %}
+
 {% block content %}
 <div class="login-container">
     <div class="container py-5">
@@ -65,8 +69,3 @@
     }
 </style>
 {% endblock %}
-<div class="login-header text-center">
-    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="login-logo mb-3">
-    <h2 class="login-title">Iniciar Sesión</h2>
-    <p class="text-muted">Accede a tu cuenta para gestionar tu ganado</p>
-</div>

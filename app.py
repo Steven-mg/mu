@@ -1,12 +1,12 @@
 from dotenv import load_dotenv
 load_dotenv()  # Cargar variables de entorno
 
-from flask import render_template, request, session, flash, redirect, url_for
+from flask import render_template, request, session, flash, redirect, url_for, jsonify
 from werkzeug.security import generate_password_hash, check_password_hash
 from forms.login_form import LoginForm
 from flask_login import login_required, current_user, logout_user  # Añadir logout_user
 from config import app, db
-from modelo.models import Usuario, Finca, Animal, Reporte, ActividadReciente, UsuarioFinca  # Agregar UsuarioFinca aquí
+from modelo.models import Usuario, Finca, Animal, Reporte, ActividadReciente, UsuarioFinca, Potrero, RotacionPotrero, GrupoAnimal  # Agregar RotacionPotrero y GrupoAnimal
 from controlador.controlador_actividad import obtener_actividades_recientes  # Importar la función
 from datetime import datetime  # Añadir esta importación
 
@@ -34,6 +34,7 @@ def dashboard_root():
                           total_reportes=total_reportes,
                           actividades_recientes=actividades_recientes)  # Pasar actividades a la plantilla
 
+# En la ruta del dashboard:
 @app.route('/dashboard/dueno')
 @login_required
 def dashboard_dueno():
@@ -41,19 +42,29 @@ def dashboard_dueno():
     usuario_actual = Usuario.query.get(current_user.id)
     
     # Contar las fincas del usuario actual
-    # Contar las fincas del usuario actual
     total_fincas = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).count()
     
     # Contar los animales en las fincas del usuario
     total_animales = Animal.query.join(Finca).join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).count()
     
+    # Definir total_produccion (ajusta esto según tu modelo de datos)
+    total_produccion = 0  # Inicializar con un valor predeterminado o calcular según tus necesidades
+    
+    # Definir total_trabajadores (ajusta esto según tu modelo de datos)
+    total_trabajadores = 0  # Inicializar con un valor predeterminado o calcular según tus necesidades
+    
     # Obtener actividades recientes del usuario
     actividades_recientes = ActividadReciente.query.filter_by(usuario_id=current_user.id).order_by(ActividadReciente.fecha.desc()).limit(5).all()
     
+    # Añadir la fecha y hora actual
+    now = datetime.now()
+    
     return render_template('dueño/dashboard_dueno.html', 
-                      total_fincas=total_fincas,
-                      total_animales=total_animales,
-                      actividades_recientes=actividades_recientes)
+                           total_fincas=total_fincas,
+                           total_animales=total_animales,
+                           total_produccion=total_produccion,
+                           total_trabajadores=total_trabajadores,
+                           now=now)
 
 @app.route('/dashboard/trabajador')
 def dashboard_trabajador():
@@ -199,14 +210,148 @@ def eliminar_finca(finca_id):
     
     return redirect(url_for('dashboard'))
 
+# Después de la ruta mis_fincas
+
+# Importar el formulario de potrero
+from forms.potrero_form import PotreroForm
+
+@app.route('/finca/gestionar/<int:finca_id>')
+@login_required
+def gestionar_finca(finca_id):
+    # Verificar que el usuario actual tiene acceso a esta finca
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=finca_id).first()
+    if not relacion and current_user.tipo_usuario != 3:  # Permitir al admin también
+        flash('No tienes permisos para gestionar esta finca', 'danger')
+        return redirect(url_for('mis_fincas'))
+    
+    # Obtener la finca
+    finca = Finca.query.get_or_404(finca_id)
+    
+    # Obtener los potreros de la finca (si existen)
+    try:
+        potreros = Potrero.query.filter_by(id_finca=finca_id).all()
+    except Exception as e:
+        # Si hay un error al consultar los potreros, mostrar un mensaje y continuar con lista vacía
+        flash(f'No se pudieron cargar los potreros: {str(e)}', 'warning')
+        potreros = []
+    
+    # Obtener las rotaciones de potreros de la finca
+    rotaciones = []
+    try:
+        # Obtener IDs de los potreros de esta finca
+        potrero_ids = [p.id_potrero for p in potreros]
+        if potrero_ids:  # Solo consultar si hay potreros
+            # Obtener rotaciones para estos potreros
+            rotaciones = RotacionPotrero.query.filter(RotacionPotrero.id_potrero.in_(potrero_ids)).all()
+    except Exception as e:
+        flash(f'No se pudieron cargar las rotaciones: {str(e)}', 'warning')
+    
+    return render_template('dueño/gestionarfinca.html', finca=finca, potreros=potreros, rotaciones=rotaciones)
+
+# Ruta para crear un nuevo potrero
+@app.route('/finca/<int:finca_id>/potrero/crear', methods=['GET', 'POST'])
+@login_required
+def crear_potrero(finca_id):
+    # Verificar que el usuario actual tiene acceso a esta finca
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=finca_id).first()
+    if not relacion and current_user.tipo_usuario != 3:  # Permitir al admin también
+        flash('No tienes permisos para gestionar esta finca', 'danger')
+        return redirect(url_for('mis_fincas'))
+    
+    form = PotreroForm()
+    if form.validate_on_submit():
+        # Crear un nuevo potrero
+        nuevo_potrero = Potrero(
+            nombre_potrero=form.nombre_potrero.data,
+            id_finca=finca_id,
+            area=form.area.data,
+            capacidad_animal=form.capacidad_animal.data,
+            tipo_pasto=form.tipo_pasto.data,
+            estado_actual=form.estado_actual.data,
+            notas=form.notas.data
+        )
+        
+        # Guardar el potrero en la base de datos
+        db.session.add(nuevo_potrero)
+        db.session.commit()
+        
+        flash('Potrero creado exitosamente!', 'success')
+        return redirect(url_for('gestionar_finca', finca_id=finca_id))
+    
+    # Obtener la finca
+    finca = Finca.query.get_or_404(finca_id)
+    
+    return render_template('dueño/crear_potrero.html', form=form, finca=finca)
+
+# Ruta para editar un potrero
+@app.route('/potrero/<int:potrero_id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_potrero(potrero_id):
+    potrero = Potrero.query.get_or_404(potrero_id)
+    
+    # Verificar que el usuario actual tiene acceso a la finca del potrero
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=potrero.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:  # Permitir al admin también
+        flash('No tienes permisos para editar este potrero', 'danger')
+        return redirect(url_for('mis_fincas'))
+    
+    form = PotreroForm(obj=potrero)
+    if form.validate_on_submit():
+        # Actualizar los datos del potrero
+        potrero.nombre_potrero = form.nombre_potrero.data
+        potrero.area = form.area.data
+        potrero.capacidad_animal = form.capacidad_animal.data
+        potrero.tipo_pasto = form.tipo_pasto.data
+        potrero.estado_actual = form.estado_actual.data
+        potrero.notas = form.notas.data
+        
+        db.session.commit()
+        
+        flash('Potrero actualizado exitosamente!', 'success')
+        return redirect(url_for('gestionar_finca', finca_id=potrero.id_finca))
+    
+    return render_template('dueño/editar_potrero.html', form=form, potrero=potrero)
+
+# Ruta para eliminar un potrero
+@app.route('/potrero/<int:potrero_id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_potrero(potrero_id):
+    potrero = Potrero.query.get_or_404(potrero_id)
+    
+    # Verificar que el usuario actual tiene acceso a la finca del potrero
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=potrero.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:  # Permitir al admin también
+        flash('No tienes permisos para eliminar este potrero', 'danger')
+        return redirect(url_for('mis_fincas'))
+    
+    finca_id = potrero.id_finca
+    
+    try:
+        db.session.delete(potrero)
+        db.session.commit()
+        flash(f'Potrero {potrero.nombre_potrero} eliminado correctamente', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar el potrero: {str(e)}', 'danger')
+    
+    return redirect(url_for('gestionar_finca', finca_id=finca_id))
+
 @app.route('/mis-fincas')
 @login_required
 def mis_fincas():
     # Obtener las fincas del usuario actual
     usuario_actual = Usuario.query.get(current_user.id)
     
-    # Consulta directa para obtener las fincas del usuario
+    # Consulta directa para obtener las fincas del usuario actual
     fincas = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()
+    
+    # Convertir a formato JSON
+    fincas_json = [{
+        'id': finca.id_finca,
+        'nombre': finca.nombre_finca
+    } for finca in fincas]
+    
+    return jsonify(fincas_json)
     
     # Depuración
     print(f"Usuario ID: {current_user.id}, Nombre: {current_user.nik_name}")
@@ -218,5 +363,7 @@ def mis_fincas():
 
 if __name__ == '__main__':
     app.run(debug=True)
+# Añade esta línea junto con las demás importaciones de modelos
+from modelo.models import Usuario, Finca, UsuarioFinca, ActividadReciente, Potrero
     
 

@@ -1,0 +1,72 @@
+/* Estilos para botones generales */
+.btn:not(.btn-outline-primary):not(.btn-outline-success):not(.btn-outline-danger):not(.btn-outline-info) {
+    color: #000 !important; /* Texto negro para todos los botones */
+    transition: all 0.3s ease !important;
+}
+
+/* Hover para botones generales (excepto los específicos) */
+.btn:not(.btn-outline-primary):not(.btn-outline-success):not(.btn-outline-danger):not(.btn-outline-info):hover {
+    background-color: #1a9d59 !important; /* Verde al hacer hover */
+    color: #fff !important; /* Texto blanco al hacer hover */
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(26, 157, 89, 0.3);
+}
+
+/* Estilos para botones de navegación */
+.nav-link {
+    color: #000 !important; /* Texto negro */
+    transition: all 0.3s ease !important;
+}
+
+.nav-link:hover {
+    color: #1a9d59 !important; /* Verde al hacer hover */
+    transform: translateY(-2px);
+}
+
+/* Estilos para botones de pestañas */
+.nav-tabs .nav-link {
+    color: #000 !important;
+    transition: all 0.3s ease !important;
+}
+
+.nav-tabs .nav-link:hover:not(.active) {
+    color: #1a9d59 !important;
+    border-color: transparent;
+    background-color: rgba(26, 157, 89, 0.1);
+}
+
+.nav-tabs .nav-link.active {
+    color: #1a9d59 !important;
+    font-weight: bold;
+    border-bottom: 2px solid #1a9d59;
+}
+
+/* Mantener los colores originales para los botones específicos */
+.btn-outline-primary {
+    /* Mantener estilos originales */
+    transition: all 0.3s ease !important;
+}
+
+.btn-outline-success {
+    /* Mantener estilos originales */
+    transition: all 0.3s ease !important;
+}
+
+.btn-outline-danger {
+    /* Mantener estilos originales */
+    transition: all 0.3s ease !important;
+}
+
+.btn-outline-info {
+    /* Mantener estilos originales */
+    transition: all 0.3s ease !important;
+}
+
+/* Añadir efecto de elevación al hacer hover en los botones específicos */
+.btn-outline-primary:hover,
+.btn-outline-success:hover,
+.btn-outline-danger:hover,
+.btn-outline-info:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}

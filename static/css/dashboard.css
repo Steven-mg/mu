@@ -1,0 +1,211 @@
+/* Estilos para la barra lateral */
+.sidebar {
+    background-color: #2c3e50;
+    min-height: calc(100vh - 56px);
+    position: sticky;
+    top: 56px;
+    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+}
+
+.sidebar-link {
+    color: rgba(255,255,255,.75);
+    transition: all 0.3s;
+    border-radius: 8px;
+    margin: 5px 10px;
+    padding: 10px 15px;
+}
+
+.sidebar-link:hover, .sidebar-link.active {
+    color: #fff;
+    background-color: var(--primary-color);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+
+/* Estilos para tarjetas de estadísticas */
+.stat-card {
+    border-left: 4px solid var(--primary-color);
+    transition: transform 0.3s, box-shadow 0.3s;
+    border-radius: 15px;
+    overflow: hidden;
+    background: linear-gradient(145deg, #ffffff, #f5f5f5);
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    position: relative;
+}
+
+.stat-card:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(45deg, rgba(26, 157, 89, 0.05) 0%, rgba(255, 255, 255, 0) 70%);
+    z-index: 0;
+}
+
+.stat-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+}
+
+.card-body {
+    padding: 1.5rem;
+    position: relative;
+    z-index: 1;
+}
+
+.dashboard-card {
+    border-radius: 15px;
+    overflow: hidden;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    transition: transform 0.3s, box-shadow 0.3s;
+    border: none;
+    background: linear-gradient(145deg, #ffffff, #f8f9fa);
+}
+
+.dashboard-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+}
+
+.card-icon {
+    font-size: 2.5rem;
+    color: var(--primary-color);
+    background-color: rgba(26, 157, 89, 0.1);
+    border-radius: 50%;
+    padding: 15px;
+    display: inline-flex;
+    margin-bottom: 15px;
+    box-shadow: 0 8px 15px rgba(26, 157, 89, 0.2);
+    transition: all 0.3s ease;
+}
+
+.dashboard-card:hover .card-icon {
+    transform: scale(1.1);
+    background-color: rgba(26, 157, 89, 0.15);
+}
+
+/* Estilos para el encabezado del panel */
+/* Mejora del encabezado y área superior */
+.owner-header {
+    background: linear-gradient(120deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    padding: 20px;
+    border-radius: 15px;
+    margin-bottom: 25px;
+    margin-top: 20px;
+    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.owner-header:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 200px;
+    height: 100%;
+    background-image: url('../img/logo.png');
+    background-repeat: no-repeat;
+    background-position: right 20px center;
+    background-size: 60px;
+    opacity: 0.15;
+}
+
+.owner-header h1 {
+    font-weight: 700;
+    font-size: 1.8rem;
+    margin-bottom: 5px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    color: white;
+}
+
+.owner-header p {
+    font-size: 1rem;
+    opacity: 0.9;
+    color: white;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* Ajustes al widget de resumen */
+.dashboard-summary {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.summary-welcome {
+    display: flex;
+    align-items: center;
+}
+
+.summary-welcome img {
+    width: 60px;
+    height: 60px;
+    margin-right: 15px;
+    border: none;
+    object-fit: contain;
+}
+
+.summary-welcome-text h3 {
+    font-size: 1.3rem;
+    margin-bottom: 5px;
+    color: #333;
+    font-weight: 600;
+}
+
+.summary-welcome-text p {
+    color: #666;
+    margin-bottom: 0;
+}
+
+.summary-welcome-text .current-time {
+    font-weight: 500;
+    color: var(--primary-color);
+}
+
+.summary-welcome-text .last-login {
+    font-size: 0.9rem;
+    color: #888;
+}
+
+.summary-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.summary-actions .btn {
+    padding: 8px 15px;
+    border-radius: 8px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+}
+
+.summary-actions .btn i {
+    margin-right: 5px;
+}
+
+/* Estilos para los botones */
+.btn-success {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 6px rgba(26, 157, 89, 0.2);
+}
+
+.btn-success:hover {
+    background-color: var(--secondary-color);
+    border-color: var(--secondary-color);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 8px rgba(26, 157, 89, 0.3);
+}

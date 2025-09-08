@@ -209,11 +209,11 @@ class Potrero(db.Model):
     id_potrero = db.Column(db.Integer, primary_key=True)
     nombre_potrero = db.Column(db.String(50), nullable=False)
     id_finca = db.Column(db.Integer, db.ForeignKey('finca.id_finca'), nullable=False)
-    area = db.Column(db.Float, nullable=False, comment='Área en hectáreas')
+    extension = db.Column(db.Float, nullable=False, comment='Área en hectáreas')  # Cambiado de area a extension
     capacidad_animal = db.Column(db.Integer, nullable=True, comment='Capacidad máxima de animales')
     tipo_pasto = db.Column(db.String(50), nullable=True)
-    estado_actual = db.Column(db.Enum('disponible', 'ocupado', 'en descanso', 'en mantenimiento'), nullable=False, default='disponible')
-    fecha_ultimo_uso = db.Column(db.Date, nullable=True)
+    estado = db.Column(db.Enum('activo', 'descanso', 'mantenimiento'), nullable=False, default='activo')  # Cambiado estado_actual a estado y valores del enum
+    fecha_ultima_rotacion = db.Column(db.Date, nullable=True)  # Cambiado de fecha_ultimo_uso a fecha_ultima_rotacion
     notas = db.Column(db.Text, nullable=True)
     
     # Relaciones
