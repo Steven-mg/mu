@@ -1,0 +1,26 @@
+/* Estilos personalizados para GanaControl */
+
+/* Botón cancelar en rojo cereza brillante */
+.btn-cancel-cherry {
+    background-color: #990000 !important; /* Rojo cereza */
+    color: white !important;
+    border: none !important;
+    font-weight: 500 !important;
+    border-radius: 10px !important;
+    padding: 0.6rem 1.5rem !important;
+    transition: all 0.3s ease !important;
+    box-shadow: 0 2px 4px rgba(153, 0, 0, 0.3) !important; /* Añadimos sombra para efecto brillante */
+}
+
+.btn-cancel-cherry:hover {
+    background-color: #800000 !important; /* Rojo cereza más oscuro al hover */
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 8px rgba(153, 0, 0, 0.4) !important; /* Sombra más pronunciada al hover */
+}
+
+/* Mejoras para el modal de potrero */
+.modal-potrero .form-control:focus, 
+.modal-potrero .form-select:focus {
+    border-color: #1a9d59 !important;
+    box-shadow: 0 0 0 0.25rem rgba(26, 157, 89, 0.15) !important;
+}

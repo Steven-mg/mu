@@ -171,7 +171,7 @@
                                 <p><i class="fas fa-map me-2 text-success"></i> {{ finca.ciudad }}, {{ finca.departamento }}, {{ finca.pais }}</p>
                             </div>
                             <div class="finca-footer d-flex justify-content-between">
-                                <a href="#" class="btn btn-outline-success btn-sm">
+                                <a href="{{ url_for('editar_finca', finca_id=finca.id_finca) }}" class="btn btn-outline-success btn-sm">
                                     <i class="fas fa-edit me-1"></i> Editar
                                 </a>
                                 <!-- Modificar el botón "Gestionar" en la tarjeta de finca -->
@@ -179,6 +179,7 @@
                                     <i class="fas fa-cogs me-1"></i> Gestionar
                                 </a>
                                 <form action="{{ url_for('eliminar_finca', finca_id=finca.id_finca) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar esta finca? Se eliminarán todos los datos relacionados con ella. Esta acción no se puede deshacer.')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                     <button type="submit" class="btn btn-outline-danger btn-sm">
                                         <i class="fas fa-trash-alt me-1"></i> Eliminar
                                     </button>

@@ -1,0 +1,64 @@
+<!-- Modal para Rotar Animales -->
+<div class="modal fade" id="rotarAnimales" tabindex="-1" aria-labelledby="rotarAnimalesLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="rotarAnimalesLabel">Rotar Grupo Animal</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formRotacion">
+                    <input type="hidden" id="potreroIdRotacion" name="potreroIdRotacion">
+                    
+                    <div class="mb-3">
+                        <label for="grupoAnimal" class="form-label">Grupo Animal</label>
+                        <div class="d-flex align-items-center">
+                            <select class="form-select me-2" id="grupoAnimal" required>
+                                <option value="">Seleccione un grupo</option>
+                                {% for grupo in finca.grupos_animales %}
+                                <option value="{{ grupo.id_grupo }}">{{ grupo.nombre_grupo }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="button" class="btn btn-primary" id="btnNuevoGrupo" title="Añadir nuevo grupo de animales">
+                                <i class="fas fa-plus"></i>
+                            </button>
+                        </div>
+                        <div class="invalid-feedback">Por favor seleccione un grupo animal</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="fechaInicio" class="form-label">Fecha Inicio</label>
+                        <input type="date" class="form-control" id="fechaInicio" required>
+                        <div class="invalid-feedback">Por favor seleccione una fecha de inicio</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="fechaFin" class="form-label">Fecha Fin (opcional)</label>
+                        <input type="date" class="form-control" id="fechaFin">
+                        <small class="text-muted">Dejar en blanco si la rotación está en curso</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="tipoUso" class="form-label">Tipo de Uso</label>
+                        <select class="form-select" id="tipoUso" required>
+                            <option value="">Seleccione un tipo</option>
+                            <option value="pastoreo">Pastoreo</option>
+                            <option value="corte">Corte</option>
+                            <option value="mixto">Mixto</option>
+                        </select>
+                        <div class="invalid-feedback">Por favor seleccione un tipo de uso</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="observaciones" class="form-label">Observaciones</label>
+                        <textarea class="form-control" id="observaciones" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btnGuardarRotacion">Guardar Rotación</button>
+            </div>
+        </div>
+    </div>
+</div>

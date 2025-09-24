@@ -39,15 +39,31 @@
                         
                         <div class="row mb-3">
                             <div class="col-md-6">
-                                {{ form.area.label(class="form-label") }}
-                                {{ form.area(class="form-control") }}
-                                {% if form.area.errors %}
-                                    <div class="text-danger">
-                                        {% for error in form.area.errors %}
-                                            {{ error }}
-                                        {% endfor %}
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        {{ form.extension.label(class="form-label") }}
+                                        {{ form.extension(class="form-control") }}
+                                        {% if form.extension.errors %}
+                                            <div class="text-danger">
+                                                {% for error in form.extension.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
                                     </div>
-                                {% endif %}
+                                    
+                                    <div class="col-md-6">
+                                        {{ form.estado.label(class="form-label") }}
+                                        {{ form.estado(class="form-select") }}
+                                        {% if form.estado.errors %}
+                                            <div class="text-danger">
+                                                {% for error in form.estado.errors %}
+                                                    {{ error }}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </div>
                             <div class="col-md-6">
                                 {{ form.capacidad_animal.label(class="form-label") }}

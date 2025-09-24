@@ -140,21 +140,34 @@
     justify-content: space-between;
 }
 
-.summary-welcome {
+.summary-content {
+    flex: 1;
+}
+
+.summary-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.summary-text {
     display: flex;
     align-items: center;
 }
 
-.summary-welcome img {
-    width: 60px;
-    height: 60px;
+/* Ajuste del tamaño del logo */
+.dashboard-logo {
+    width: 50px; /* Tamaño más pequeño */
+    height: 50px;
     margin-right: 15px;
-    border: none;
     object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.1);
 }
 
 .summary-welcome-text h3 {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
     margin-bottom: 5px;
     color: #333;
     font-weight: 600;
@@ -171,7 +184,7 @@
 }
 
 .summary-welcome-text .last-login {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: #888;
 }
 

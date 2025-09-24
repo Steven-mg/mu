@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Crear Nueva Finca - GanaControl{% endblock %}
+{% block title %}Editar Finca - GanaControl{% endblock %}
 
 {% block navbar %}
 <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
@@ -38,8 +38,8 @@
                 <div class="login-card">
                     <div class="login-header text-center">
                         <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" class="login-logo mb-3">
-                        <h2 class="login-title">Registrar Nueva Finca</h2>
-                        <p class="text-muted">Complete los datos para registrar su finca</p>
+                        <h2 class="login-title">Editar Finca</h2>
+                        <p class="text-muted">Actualice los datos de su finca</p>
                     </div>
                     <div class="login-body p-4">
                         {% with messages = get_flashed_messages(with_categories=true) %}
@@ -52,7 +52,7 @@
                             {% endif %}
                         {% endwith %}
                         
-                        <form method="POST" action="{{ url_for('crear_finca') }}">
+                        <form method="POST" action="{{ url_for('editar_finca', finca_id=finca.id_finca) }}">
                             {{ form.hidden_tag() }}
                             
                             <div class="form-floating mb-3">
@@ -116,7 +116,19 @@
                             </div>
                             
                             <div class="d-grid gap-2 mt-4">
-                                {{ form.submit(class="btn btn-success login-btn") }}
+                                {{ form.submit(class="btn btn-success login-btn", value="Actualizar Finca") }}
+                            </div>
+                            
+                            <div class="d-flex justify-content-center gap-3 mt-3">
+                                <a href="{{ url_for('mis_fincas') }}" class="btn btn-outline-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i> Cancelar
+                                </a>
+                                <form action="{{ url_for('eliminar_finca', finca_id=finca.id_finca) }}" method="POST" onsubmit="return confirm('¿Estás seguro de eliminar esta finca? Se eliminarán todos los datos relacionados con ella. Esta acción no se puede deshacer.')">
+                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                    <button type="submit" class="btn btn-danger">
+                                        <i class="fas fa-trash-alt me-1"></i> Eliminar
+                                    </button>
+                                </form>
                             </div>
                         </form>
                     </div>

@@ -4,7 +4,7 @@ from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationE
 from modelo.models import Usuario
 
 class RegistroForm(FlaskForm):
-    nik_name = StringField('Nombre de Usuario (Nickname)', validators=[DataRequired(), Length(min=2, max=50)])  # Cambiado de nombre_usuario a nik_name
+    nik_name = StringField('Nombre de Usuario (Nickname)', validators=[DataRequired(), Length(min=2, max=50)])
     nombres = StringField('Nombres', validators=[Length(max=50)])  # Nuevo campo
     apellidos = StringField('Apellidos', validators=[Length(max=50)])  # Nuevo campo
     correo = EmailField('Correo Electrónico', validators=[DataRequired(), Email()])
@@ -17,8 +17,8 @@ class RegistroForm(FlaskForm):
     ciudad = StringField('Ciudad/Localidad', validators=[Length(max=50)])
     submit = SubmitField('Registrarse')
     
-    def validate_nik_name(self, nik_name):  # Cambiado de nombre_usuario a nik_name
-        usuario = Usuario.query.filter_by(nik_name=nik_name.data).first()  # Cambiado de nombre_usuario a nik_name
+    def validate_nik_name(self, nik_name):
+        usuario = Usuario.query.filter_by(nik_name=nik_name.data).first()
         if usuario:
             raise ValidationError('Este nombre de usuario ya está en uso. Por favor, elija otro.')
     

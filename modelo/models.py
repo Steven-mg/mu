@@ -8,14 +8,14 @@ class Usuario(UserMixin, db.Model):
     __tablename__ = 'usuario'
 
     id = db.Column(db.Integer, primary_key=True) 
-    nik_name = db.Column(db.String(50), unique=True)  # Cambiado de nombre_usuario a nik_name
-    nombres = db.Column(db.String(50), nullable=True)  # Nuevo campo para nombres
-    apellidos = db.Column(db.String(50), nullable=True)  # Nuevo campo para apellidos
-    correo = db.Column(db.String(120), unique=True, nullable=False)  # Mantenemos correo como obligatorio para la autenticación
-    contraseña = db.Column(db.String(255), nullable=True)  # Permitimos nulo para autenticación con Google
+    nik_name = db.Column(db.String(50), unique=True)  
+    nombres = db.Column(db.String(50), nullable=True)  
+    apellidos = db.Column(db.String(50), nullable=True)  
+    correo = db.Column(db.String(120), unique=True, nullable=False)  
+    contraseña = db.Column(db.String(255), nullable=True) 
     tipo_usuario = db.Column(db.Integer, nullable=False)  # 1: Veterinario, 2: Dueño, 3: Superusuario
-    direccion = db.Column(db.String(30), nullable=True)  # Cambiado a nullable=True
-    telefono = db.Column(db.String(15), nullable=True)  # Cambiado a nullable=True
+    direccion = db.Column(db.String(30), nullable=True) 
+    telefono = db.Column(db.String(15), nullable=True)
     pais = db.Column(db.String(50), nullable=True)
     departamento = db.Column(db.String(50), nullable=True)
     ciudad = db.Column(db.String(50), nullable=True)
@@ -70,8 +70,7 @@ class Animal(db.Model):
     id_padre = db.Column(db.Integer, db.ForeignKey('animal.id_animal'), nullable=True)
     id_madre = db.Column(db.Integer, db.ForeignKey('animal.id_animal'), nullable=True)
     ubicacion_animal = db.Column(db.Enum('en finca', 'fuera de la finca', 'desconocido'), nullable=False)
-    # Eliminar la línea siguiente:
-    # id_cria = db.Column(db.Integer, nullable=True)
+   
     id_estado_reprod = db.Column(db.Integer, db.ForeignKey('estado_reproductivo.id_estado_reprod'), nullable=True)
 
     padre = db.relationship('Animal', foreign_keys=[id_padre], remote_side=[id_animal], backref='crias_padre')
@@ -160,10 +159,7 @@ class CicloReproductivo(db.Model):
     duracion_esperada = db.Column(db.Integer, nullable=True, comment='Duración esperada en días')
     notas = db.Column(db.Text, nullable=True)
     
-    # Elimina esta línea para resolver el conflicto
-    # animal = db.relationship('Animal', backref='ciclos_reproductivos')
-
-# Agregar al final del archivo, después de la clase CicloReproductivo
+  
 class Reporte(db.Model):
     __tablename__ = 'reporte'
     id_reporte = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -178,7 +174,7 @@ class Reporte(db.Model):
     usuario = db.relationship('Usuario', backref='reportes')
     finca = db.relationship('Finca', backref='reportes')
 
-# Agregar al final del archivo, después de la clase Reporte
+
 class ActividadReciente(db.Model):
     __tablename__ = 'actividad_reciente'
     id_actividad = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -190,7 +186,7 @@ class ActividadReciente(db.Model):
     # Relación con el usuario que realizó la acción
     usuario = db.relationship('Usuario', backref='actividades')
 
-# Agregar esta nueva clase
+
 class Cria(db.Model):
     __tablename__ = 'cria'
     id_cria = db.Column(db.Integer, primary_key=True)
@@ -209,11 +205,11 @@ class Potrero(db.Model):
     id_potrero = db.Column(db.Integer, primary_key=True)
     nombre_potrero = db.Column(db.String(50), nullable=False)
     id_finca = db.Column(db.Integer, db.ForeignKey('finca.id_finca'), nullable=False)
-    extension = db.Column(db.Float, nullable=False, comment='Área en hectáreas')  # Cambiado de area a extension
+    extension = db.Column(db.Float, nullable=False, comment='Área en hectáreas')  
     capacidad_animal = db.Column(db.Integer, nullable=True, comment='Capacidad máxima de animales')
     tipo_pasto = db.Column(db.String(50), nullable=True)
-    estado = db.Column(db.Enum('activo', 'descanso', 'mantenimiento'), nullable=False, default='activo')  # Cambiado estado_actual a estado y valores del enum
-    fecha_ultima_rotacion = db.Column(db.Date, nullable=True)  # Cambiado de fecha_ultimo_uso a fecha_ultima_rotacion
+    estado = db.Column(db.Enum('activo', 'descanso', 'mantenimiento'), nullable=False, default='activo')  
+    fecha_ultima_rotacion = db.Column(db.Date, nullable=True)  
     notas = db.Column(db.Text, nullable=True)
     
     # Relaciones
@@ -225,7 +221,8 @@ class GrupoAnimal(db.Model):
     id_grupo = db.Column(db.Integer, primary_key=True)
     nombre_grupo = db.Column(db.String(50), nullable=False)
     id_finca = db.Column(db.Integer, db.ForeignKey('finca.id_finca'), nullable=False)
-    tipo_grupo = db.Column(db.Enum('cría', 'levante', 'ceba', 'producción', 'reproducción', 'otro'), nullable=False)
+    # Eliminamos la línea siguiente que causa el error:
+    # tipo_grupo = db.Column(db.Enum('cría', 'levante', 'ceba', 'producción', 'reproducción', 'otro'), nullable=False)
     fecha_creacion = db.Column(db.Date, nullable=False, default=datetime.utcnow)
     descripcion = db.Column(db.Text, nullable=True)
     
@@ -247,15 +244,15 @@ class RotacionPotrero(db.Model):
     __tablename__ = 'rotacion_potrero'
     id_rotacion = db.Column(db.Integer, primary_key=True)
     id_potrero = db.Column(db.Integer, db.ForeignKey('potrero.id_potrero'), nullable=False)
-    id_grupo = db.Column(db.Integer, db.ForeignKey('grupo_animal.id_grupo'), nullable=False)
-    fecha_ingreso = db.Column(db.DateTime, nullable=False)
-    fecha_salida = db.Column(db.DateTime, nullable=True)
-    cantidad_animales = db.Column(db.Integer, nullable=False)
-    motivo_salida = db.Column(db.String(100), nullable=True)
+    id_grupo_animal = db.Column(db.Integer, db.ForeignKey('grupo_animal.id_grupo'), nullable=False)  # Cambiado de id_grupo a id_grupo_animal
+    fecha_inicio = db.Column(db.DateTime, nullable=False)  # Cambiado de fecha_ingreso a fecha_inicio
+    fecha_fin = db.Column(db.DateTime, nullable=True)  # Cambiado de fecha_salida a fecha_fin
+    tipo_uso = db.Column(db.String(50), nullable=True)  # Agregado campo tipo_uso
+    # Se eliminaron los campos cantidad_animales y motivo_salida que no existen en la BD
     observaciones = db.Column(db.Text, nullable=True)
     
     # Relaciones
-    grupo_animal = db.relationship('GrupoAnimal', backref='rotaciones')
+    grupo_animal = db.relationship('GrupoAnimal', backref='rotaciones', foreign_keys=[id_grupo_animal])  # Actualizada la referencia
 
 class EstadoGeneral(db.Model):
     __tablename__ = 'estado_general'

@@ -89,22 +89,21 @@
             </div>
 
             <!-- Dashboard Summary Widget -->
-            <div class="dashboard-summary">
-                <div class="summary-welcome">
-                    <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo GanaControl">
-                    <div class="summary-welcome-text">
-                        <h3>Bienvenido de nuevo, {{ session['nik_name'] }}</h3>
-                        <p>
-                            <span class="current-time">{{ now.strftime('%d/%m/%Y %H:%M') }}</span><br>
-                            <span class="last-login">Último inicio de sesión: {{ session.get('last_login', 'Primera sesión') }}</span>
-                        </p>
+            <div class="dashboard-summary mb-4">
+                <div class="summary-content">
+                    <h2 class="summary-title">Resumen de Actividad</h2>
+                    <div class="summary-text d-flex align-items-center">
+                        <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo GanaControl" class="dashboard-logo">
+                        <div class="summary-welcome-text">
+                            <h3>Bienvenido de nuevo, {{ session['nik_name'] }}</h3>
+                            <p>
+                                <span class="current-time">{{ now.strftime('%d/%m/%Y %H:%M') }}</span><br>
+                                <span class="last-login">Último inicio de sesión: {{ session.get('last_login', 'Primera sesión') }}</span>
+                            </p>
+                        </div>
                     </div>
                 </div>
-                <div class="summary-actions">
-                    <a href="{{ url_for('mis_fincas') }}" class="btn btn-outline-success">
-                        <i class="fas fa-plus-circle"></i> Agregar Finca
-                    </a>
-                </div>
+                <!-- Se elimina el div summary-actions con el botón de Agregar Finca -->
             </div>
 
             <!-- Stats Cards -->

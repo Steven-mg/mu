@@ -1,6 +1,7 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
+from flask_wtf.csrf import CSRFProtect  # Añadir esta importación
 import os
 from dotenv import load_dotenv
 
@@ -10,6 +11,9 @@ load_dotenv()
 # Configuración de la aplicación Flask
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'clave-secreta-predeterminada')
+
+# Inicializar protección CSRF
+csrf = CSRFProtect(app)  # Añadir esta línea
 
 # Configuración de la sesión para que expire al cerrar el navegador
 app.config['SESSION_PERMANENT'] = False

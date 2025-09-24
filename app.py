@@ -126,10 +126,10 @@ def crear_finca():
         
         # Registrar actividad
         nueva_actividad = ActividadReciente(
-            tipo_actividad="Creación de Finca",
-            descripcion=f"Se creó la finca {nueva_finca.nombre_finca}",
+            accion="Creación de Finca",  # Usar 'accion' en lugar de 'tipo_actividad'
+            elemento=f"Finca: {nueva_finca.nombre_finca}",  # Usar 'elemento' en lugar de 'descripcion'
             fecha=datetime.now(),
-            id_usuario=session['usuario_id']
+            usuario_id=session['usuario_id']  # Usar 'usuario_id' en lugar de 'id_usuario'
         )
         db.session.add(nueva_actividad)
         db.session.commit()
@@ -198,9 +198,16 @@ def eliminar_finca(finca_id):
     relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=finca_id).first()
     if not relacion and current_user.tipo_usuario != 3:  # Permitir al admin también
         flash('No tienes permisos para eliminar esta finca', 'danger')
-        return redirect(url_for('dashboard'))
+        return redirect(url_for('dashboard_dueno'))
     
     try:
+        # Primero eliminar los grupos de animales asociados a esta finca
+        from modelo.models import GrupoAnimal
+        grupos = GrupoAnimal.query.filter_by(id_finca=finca_id).all()
+        for grupo in grupos:
+            db.session.delete(grupo)
+        
+        # Luego eliminar la finca
         db.session.delete(finca)
         db.session.commit()
         flash(f'Finca {finca.nombre_finca} eliminada correctamente', 'success')
@@ -208,7 +215,7 @@ def eliminar_finca(finca_id):
         db.session.rollback()
         flash(f'Error al eliminar la finca: {str(e)}', 'danger')
     
-    return redirect(url_for('dashboard'))
+    return redirect(url_for('mis_fincas'))  # Añadir esta línea
 
 # Después de la ruta mis_fincas
 
@@ -264,15 +271,26 @@ def crear_potrero(finca_id):
         nuevo_potrero = Potrero(
             nombre_potrero=form.nombre_potrero.data,
             id_finca=finca_id,
-            area=form.area.data,
+            extension=form.extension.data,
             capacidad_animal=form.capacidad_animal.data,
             tipo_pasto=form.tipo_pasto.data,
-            estado_actual=form.estado_actual.data,
+            estado=form.estado.data,
+            fecha_ultima_rotacion=form.fecha_ultima_rotacion.data,
             notas=form.notas.data
         )
         
         # Guardar el potrero en la base de datos
         db.session.add(nuevo_potrero)
+        db.session.commit()
+        
+        # Registrar actividad
+        nueva_actividad = ActividadReciente(
+            usuario_id=current_user.id,
+            accion="Creación de Potrero",
+            elemento=f"Potrero: {nuevo_potrero.nombre_potrero}",
+            fecha=datetime.now()
+        )
+        db.session.add(nueva_actividad)
         db.session.commit()
         
         flash('Potrero creado exitosamente!', 'success')
@@ -299,10 +317,10 @@ def editar_potrero(potrero_id):
     if form.validate_on_submit():
         # Actualizar los datos del potrero
         potrero.nombre_potrero = form.nombre_potrero.data
-        potrero.area = form.area.data
+        potrero.extension = form.extension.data
         potrero.capacidad_animal = form.capacidad_animal.data
         potrero.tipo_pasto = form.tipo_pasto.data
-        potrero.estado_actual = form.estado_actual.data
+        potrero.estado = form.estado.data
         potrero.notas = form.notas.data
         
         db.session.commit()
@@ -342,6 +360,20 @@ def mis_fincas():
     # Obtener las fincas del usuario actual
     usuario_actual = Usuario.query.get(current_user.id)
     
+    # Consulta directa para obtener las fincas del usuario
+    fincas = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()
+    
+    # Depuración
+    print(f"Usuario ID: {current_user.id}, Nombre: {current_user.nik_name}")
+    print(f"Número de fincas encontradas: {len(fincas)}")
+    for finca in fincas:
+        print(f"Finca ID: {finca.id_finca}, Nombre: {finca.nombre_finca}")
+    
+    return render_template('dueño/mis_fincas.html', fincas=fincas)
+
+@app.route('/obtener-fincas-usuario')
+@login_required
+def obtener_fincas_usuario():
     # Consulta directa para obtener las fincas del usuario actual
     fincas = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()
     
@@ -353,17 +385,188 @@ def mis_fincas():
     
     return jsonify(fincas_json)
     
-    # Depuración
-    print(f"Usuario ID: {current_user.id}, Nombre: {current_user.nik_name}")
-    print(f"Número de fincas encontradas: {len(fincas)}")
-    for finca in fincas:
-        print(f"Finca ID: {finca.id_finca}, Nombre: {finca.nombre_finca}")
-    
-    return render_template('dueño/mis_fincas.html', fincas=fincas)
+@app.route('/guardar-potrero', methods=['POST'])
+@login_required
+def guardar_potrero():
+    try:
+        # Obtener datos del formulario
+        data = request.json
+        
+        # Validar que todos los campos requeridos estén presentes
+        campos_requeridos = ['nombrePotrero', 'fincaPotrero', 'areaPotrero', 'estadoPotrero']
+        for campo in campos_requeridos:
+            if campo not in data or not data[campo]:
+                return jsonify({'success': False, 'message': f'El campo {campo} es requerido'}), 400
+        
+        # Crear un nuevo potrero
+        nuevo_potrero = Potrero(
+            nombre_potrero=data['nombrePotrero'],
+            id_finca=data['fincaPotrero'],
+            extension=data['areaPotrero'],
+            capacidad_animal=data['capacidadPotrero'],
+            tipo_pasto=data['tipoPasto'],
+            estado=data['estadoPotrero'],
+            notas=data['notasPotrero']
+        )
+        
+        # Si hay fecha de última rotación
+        if data.get('ultimoUso'):
+            nuevo_potrero.fecha_ultima_rotacion = datetime.strptime(data['ultimoUso'], '%Y-%m-%d')
+        
+        # Validar datos
+        if not nuevo_potrero.nombre_potrero or len(nuevo_potrero.nombre_potrero) < 2 or len(nuevo_potrero.nombre_potrero) > 50:
+            return jsonify({'success': False, 'message': 'El nombre del potrero debe tener entre 2 y 50 caracteres'}), 400
+            
+        if not nuevo_potrero.extension or nuevo_potrero.extension < 0.1:
+            return jsonify({'success': False, 'message': 'La extensión debe ser mayor a 0.1 hectáreas'}), 400
+            
+        if nuevo_potrero.capacidad_animal is not None and nuevo_potrero.capacidad_animal < 1:
+            return jsonify({'success': False, 'message': 'La capacidad debe ser al menos 1 animal'}), 400
+            
+        if nuevo_potrero.tipo_pasto and len(nuevo_potrero.tipo_pasto) > 50:
+            return jsonify({'success': False, 'message': 'El tipo de pasto no debe exceder los 50 caracteres'}), 400
+            
+        if nuevo_potrero.estado not in ['activo', 'descanso', 'mantenimiento']:
+            return jsonify({'success': False, 'message': 'Estado no válido'}), 400
+            
+        if nuevo_potrero.notas and len(nuevo_potrero.notas) > 500:
+            return jsonify({'success': False, 'message': 'Las notas no deben exceder los 500 caracteres'}), 400
+        
+        # Guardar en la base de datos
+        db.session.add(nuevo_potrero)
+        db.session.commit()
+        
+        # Registrar actividad
+        nueva_actividad = ActividadReciente(
+            usuario_id=current_user.id,
+            accion="Creación de Potrero",
+            elemento=f"Potrero: {nuevo_potrero.nombre_potrero}",
+            fecha=datetime.now()
+        )
+        db.session.add(nueva_actividad)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Potrero guardado exitosamente', 'id': nuevo_potrero.id_potrero}), 200
+    except ValueError as e:
+        db.session.rollback()
+        app.logger.error(f"Error de validación al guardar potrero: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error de validación: {str(e)}'}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error al guardar potrero: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error al guardar el potrero: {str(e)}'}), 500
 
+@app.route('/guardar-rotacion', methods=['POST'])
+@login_required
+def guardar_rotacion():
+    try:
+        # Obtener datos del formulario
+        data = request.json
+        
+        # Validar que todos los campos requeridos estén presentes
+        campos_requeridos = ['potrero_id', 'grupo_animal_id', 'fecha_inicio', 'tipo_uso']
+        for campo in campos_requeridos:
+            if campo not in data or not data[campo]:
+                return jsonify({'success': False, 'message': f'El campo {campo} es requerido'}), 400
+        
+        # Verificar que el potrero existe y pertenece a una finca del usuario
+        potrero = Potrero.query.get_or_404(data['potrero_id'])
+        relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=potrero.id_finca).first()
+        if not relacion and current_user.tipo_usuario != 3:  # Permitir al admin también
+            return jsonify({'success': False, 'message': 'No tienes permisos para gestionar este potrero'}), 403
+        
+        # Verificar que el grupo animal existe y pertenece a la misma finca
+        grupo_animal = GrupoAnimal.query.get_or_404(data['grupo_animal_id'])
+        if grupo_animal.id_finca != potrero.id_finca:
+            return jsonify({'success': False, 'message': 'El grupo animal no pertenece a la misma finca que el potrero'}), 400
+        
+        # Crear una nueva rotación
+        nueva_rotacion = RotacionPotrero(
+            id_potrero=data['potrero_id'],
+            id_grupo_animal=data['grupo_animal_id'],
+            fecha_inicio=datetime.strptime(data['fecha_inicio'], '%Y-%m-%d'),
+            tipo_uso=data['tipo_uso'],
+            observaciones=data.get('observaciones')
+        )
+        
+        # Si hay fecha de fin
+        if data.get('fecha_fin'):
+            nueva_rotacion.fecha_fin = datetime.strptime(data['fecha_fin'], '%Y-%m-%d')
+        
+        # Guardar en la base de datos
+        db.session.add(nueva_rotacion)
+        
+        # Actualizar la fecha de último uso del potrero
+        potrero.fecha_ultimo_uso = nueva_rotacion.fecha_inicio
+        
+        db.session.commit()
+        
+        # Registrar actividad
+        nueva_actividad = ActividadReciente(
+            usuario_id=current_user.id,
+            accion="Rotación de Potrero",
+            elemento=f"Potrero: {potrero.nombre_potrero} - Grupo: {grupo_animal.nombre_grupo}",
+            fecha=datetime.now()
+        )
+        db.session.add(nueva_actividad)
+        db.session.commit()
+        
+        return jsonify({'success': True, 'message': 'Rotación guardada exitosamente'}), 200
+    except ValueError as e:
+        db.session.rollback()
+        app.logger.error(f"Error de validación al guardar rotación: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error de validación: {str(e)}'}), 400
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Error al guardar rotación: {str(e)}")
+        return jsonify({'success': False, 'message': f'Error al guardar la rotación: {str(e)}'}), 500
+
+# Eliminada: Ruta /guardar-potrero que procesaba el formulario modal mediante AJAX
+@app.route('/finca/<int:finca_id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_finca(finca_id):
+    # Obtener la finca existente
+    finca = Finca.query.get_or_404(finca_id)
+    
+    # Verificar que el usuario actual es dueño de la finca
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=finca_id).first()
+    if not relacion and current_user.tipo_usuario != 3:  # Permitir al admin también
+        flash('No tienes permisos para editar esta finca', 'danger')
+        return redirect(url_for('mis_fincas'))
+    
+    # Crear el formulario y prellenarlo con los datos existentes
+    form = FincaForm(obj=finca)
+    
+    if form.validate_on_submit():
+        # Actualizar los datos de la finca
+        form.populate_obj(finca)
+        
+        try:
+            db.session.commit()
+            
+            # Registrar actividad
+            nueva_actividad = ActividadReciente(
+                accion="Edición de Finca",
+                elemento=f"Finca: {finca.nombre_finca}",
+                fecha=datetime.now(),
+                usuario_id=current_user.id
+            )
+            db.session.add(nueva_actividad)
+            db.session.commit()
+            
+            flash('Finca actualizada exitosamente!', 'success')
+            return redirect(url_for('mis_fincas'))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al actualizar la finca: {str(e)}', 'danger')
+    
+    return render_template('dueño/editar_finca.html', form=form, finca=finca)
+
+# Aplicar el decorador de rol
+editar_finca = requiere_rol(2)(editar_finca)  # Solo accesible para roles 2 (dueño) y 3 (admin)
+
+# Eliminada: Ruta /guardar-potrero que procesaba el formulario modal mediante AJAX
 if __name__ == '__main__':
     app.run(debug=True)
-# Añade esta línea junto con las demás importaciones de modelos
-from modelo.models import Usuario, Finca, UsuarioFinca, ActividadReciente, Potrero
     
 
