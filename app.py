@@ -10,6 +10,11 @@ from modelo.models import Usuario, Finca, Animal, Reporte, ActividadReciente, Us
 from controlador.controlador_actividad import obtener_actividades_recientes  # Importar la función
 from datetime import datetime  # Añadir esta importación
 
+# Crear todas las tablas en la base de datos
+with app.app_context():
+    db.create_all()
+    print("Tablas creadas correctamente en la base de datos")
+
 # Importar las funciones después de definir las rutas para evitar la importación circular
 @app.route('/')
 def pagina_inicio():
