@@ -572,6 +572,6 @@ editar_finca = requiere_rol(2)(editar_finca)  # Solo accesible para roles 2 (due
 
 # Eliminada: Ruta /guardar-potrero que procesaba el formulario modal mediante AJAX
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=False, host="0.0.0.0")
     
 
