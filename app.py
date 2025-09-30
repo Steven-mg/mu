@@ -570,6 +570,52 @@ def editar_finca(finca_id):
 # Aplicar el decorador de rol
 editar_finca = requiere_rol(2)(editar_finca)  # Solo accesible para roles 2 (dueño) y 3 (admin)
 
+# Rutas para gestión de animales
+@app.route('/gestion-animales')
+@login_required
+def gestion_animales():
+    return listar_animales()
+
+@app.route('/animal/crear', methods=['GET', 'POST'])
+@login_required
+def crear_animal_route():
+    return crear_animal()
+
+@app.route('/animal/<int:animal_id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_animal_route(animal_id):
+    return editar_animal(animal_id)
+
+@app.route('/animal/<int:animal_id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_animal_route(animal_id):
+    return eliminar_animal(animal_id)
+
+@app.route('/animal/<int:animal_id>')
+@login_required
+def ver_animal_route(animal_id):
+    return ver_animal(animal_id)
+
+# API endpoints para animales
+@app.route('/api/animales/finca/<int:finca_id>')
+@login_required
+def api_animales_por_finca(finca_id):
+    return obtener_animales_por_finca(finca_id)
+
+@app.route('/api/animales/sexo/<sexo>')
+@login_required
+def api_animales_por_sexo(sexo):
+    return obtener_animales_por_sexo(sexo)
+
+# Aplicar decoradores de rol a las rutas de animales
+gestion_animales = requiere_rol(2)(gestion_animales)
+crear_animal_route = requiere_rol(2)(crear_animal_route)
+editar_animal_route = requiere_rol(2)(editar_animal_route)
+eliminar_animal_route = requiere_rol(2)(eliminar_animal_route)
+ver_animal_route = requiere_rol(2)(ver_animal_route)
+api_animales_por_finca = requiere_rol(2)(api_animales_por_finca)
+api_animales_por_sexo = requiere_rol(2)(api_animales_por_sexo)
+
 # Eliminada: Ruta /guardar-potrero que procesaba el formulario modal mediante AJAX
 if __name__ == '__main__':
     app.run(debug=False, host="0.0.0.0", port=5000)
