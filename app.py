@@ -14,6 +14,10 @@ from datetime import datetime  # Añadir esta importación
 with app.app_context():
     db.create_all()
     print("Tablas creadas correctamente en la base de datos")
+    
+    # Importar e inicializar el usuario administrador
+    from modelo.models import inicializar_usuario_admin
+    inicializar_usuario_admin()
 
 # Importar las funciones después de definir las rutas para evitar la importación circular
 @app.route('/')
@@ -104,6 +108,12 @@ def login_google():
 # Importar el formulario de finca
 from forms.finca_form import FincaForm
 
+# Importar controlador de usuarios
+from controlador.controlador_usuario import listar_usuarios, crear_usuario, editar_usuario, eliminar_usuario_controlador
+
+# Importar controlador de animales
+from controlador.controlador_animal import listar_animales, crear_animal, editar_animal, eliminar_animal, ver_animal, obtener_animales_por_finca, obtener_animales_por_sexo
+
 @app.route('/finca/crear', methods=['GET', 'POST'])
 def crear_finca():
     form = FincaForm()
@@ -151,6 +161,27 @@ crear_finca = requiere_rol(2)(crear_finca)  # Solo accesible para roles 2 (dueñ
 dashboard_root = requiere_rol(3)(dashboard_root)  # Solo accesible para rol 3 (root)
 dashboard_dueno = requiere_rol(2)(dashboard_dueno)  # Accesible para roles 2 y 3
 dashboard_trabajador = requiere_rol(1)(dashboard_trabajador)  # Accesible para roles 1, 2 y 3
+
+# Rutas de gestión de usuarios (solo para admin)
+@app.route('/admin/usuarios')
+@login_required
+def admin_usuarios():
+    return listar_usuarios()
+
+@app.route('/admin/usuario/crear', methods=['GET', 'POST'])
+@login_required
+def crear_usuario_route():
+    return crear_usuario()
+
+@app.route('/admin/usuario/<int:usuario_id>/editar', methods=['GET', 'POST'])
+@login_required
+def editar_usuario_route(usuario_id):
+    return editar_usuario(usuario_id)
+
+@app.route('/admin/usuario/<int:usuario_id>/eliminar', methods=['POST'])
+@login_required
+def eliminar_usuario_route(usuario_id):
+    return eliminar_usuario_controlador(usuario_id)
 
 # Ruta para eliminar un usuario (solo accesible para el administrador root)
 @app.route('/admin/eliminar-usuario/<int:usuario_id>', methods=['POST'])
@@ -607,7 +638,13 @@ def api_animales_por_finca(finca_id):
 def api_animales_por_sexo(sexo):
     return obtener_animales_por_sexo(sexo)
 
-# Aplicar decoradores de rol a las rutas de animales
+# Aplicar decoradores de rol a las rutas de gestión de usuarios
+admin_usuarios = requiere_rol(3)(admin_usuarios)
+crear_usuario_route = requiere_rol(3)(crear_usuario_route)
+editar_usuario_route = requiere_rol(3)(editar_usuario_route)
+eliminar_usuario_route = requiere_rol(3)(eliminar_usuario_route)
+
+# Aplicar decoradores de rol a las rutas de gestión de animales
 gestion_animales = requiere_rol(2)(gestion_animales)
 crear_animal_route = requiere_rol(2)(crear_animal_route)
 editar_animal_route = requiere_rol(2)(editar_animal_route)
@@ -618,7 +655,7 @@ api_animales_por_sexo = requiere_rol(2)(api_animales_por_sexo)
 
 # Eliminada: Ruta /guardar-potrero que procesaba el formulario modal mediante AJAX
 if __name__ == '__main__':
-    app.run(debug=False, host="0.0.0.0", port=5000)
+    app.run(debug=True, host="0.0.0.0", port=5000)
     
     
 

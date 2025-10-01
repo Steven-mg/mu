@@ -2,16 +2,17 @@ from datetime import datetime
 from sqlalchemy import ForeignKey, SmallInteger, DECIMAL, Text
 from sqlalchemy.orm import backref, relationship
 from flask_login import UserMixin
+from werkzeug.security import generate_password_hash
 from config import db
 
 class Usuario(UserMixin, db.Model):
     __tablename__ = 'usuario'
 
     id = db.Column(db.Integer, primary_key=True) 
-    nik_name = db.Column(db.String(50), unique=True)  
+    nik_name = db.Column(db.String(50), nullable=False)  
     nombres = db.Column(db.String(50), nullable=True)  
     apellidos = db.Column(db.String(50), nullable=True)  
-    correo = db.Column(db.String(120), unique=True, nullable=False)  
+    correo = db.Column(db.String(120), nullable=False)  
     contraseña = db.Column(db.String(255), nullable=True) 
     tipo_usuario = db.Column(db.SmallInteger, nullable=False)  # 1: Veterinario, 2: Dueño, 3: Superusuario
     direccion = db.Column(db.String(30), nullable=True) 
@@ -20,8 +21,6 @@ class Usuario(UserMixin, db.Model):
     departamento = db.Column(db.String(50), nullable=True)
     ciudad = db.Column(db.String(50), nullable=True)
     fincas = db.relationship('Finca', secondary='usuario_finca', backref='usuarios')
-    
-   
 
 class Raza(db.Model):
     __tablename__ = 'raza'
@@ -70,7 +69,7 @@ class Animal(db.Model):
     id_raza = db.Column(db.SmallInteger, db.ForeignKey('raza.id_raza'), nullable=False)
     fecha_nacimiento = db.Column(db.Date, nullable=False)
     sexo = db.Column(db.String(6), nullable=False)
-    id_finca = db.Column(db.SmallInteger, db.ForeignKey('finca.id_finca'), nullable=False)
+    id_finca = db.Column(db.SmallInteger, db.ForeignKey('finca.id_finca', ondelete='CASCADE'), nullable=False)
     id_padre = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal'), nullable=True)
     id_madre = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal'), nullable=True)
     ubicacion_animal = db.Column(db.Enum('en finca', 'fuera de la finca', 'desconocido'), nullable=False)
@@ -96,7 +95,7 @@ class ProductosAnimal(db.Model):
     __tablename__ = 'productos_animal'
     id_produccion = db.Column(db.Integer, primary_key=True)
     id_producto = db.Column(db.SmallInteger, db.ForeignKey('productos.id_producto'), nullable=False)
-    id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal'), nullable=False)
+    id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal', ondelete='CASCADE'), nullable=False)
     cantidad = db.Column(db.Float, nullable=False)
     fecha = db.Column(db.Date, nullable=False)
     notas_produccion = db.Column(db.String(250), nullable=True)
@@ -104,7 +103,7 @@ class ProductosAnimal(db.Model):
 class RegistroPeso(db.Model):
     __tablename__ = 'registro_peso'
     id_registro = db.Column(db.Integer, primary_key=True)
-    id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal'), nullable=False)
+    id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal', ondelete='CASCADE'), nullable=False)
     fecha_registro = db.Column(db.Date, nullable=False)
     peso = db.Column(db.Float, nullable=False)
     tipo_momento = db.Column(db.Enum('nacimieto', 'destete', 'mensual', 'preparto', 'postparto', 'engorde', 'control sanitario'), nullable=False, default='mensual')
@@ -134,7 +133,7 @@ class Veterinario(db.Model):
 class ServiciosSalud(db.Model):
     __tablename__ = 'servicios_salud'
     id_servicio_salud = db.Column(db.Integer, primary_key=True)
-    id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal'), nullable=False)
+    id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal', ondelete='CASCADE'), nullable=False)
     id_tipo_salud = db.Column(db.SmallInteger, db.ForeignKey('tipo_servicio_salud.id_tipo_salud'), nullable=False)
     id_veterinario = db.Column(db.SmallInteger, db.ForeignKey('veterinario.id_veterinario'), nullable=False)
     fecha_servicio = db.Column(db.Date, nullable=False)
@@ -152,7 +151,7 @@ class UsuarioFinca(db.Model):
 class CicloReproductivo(db.Model):
     __tablename__ = 'ciclo_reproductivo'
     id_ciclo = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal'), nullable=False)
+    id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal', ondelete='CASCADE'), nullable=False)
     fecha_inicio = db.Column(db.Date, nullable=False)
     fecha_fin = db.Column(db.Date, nullable=True)
     tipo_ciclo = db.Column(db.Enum('celo', 'gestación', 'lactancia', 'descanso'), nullable=False)
@@ -190,7 +189,7 @@ class Potrero(db.Model):
     __tablename__ = 'potrero'
     id_potrero = db.Column(db.SmallInteger, primary_key=True)
     nombre_potrero = db.Column(db.String(50), nullable=False)
-    id_finca = db.Column(db.SmallInteger, db.ForeignKey('finca.id_finca'), nullable=False)
+    id_finca = db.Column(db.SmallInteger, db.ForeignKey('finca.id_finca', ondelete='CASCADE'), nullable=False)
     extension = db.Column(DECIMAL(10, 2), nullable=False)
     capacidad_animal = db.Column(db.SmallInteger, nullable=True)
     tipo_pasto = db.Column(db.String(50), nullable=True)
@@ -223,7 +222,7 @@ class AnimalGrupo(db.Model):
 class RotacionPotrero(db.Model):
     __tablename__ = 'rotacion_potrero'
     id_rotacion = db.Column(db.Integer, primary_key=True)
-    id_potrero = db.Column(db.SmallInteger, db.ForeignKey('potrero.id_potrero'), nullable=False)
+    id_potrero = db.Column(db.SmallInteger, db.ForeignKey('potrero.id_potrero', ondelete='CASCADE'), nullable=False)
     id_grupo_animal = db.Column(db.SmallInteger, db.ForeignKey('grupo_animal.id_grupo'), nullable=True)
     fecha_inicio = db.Column(db.Date, nullable=False)
     fecha_fin = db.Column(db.Date, nullable=True)
@@ -241,7 +240,7 @@ class EstadoSalud(db.Model):
 class HistorialEstadoSalud(db.Model):
     __tablename__ = 'historial_estado_salud'
     id_historial_salud = db.Column(db.Integer, primary_key=True)
-    id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal'), nullable=False)
+    id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal', ondelete='CASCADE'), nullable=False)
     id_estado_salud = db.Column(db.SmallInteger, db.ForeignKey('estado_salud.id_estado_salud'), nullable=False)
     fecha_cambio = db.Column(db.DateTime, nullable=True, default=datetime.utcnow)
     observaciones = db.Column(Text, nullable=True)
@@ -252,7 +251,7 @@ class HistorialEstadoSalud(db.Model):
 class HistorialEstadoReproductivo(db.Model):
     __tablename__ = 'historial_estado_reproductivo'
     id_historial_reprod = db.Column(db.Integer, primary_key=True)
-    id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal'), nullable=False)
+    id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal', ondelete='CASCADE'), nullable=False)
     id_estado_reprod = db.Column(db.SmallInteger, db.ForeignKey('estado_reproductivo.id_estado_reprod'), nullable=False)
     fecha_cambio = db.Column(db.DateTime, nullable=True, default=datetime.utcnow)
     observaciones = db.Column(Text, nullable=True)
@@ -301,3 +300,33 @@ class ManejoPasto(db.Model):
     observaciones = db.Column(Text, nullable=True)
     
     potrero = db.relationship('Potrero', backref='manejo_pasto')
+
+
+def inicializar_usuario_admin():
+    """Función para crear el usuario administrador por defecto si no existe"""
+    admin_existente = Usuario.query.filter_by(nik_name='superadmin').first()
+    
+    if not admin_existente:
+        admin_usuario = Usuario(
+            nik_name='superadmin',
+            nombres='Super',
+            apellidos='Administrador',
+            correo='superadmin@ganacontrol.com',
+            contraseña=generate_password_hash('superadmin123'),
+            tipo_usuario=3,  # Tipo 3 = Superusuario/Administrador
+            direccion='Dirección Central',
+            telefono='987654321',
+            pais='Colombia',
+            departamento='Nacional',
+            ciudad='Bogotá'
+        )
+        
+        try:
+            db.session.add(admin_usuario)
+            db.session.commit()
+            print("Usuario administrador 'superadmin' creado exitosamente")
+        except Exception as e:
+            db.session.rollback()
+            print(f"Error al crear usuario administrador: {e}")
+    else:
+        print("Usuario administrador 'superadmin' ya existe")

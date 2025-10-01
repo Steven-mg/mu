@@ -19,6 +19,11 @@
     color: #fff;
     background-color: var(--primary-color);
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    transform: translateX(5px);
+}
+
+.sidebar-link:hover {
+    background-color: #1a9d59; /* Verde más intenso en hover */
 }
 
 /* Estilos para tarjetas de estadísticas */
@@ -217,8 +222,16 @@
 }
 
 .btn-success:hover {
-    background-color: var(--secondary-color);
-    border-color: var(--secondary-color);
+    background-color: #1a9d59; /* Verde más intenso */
+    border-color: #1a9d59;
     transform: translateY(-2px);
-    box-shadow: 0 6px 8px rgba(26, 157, 89, 0.3);
+    box-shadow: 0 6px 12px rgba(26, 157, 89, 0.4);
+}
+
+/* Hover específico para botones de las cards del dashboard */
+.dashboard-card .btn-success:hover {
+    background-color: #1a9d59;
+    border-color: #1a9d59;
+    transform: translateY(-3px);
+    box-shadow: 0 8px 16px rgba(26, 157, 89, 0.3);
 }

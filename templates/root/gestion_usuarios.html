@@ -1,0 +1,306 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestión de Usuarios - GanaControl{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sidebar {
+        background-color: #343a40;
+        min-height: calc(100vh - 56px);
+        position: sticky;
+        top: 56px;
+    }
+    .sidebar-link {
+        color: rgba(255,255,255,.75);
+        transition: all 0.3s;
+    }
+    .sidebar-link:hover, .sidebar-link.active {
+        color: #fff;
+        background-color: #1a9d59;
+        transform: translateX(5px);
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 8px rgba(26, 157, 89, 0.3);
+    }
+    .user-card {
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s, box-shadow 0.3s;
+        margin-bottom: 20px;
+    }
+    .user-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.2);
+    }
+    .user-header {
+        background: linear-gradient(135deg, #1a9d59, #28a745);
+        color: white;
+        padding: 15px;
+    }
+    .user-body {
+        padding: 20px;
+    }
+    .user-footer {
+        background-color: #f8f9fa;
+        padding: 15px;
+        border-top: 1px solid #dee2e6;
+    }
+    .admin-header {
+        background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+        color: white;
+        padding: 25px;
+        border-radius: 15px;
+        margin-bottom: 25px;
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    .stat-card {
+        border-left: 4px solid var(--primary-color);
+        transition: transform 0.3s, box-shadow 0.3s;
+        border-radius: 15px;
+        overflow: hidden;
+        background: linear-gradient(145deg, #ffffff, #f5f5f5);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    }
+    .stat-card:hover {
+        transform: translateY(-8px);
+        box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15);
+    }
+    .badge-admin {
+        background-color: #dc3545;
+    }
+    .badge-dueno {
+        background-color: #28a745;
+    }
+    .badge-trabajador {
+        background-color: #007bff;
+    }
+    
+    /* Efectos hover para botones */
+    .btn-success:hover {
+        background-color: #1a9d59 !important;
+        border-color: #1a9d59 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(26, 157, 89, 0.4);
+        transition: all 0.3s ease;
+    }
+    
+    .user-card .btn:hover {
+        background-color: #1a9d59 !important;
+        border-color: #1a9d59 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(26, 157, 89, 0.4);
+        transition: all 0.3s ease;
+    }
+</style>
+{% endblock %}
+
+{% block navbar %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container">
+        <a class="navbar-brand d-flex align-items-center" href="#">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="40" class="me-2 navbar-logo">
+            <span class="brand-text">GanaControl - Admin</span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+            <ul class="navbar-nav align-items-center">
+                <li class="nav-item me-3">
+                    <a href="#" class="nav-link">
+                        <i class="fas fa-bell position-relative">
+                            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.5rem;">3</span>
+                        </i>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <span class="nav-link">Bienvenido, <strong>{{ session['nik_name'] }}</strong></span>
+                </li>
+                <li class="nav-item ms-2">
+                    <a class="btn btn-outline-light btn-sm rounded-pill" href="{{ url_for('logout') }}">
+                        <i class="fas fa-sign-out-alt me-1"></i> Cerrar Sesión
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3 col-lg-2 d-md-block sidebar p-0">
+            <div class="position-sticky">
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link py-3 px-3" href="{{ url_for('dashboard_root') }}">
+                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link active py-3 px-3" href="{{ url_for('admin_usuarios') }}">
+                            <i class="fas fa-users me-2"></i> Gestión de Usuarios
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link py-3 px-3" href="#">
+                            <i class="fas fa-farm me-2"></i> Gestión de Fincas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link py-3 px-3" href="#">
+                            <i class="fas fa-cow me-2"></i> Gestión de Ganado
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link py-3 px-3" href="#">
+                            <i class="fas fa-chart-bar me-2"></i> Reportes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link py-3 px-3" href="#">
+                            <i class="fas fa-cog me-2"></i> Configuración
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+            <div class="admin-header">
+                <h3 class="mb-0"><i class="fas fa-users me-2"></i> Gestión de Usuarios</h3>
+                <p class="mb-0">Administra todos los usuarios del sistema</p>
+            </div>
+
+            <!-- Stats Row -->
+            <div class="row mb-4">
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title text-muted">Total Usuarios</h6>
+                                    <h2 class="mb-0">{{ estadisticas.total }}</h2>
+                                </div>
+                                <div class="card-icon">
+                                    <i class="fas fa-users text-primary"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title text-muted">Administradores</h6>
+                                    <h2 class="mb-0">{{ estadisticas.admin }}</h2>
+                                </div>
+                                <div class="card-icon">
+                                    <i class="fas fa-user-shield text-danger"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title text-muted">Dueños</h6>
+                                    <h2 class="mb-0">{{ estadisticas.dueno }}</h2>
+                                </div>
+                                <div class="card-icon">
+                                    <i class="fas fa-user-tie text-success"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
+                    <div class="card stat-card h-100">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <h6 class="card-title text-muted">Trabajadores</h6>
+                                    <h2 class="mb-0">{{ estadisticas.trabajador }}</h2>
+                                </div>
+                                <div class="card-icon">
+                                    <i class="fas fa-user text-info"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="mb-0">Lista de Usuarios</h5>
+                <a href="{{ url_for('crear_usuario_route') }}" class="btn btn-success">
+                    <i class="fas fa-plus me-1"></i> Crear Usuario
+                </a>
+            </div>
+
+            <!-- Users List -->
+            {% if usuarios %}
+                <div class="row">
+                    {% for usuario in usuarios %}
+                    <div class="col-md-6 col-lg-4 mb-4">
+                        <div class="card user-card">
+                            <div class="user-header">
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <h5 class="mb-0">{{ usuario.nik_name }}</h5>
+                                    {% if usuario.tipo_usuario == 3 %}
+                                        <span class="badge badge-admin">Admin</span>
+                                    {% elif usuario.tipo_usuario == 2 %}
+                                        <span class="badge badge-dueno">Dueño</span>
+                                    {% else %}
+                                        <span class="badge badge-trabajador">Trabajador</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="user-body">
+                                <p class="mb-2"><strong>Nombre:</strong> {{ usuario.nombres or 'No especificado' }} {{ usuario.apellidos or '' }}</p>
+                                <p class="mb-2"><strong>Email:</strong> {{ usuario.correo }}</p>
+                                <p class="mb-2"><strong>Teléfono:</strong> {{ usuario.telefono or 'No especificado' }}</p>
+                                <p class="mb-0"><strong>Ciudad:</strong> {{ usuario.ciudad or 'No especificada' }}</p>
+                            </div>
+                            <div class="user-footer">
+                                <div class="d-flex gap-2">
+                                    <a href="{{ url_for('editar_usuario_route', usuario_id=usuario.id) }}" class="btn btn-primary btn-sm">
+                                        <i class="fas fa-edit me-1"></i> Editar
+                                    </a>
+                                    {% if usuario.tipo_usuario != 3 %}
+                                    <form action="{{ url_for('eliminar_usuario_route', usuario_id=usuario.id) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar este usuario? Esta acción no se puede deshacer.')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-danger btn-sm">
+                                            <i class="fas fa-trash me-1"></i> Eliminar
+                                        </button>
+                                    </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="text-center py-5">
+                    <i class="fas fa-users fa-5x text-muted mb-3"></i>
+                    <h4 class="text-muted">No hay usuarios registrados</h4>
+                    <p class="text-muted">Comienza creando el primer usuario del sistema</p>
+                    <a href="{{ url_for('crear_usuario_route') }}" class="btn btn-success">
+                        <i class="fas fa-plus me-1"></i> Crear Primer Usuario
+                    </a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

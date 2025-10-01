@@ -16,7 +16,10 @@
     }
     .sidebar-link:hover, .sidebar-link.active {
         color: #fff;
-        background-color: rgba(255,255,255,.1);
+        background-color: #1a9d59;
+        transform: translateX(5px);
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 8px rgba(26, 157, 89, 0.3);
     }
     .stat-card {
         border-left: 4px solid var(--primary-color);
@@ -87,6 +90,23 @@
         align-items: center;
         font-weight: 500;
     }
+    
+    /* Efectos hover para botones */
+    .btn-success:hover {
+        background-color: #1a9d59 !important;
+        border-color: #1a9d59 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(26, 157, 89, 0.4);
+        transition: all 0.3s ease;
+    }
+    
+    .dashboard-card .btn:hover {
+        background-color: #1a9d59 !important;
+        border-color: #1a9d59 !important;
+        transform: translateY(-2px);
+        box-shadow: 0 6px 12px rgba(26, 157, 89, 0.4);
+        transition: all 0.3s ease;
+    }
 </style>
 {% endblock %}
 
@@ -136,7 +156,7 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link sidebar-link py-3 px-3" href="#">
+                        <a class="nav-link sidebar-link py-3 px-3" href="{{ url_for('admin_usuarios') }}">
                             <i class="fas fa-users me-2"></i> Gestión de Usuarios
                         </a>
                     </li>
