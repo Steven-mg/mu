@@ -26,13 +26,16 @@ class Raza(db.Model):
     __tablename__ = 'raza'
     id_raza = db.Column(db.SmallInteger, primary_key=True)
     nombre_raza = db.Column(db.String(30), nullable=False)
-    produccion_leche_aprox = db.Column(db.Float, nullable=False)
-    peso_nacimiento = db.Column(db.Float, nullable=True)
-    edad_madurez = db.Column(db.SmallInteger, nullable=True)
+    produccion_leche_dia_min = db.Column(db.Float, nullable=False, default=0)
+    produccion_leche_dia_max = db.Column(db.Float, nullable=False, default=0)
+    peso_nacimiento_kg = db.Column(db.Float, nullable=True)
+    madurez_sexual_hembras_meses = db.Column(db.SmallInteger, nullable=True)
     tipo_raza = db.Column(db.String(20), nullable=False)
-    expectativa_vida = db.Column(db.SmallInteger, nullable=False)
+    expectativa_vida_anos = db.Column(db.SmallInteger, nullable=False)
     adaptabilidad_clima = db.Column(db.String(20), nullable=False)
     notas = db.Column(db.String(250), nullable=True)
+    variacion_genetica = db.Column(db.Enum('Alta', 'Media', 'Baja'), nullable=True)
+    madurez_sexual_machos_meses = db.Column(db.SmallInteger, nullable=True)
     animales = db.relationship('Animal', backref='raza')
 
 class Finca(db.Model):
@@ -70,6 +73,7 @@ class Animal(db.Model):
     fecha_nacimiento = db.Column(db.Date, nullable=False)
     sexo = db.Column(db.String(6), nullable=False)
     id_finca = db.Column(db.SmallInteger, db.ForeignKey('finca.id_finca', ondelete='CASCADE'), nullable=False)
+    id_potrero = db.Column(db.SmallInteger, db.ForeignKey('potrero.id_potrero'), nullable=True)
     id_padre = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal'), nullable=True)
     id_madre = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal'), nullable=True)
     ubicacion_animal = db.Column(db.Enum('en finca', 'fuera de la finca', 'desconocido'), nullable=False)
@@ -78,6 +82,7 @@ class Animal(db.Model):
 
     padre = db.relationship('Animal', foreign_keys=[id_padre], remote_side=[id_animal], backref='crias_padre')
     madre = db.relationship('Animal', foreign_keys=[id_madre], remote_side=[id_animal], backref='crias_madre')
+    potrero = db.relationship('Potrero', backref='animales')
     productos_animal = db.relationship('ProductosAnimal', backref='animal')
     registros_peso = db.relationship('RegistroPeso', backref='animal')
     servicios_salud = db.relationship('ServiciosSalud', backref='animal')
@@ -116,7 +121,6 @@ class TipoServicioSalud(db.Model):
     descripcion = db.Column(Text, nullable=True)
     categoria = db.Column(db.Enum('Vacunación', 'Desparasitación', 'Tratamiento médico', 'Suplemento', 'Cirugía', 'Control preventivo'), nullable=False)
     frecuencia_recomendada = db.Column(db.String(30), nullable=True)
-    costo_referencia = db.Column(DECIMAL(8, 2), nullable=True)
     
     servicios = db.relationship('ServiciosSalud', backref='tipo_servicio')
 
@@ -330,3 +334,24 @@ def inicializar_usuario_admin():
             print(f"Error al crear usuario administrador: {e}")
     else:
         print("Usuario administrador 'superadmin' ya existe")
+
+
+class CompraAnimales(db.Model):
+    __tablename__ = 'compra_animales'
+    __table_args__ = {'extend_existing': True}  # Permite usar una tabla existente
+    
+    id_compra = db.Column(db.SmallInteger, primary_key=True)
+    id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal', ondelete='CASCADE'), nullable=False)
+    fecha_compra = db.Column(db.Date, nullable=False)
+    precio_compra = db.Column(db.Numeric(10, 2), nullable=False)
+    vendedor = db.Column(db.String(100), nullable=True)
+    lugar_compra = db.Column(db.String(100), nullable=True)
+    documento_compra = db.Column(db.String(50), nullable=True)
+    peso_compra = db.Column(db.Float, nullable=True)
+    edad_compra = db.Column(db.SmallInteger, nullable=True)
+    estado_salud_compra = db.Column(db.String(100), nullable=True)
+    observaciones = db.Column(db.Text, nullable=True)
+    fecha_registro = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    
+    # Relación con el animal
+    animal = db.relationship('Animal', backref='compra')

@@ -5,7 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from flask import render_template, redirect, url_for, flash, session, request
 from forms.login_form import LoginForm
 from modelo.models import Usuario
-import bcrypt  # Importar bcrypt
+from werkzeug.security import check_password_hash, generate_password_hash  # Cambiar bcrypt por werkzeug
 from config import db, app  # Importar app desde config
 from flask_dance.contrib.google import make_google_blueprint, google
 from flask_login import login_user, current_user, logout_user, login_required
@@ -107,19 +107,27 @@ def ruta_login():
             usuario = Usuario.query.filter_by(correo=form.nik_name.data).first()
         
         # Verificar si el usuario existe y la contraseña es correcta
-        if usuario and usuario.contraseña and bcrypt.checkpw(form.contraseña.data.encode('utf-8'), usuario.contraseña.encode('utf-8')):
-            # Iniciar sesión con Flask-Login
-            login_user(usuario)
+        if usuario and usuario.contraseña and usuario.contraseña.strip():
+            try:
+                password_valid = check_password_hash(usuario.contraseña, form.contraseña.data)
+            except ValueError as e:
+                # Manejar errores de hash inválido
+                flash(f'Error en la validación de contraseña. Contacte al administrador. Error: {str(e)}', 'error')
+                return render_template('login.html', form=form)
             
-            # Iniciar sesión en la sesión (mantener esto también)
-            session['usuario_id'] = usuario.id
-            session['tipo_usuario'] = usuario.tipo_usuario
-            session['nik_name'] = usuario.nik_name  # Corregir nombre_usuario por nik_name
-            
-            # Configurar la sesión para que expire al cerrar el navegador
-            session.permanent = False
-            
-            flash('Has iniciado sesión correctamente', 'success')
+            if password_valid:
+                # Iniciar sesión con Flask-Login
+                login_user(usuario)
+                
+                # Iniciar sesión en la sesión (mantener esto también)
+                session['usuario_id'] = usuario.id
+                session['tipo_usuario'] = usuario.tipo_usuario
+                session['nik_name'] = usuario.nik_name  # Corregir nombre_usuario por nik_name
+                
+                # Configurar la sesión para que expire al cerrar el navegador
+                session.permanent = False
+                
+                flash('Has iniciado sesión correctamente', 'success')
             
             # Redireccionar según el tipo de usuario
             if usuario.tipo_usuario == 3:  # Root/Super admin
@@ -179,7 +187,7 @@ def ruta_registro():
         # Crear hash de la contraseña solo si se proporciona
         hashed_password = None
         if form.contraseña.data:
-            hashed_password = bcrypt.hashpw(form.contraseña.data.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            hashed_password = generate_password_hash(form.contraseña.data)
         
         # Crear nuevo usuario
         nuevo_usuario = Usuario(

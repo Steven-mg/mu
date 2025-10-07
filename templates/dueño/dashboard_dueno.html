@@ -10,23 +10,27 @@
 <!-- Aquí puedes mantener estilos específicos que solo aplican a esta página -->
 {% endblock %}
 
+{% block sidebar %}
+{% include 'components/sidebar_dueno.html' %}
+{% endblock %}
+
 {% block navbar %}
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+<nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #28a745, #20c997);">
     <div class="container">
-        <a class="navbar-brand d-flex align-items-center" href="#">
-            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="40" class="me-2 navbar-logo">
-            <span class="brand-text">GanaControl - Dueño</span>
+        <a class="navbar-brand d-flex align-items-center" href="#" style="font-weight: 600;">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="40" class="me-2 navbar-logo" style="border-radius: 8px;">
+            <span class="brand-text" style="font-size: 1.5rem; color: white;">GanaControl - Dueño</span>
         </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="border: 2px solid rgba(255,255,255,0.3);">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul class="navbar-nav ms-auto">
                 <li class="nav-item">
-                    <span class="nav-link">Bienvenido, {{ session['nik_name'] }}</span>
+                    <span class="nav-link" style="color: rgba(255,255,255,0.9); font-weight: 500;">Bienvenido, <strong style="color: white;">{{ session['nik_name'] }}</strong></span>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('logout') }}">Cerrar Sesión</a>
+                    <a class="nav-link" href="{{ url_for('logout') }}" style="color: rgba(255,255,255,0.9); transition: all 0.3s ease;" onmouseover="this.style.color='white'; this.style.transform='translateY(-2px)'" onmouseout="this.style.color='rgba(255,255,255,0.9)'; this.style.transform='translateY(0)'">Cerrar Sesión</a>
                 </li>
             </ul>
         </div>
@@ -37,51 +41,11 @@
 {% block content %}
 <div class="container-fluid">
     <div class="row">
-        <!-- Sidebar -->
-        <div class="col-md-3 col-lg-2 d-md-block sidebar collapse">
-            <div class="position-sticky pt-3">
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link active" href="#">
-                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link" href="{{ url_for('mis_fincas') }}">
-                            <i class="fas fa-farm me-2"></i> Mis Fincas
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link" href="{{ url_for('gestion_animales') }}">
-                            <i class="fas fa-cow me-2"></i> Gestión de Animales
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link" href="#">
-                            <i class="fas fa-chart-line me-2"></i> Producción
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link" href="#">
-                            <i class="fas fa-users me-2"></i> Trabajadores
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link" href="#">
-                            <i class="fas fa-file-alt me-2"></i> Reportes
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link" href="#">
-                            <i class="fas fa-cog me-2"></i> Configuración
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
+        <!-- Contenido principal -->
+
 
         <!-- Main Content -->
-        <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
+        <main class="px-md-4 py-4">
             <!-- Header -->
             <div class="owner-header">
                 <h1 class="h2 mb-0">Panel de Dueño de Finca</h1>
@@ -172,17 +136,27 @@
                 <div class="col-12">
                     <h5 class="border-bottom pb-2">Funciones Principales</h5>
                 </div>
-                <div class="col-md-4 mb-3">
+                <div class="col-md-3 mb-3">
+                    <div class="card dashboard-card h-100">
+                        <div class="card-body text-center">
+                            <i class="fas fa-farm mb-3 card-icon mx-auto"></i>
+                            <h5>Gestión de Fincas</h5>
+                            <p class="text-muted">Administra tus fincas y propiedades</p>
+                            <a href="{{ url_for('mis_fincas') }}" class="btn btn-success">Administrar</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 mb-3">
                     <div class="card dashboard-card h-100">
                         <div class="card-body text-center">
                             <i class="fas fa-cow mb-3 card-icon mx-auto"></i>
-                            <h5>Gestión de Animales</h5>
+                            <h5>Gestión de Ganado</h5>
                             <p class="text-muted">Administra el ganado de la finca</p>
                             <a href="{{ url_for('gestion_animales') }}" class="btn btn-success">Administrar</a>
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4 mb-3">
+                <div class="col-md-3 mb-3">
                     <div class="card dashboard-card h-100">
                         <div class="card-body text-center">
                             <i class="fas fa-chart-line mb-3 card-icon mx-auto"></i>
@@ -192,7 +166,7 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-md-4 mb-3">
+                <div class="col-md-3 mb-3">
                     <div class="card dashboard-card h-100">
                         <div class="card-body text-center">
                             <i class="fas fa-users mb-3 card-icon mx-auto"></i>
@@ -246,6 +220,6 @@
 {% endblock %}
 
 <!-- Agregar en la sección donde se muestra la información de la finca -->
-<form action="{{ url_for('eliminar_finca', finca_id=finca.id_finca) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar esta finca? Se eliminarán todos los datos relacionados con ella. Esta acción no se puede deshacer.')">
+<form action="{{ url_for('eliminar_finca_route', finca_id=finca.id_finca) }}" method="POST" class="d-inline" onsubmit="return confirm('¿Estás seguro de eliminar esta finca? Se eliminarán todos los datos relacionados con ella. Esta acción no se puede deshacer.')">
     <button type="submit" class="btn btn-danger">Eliminar Finca</button>
 </form>

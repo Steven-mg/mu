@@ -41,3 +41,17 @@ login_manager.login_message_category = 'info'
 def load_user(user_id):
     from modelo.models import Usuario
     return Usuario.query.get(int(user_id))
+
+def registrar_actividad(usuario_id, accion, elemento):
+    from modelo.models import ActividadReciente
+    from datetime import datetime
+    
+    nueva_actividad = ActividadReciente(
+        usuario_id=usuario_id,
+        accion=accion,
+        elemento=elemento,
+        fecha=datetime.now()
+    )
+    
+    db.session.add(nueva_actividad)
+    db.session.commit()

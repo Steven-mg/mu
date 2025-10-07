@@ -1,0 +1,124 @@
+<div class="sidebar sidebar-dueno text-white" style="width: 250px; height: 100vh; position: fixed; left: 0; top: 0; padding-top: 20px; background: #28a745 !important; z-index: 1030; transition: all 0.3s ease;">
+    <button id="sidebarToggle" class="btn btn-sm btn-light d-md-none position-absolute" style="top: 10px; right: 10px;">
+        <i class="bi bi-x-lg"></i>
+    </button>
+    
+    <div class="text-center mb-4">
+        <div style="background-color: white; width: 140px; height: 140px; border-radius: 50%; margin: 0 auto; display: flex; justify-content: center; align-items: center;">
+            <img src="{{ url_for('static', filename='img/muuu-cow-icon.svg') }}" alt="Logo" style="width: 100px;">
+        </div>
+        <h2 class="mt-2">GanaControl</h2>
+    </div>
+    
+    <div class="menu-title px-3 py-2 text-white-50">
+        MENÚ PRINCIPAL
+    </div>
+    <style>
+        .menu-items a:hover {
+            background-color: rgba(255,255,255,0.2);
+        }
+    </style>
+    <div class="menu-items">
+        <a href="{{ url_for('dashboard_dueno') }}" class="d-flex align-items-center text-white text-decoration-none p-3 {% if request.endpoint == 'dashboard_dueno' %}active{% endif %}" style="transition: all 0.3s;">
+            <i class="bi bi-speedometer2 me-3"></i> Dashboard
+        </a>
+        
+        <a href="{{ url_for('mis_fincas') }}" class="d-flex align-items-center text-white text-decoration-none p-3 {% if request.endpoint == 'mis_fincas' %}active{% endif %}" style="transition: all 0.3s;">
+            <i class="bi bi-house me-3"></i> Mis Fincas
+        </a>
+        
+        <a href="{{ url_for('gestion_animales') }}" class="d-flex align-items-center text-white text-decoration-none p-3 {% if request.endpoint == 'gestion_animales' %}active{% endif %}" style="transition: all 0.3s;">
+            <i class="bi bi-truck me-3"></i> Gestión de Ganado
+        </a>
+        
+        <a href="#" class="d-flex align-items-center text-white text-decoration-none p-3">
+            <i class="bi bi-graph-up me-3"></i> Producción
+        </a>
+        
+        <a href="#" class="d-flex align-items-center text-white text-decoration-none p-3">
+            <i class="bi bi-people me-3"></i> Trabajadores
+        </a>
+        
+        <a href="#" class="d-flex align-items-center text-white text-decoration-none p-3">
+            <i class="bi bi-file-text me-3"></i> Reportes
+        </a>
+        
+        <a href="#" class="d-flex align-items-center text-white text-decoration-none p-3">
+            <i class="bi bi-gear me-3"></i> Configuración
+        </a>
+    </div>
+</div>
+
+<!-- Botón para mostrar el menú en dispositivos móviles -->
+<button id="showSidebar" class="btn btn-success d-md-none position-fixed" style="top: 10px; left: 10px; z-index: 1020; display: none;">
+    <i class="bi bi-list"></i>
+</button>
+
+<style>
+    /* Sidebar específico del dueño: fuerza color sólido y anula gradientes globales */
+    .sidebar.sidebar-dueno {
+        background: #28a745 !important;
+        background-image: none !important;
+    }
+
+    .sidebar.sidebar-dueno .active {
+        background-color: rgba(255, 255, 255, 0.2);
+        border-left: 4px solid white;
+    }
+    
+    .sidebar.sidebar-dueno a:hover {
+        background-color: rgba(255, 255, 255, 0.1);
+    }
+    
+    /* Estilos responsive */
+    @media (max-width: 767.98px) {
+        .sidebar.sidebar-dueno {
+            transform: translateX(-100%);
+        }
+        
+        .sidebar.sidebar-dueno.show {
+            transform: translateX(0);
+        }
+        
+        #showSidebar {
+            display: block !important;
+        }
+    }
+    
+    .menu-items a {
+        margin-bottom: 5px;
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Botones para mostrar/ocultar el menú en dispositivos móviles
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const showSidebar = document.getElementById('showSidebar');
+        const sidebar = document.querySelector('.sidebar');
+        
+        if (sidebarToggle && showSidebar && sidebar) {
+            sidebarToggle.addEventListener('click', function() {
+                sidebar.classList.remove('show');
+            });
+            
+            showSidebar.addEventListener('click', function() {
+                sidebar.classList.add('show');
+            });
+        }
+    });
+</script>    
+<style>
+    /* Ajuste para el contenido principal */
+    @media (min-width: 768px) {
+        body {
+            padding-left: 0;
+        }
+    }
+    
+    /* Asegurar color consistente en todas las páginas del dueño */
+    .sidebar.sidebar-dueno {
+        background: #28a745 !important;
+        background-image: none !important;
+    }
+</style>

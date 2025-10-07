@@ -1,0 +1,384 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Animal - GanaControl{% endblock %}
+
+{% block extra_css %}
+<style>
+    .sidebar {
+        background-color: #343a40;
+        min-height: calc(100vh - 56px);
+        position: sticky;
+        top: 56px;
+    }
+    .sidebar-link {
+        color: rgba(255,255,255,.75);
+        transition: all 0.3s;
+    }
+    .sidebar-link:hover, .sidebar-link.active {
+        color: #fff;
+        background-color: rgba(255,255,255,.1);
+    }
+    .form-card {
+        border-radius: 15px;
+        overflow: hidden;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    }
+    .form-header {
+        background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
+        color: white;
+        padding: 20px;
+    }
+    .form-body {
+        padding: 30px;
+    }
+</style>
+{% endblock %}
+
+{% block navbar %}
+<nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #28a745, #20c997); box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
+    <div class="container">
+        <a class="navbar-brand d-flex align-items-center" href="#" style="color: white; text-decoration: none;">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="40" class="me-2 navbar-logo" style="filter: brightness(1.2);">
+            <span class="brand-text" style="font-weight: 600; font-size: 1.3rem;">GanaControl - Dueño</span>
+        </a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav ms-auto">
+                <li class="nav-item">
+                    <span class="nav-link" style="color: white;">Bienvenido, {{ session['nik_name'] }}</span>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('logout') }}" style="color: rgba(255,255,255,0.9); transition: all 0.3s ease;" onmouseover="this.style.color='white';" onmouseout="this.style.color='rgba(255,255,255,0.9)';">Cerrar Sesión</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-md-3 col-lg-2 sidebar">
+            <div class="p-3">
+                <h6 class="text-white-50 mb-3">MENÚ PRINCIPAL</h6>
+                <ul class="nav flex-column">
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="{{ url_for('dashboard_dueno') }}">
+                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="{{ url_for('mis_fincas') }}">
+                            <i class="fas fa-farm me-2"></i> Mis Fincas
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link active" href="{{ url_for('gestion_animales') }}">
+                            <img src="{{ url_for('static', filename='img/muuu-cow-icon.svg') }}" alt="Icono de vaca" width="20" height="20" class="me-2"> Gestión de Ganado
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="#">
+                            <i class="fas fa-chart-line me-2"></i> Producción
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="#">
+                            <i class="fas fa-users me-2"></i> Trabajadores
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="#">
+                            <i class="fas fa-file-alt me-2"></i> Reportes
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link sidebar-link" href="#">
+                            <i class="fas fa-cog me-2"></i> Configuración
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="col-md-9 col-lg-10">
+            <div class="p-4">
+                <nav aria-label="breadcrumb">
+                    <ol class="breadcrumb">
+                        <li class="breadcrumb-item"><a href="{{ url_for('dashboard_dueno') }}">Dashboard</a></li>
+                        <li class="breadcrumb-item"><a href="{{ url_for('gestion_animales') }}">Gestión de Ganado</a></li>
+                        <li class="breadcrumb-item active" aria-current="page">Editar {{ animal.nombre_animal }}</li>
+                    </ol>
+                </nav>
+
+                <div class="card form-card">
+                    <div class="form-header">
+                        <h4 class="mb-0"><i class="fas fa-edit me-2"></i>Editar Animal</h4>
+                        <p class="mb-0">Actualiza la información del animal</p>
+                    </div>
+                    <div class="form-body">
+                        <form method="POST" action="{{ url_for('editar_animal_route', animal_id=animal.id_animal) }}">
+                            {{ form.hidden_tag() }}
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    {{ form.nombre_animal.label(class="form-label") }}
+                                    {{ form.nombre_animal(class="form-control") }}
+                                    {% if form.nombre_animal.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.nombre_animal.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form.id_raza.label(class="form-label") }}
+                                    {{ form.id_raza(class="form-select") }}
+                                    {% if form.id_raza.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.id_raza.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    {{ form.fecha_nacimiento.label(class="form-label") }}
+                                    {{ form.fecha_nacimiento(class="form-control", type="date") }}
+                                    {% if form.fecha_nacimiento.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.fecha_nacimiento.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form.sexo.label(class="form-label") }}
+                                    {{ form.sexo(class="form-select") }}
+                                    {% if form.sexo.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.sexo.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    {{ form.id_finca.label(class="form-label") }}
+                                    {{ form.id_finca(class="form-select", id="id_finca") }}
+                                    {% if form.id_finca.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.id_finca.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form.id_potrero.label(class="form-label") }}
+                                    {{ form.id_potrero(class="form-select", id="id_potrero") }}
+                                    {% if form.id_potrero.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.id_potrero.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    {{ form.id_estado_reprod.label(class="form-label") }}
+                                    {{ form.id_estado_reprod(class="form-select") }}
+                                    {% if form.id_estado_reprod.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.id_estado_reprod.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form.ubicacion_animal.label(class="form-label") }}
+                                    {{ form.ubicacion_animal(class="form-select") }}
+                                    {% if form.ubicacion_animal.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.ubicacion_animal.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    {{ form.id_padre.label(class="form-label") }}
+                                    {{ form.id_padre(class="form-select") }}
+                                    {% if form.id_padre.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.id_padre.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form.id_madre.label(class="form-label") }}
+                                    {{ form.id_madre(class="form-select") }}
+                                    {% if form.id_madre.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.id_madre.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    {{ form.ubicacion_animal.label(class="form-label") }}
+                                    {{ form.ubicacion_animal(class="form-select") }}
+                                    {% if form.ubicacion_animal.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.ubicacion_animal.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-6">
+                                    {{ form.origen.label(class="form-label") }}
+                                    {{ form.origen(class="form-select") }}
+                                    {% if form.origen.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.origen.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex justify-content-between mt-4">
+                                <a href="{{ url_for('gestion_animales') }}" class="btn btn-secondary">
+                                    <i class="fas fa-arrow-left me-1"></i>Volver
+                                </a>
+                                {{ form.submit(class="btn btn-success") }}
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Actualizar opciones de padre/madre según el sexo seleccionado
+    document.addEventListener('DOMContentLoaded', function() {
+        const sexoSelect = document.getElementById('sexo');
+        const fincaSelect = document.getElementById('id_finca');
+        const potreroSelect = document.getElementById('id_potrero');
+        
+        // Cuando cambia la finca, actualizar las opciones de padre/madre
+        fincaSelect.addEventListener('change', function() {
+            const fincaId = this.value;
+            if (fincaId > 0) {
+                // Actualizar padres (machos)
+                fetch(`/api/animales/sexo/Macho`)
+                    .then(response => response.json())
+                    .then(data => {
+                        updateSelectOptions('id_padre', data, 'Sin padre registrado');
+                    });
+                
+                // Actualizar madres (hembras)
+                fetch(`/api/animales/sexo/Hembra`)
+                    .then(response => response.json())
+                    .then(data => {
+                        updateSelectOptions('id_madre', data, 'Sin madre registrada');
+                    });
+                    
+                // Cargar potreros de la finca seleccionada
+                fetch(`/api/potreros-por-finca?finca_id=${fincaId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        // Guardar el valor actual del potrero si existe
+                        const currentPotreroId = potreroSelect.value;
+                        
+                        // Limpiar el dropdown de potreros
+                        potreroSelect.innerHTML = '';
+                        
+                        // Agregar opción por defecto
+                        const defaultOption = document.createElement('option');
+                        defaultOption.value = '';
+                        defaultOption.textContent = 'Seleccione un potrero';
+                        potreroSelect.appendChild(defaultOption);
+                        
+                        // Agregar los potreros de la finca seleccionada
+                        data.forEach(potrero => {
+                            const option = document.createElement('option');
+                            option.value = potrero.id;
+                            option.textContent = potrero.nombre_potrero;
+                            
+                            // Si este era el potrero seleccionado previamente, seleccionarlo de nuevo
+                            if (potrero.id.toString() === currentPotreroId) {
+                                option.selected = true;
+                            }
+                            
+                            potreroSelect.appendChild(option);
+                        });
+                    })
+                    .catch(error => console.error('Error al cargar potreros:', error));
+            }
+        });
+        
+        function updateSelectOptions(selectId, data, defaultText) {
+            const select = document.getElementById(selectId);
+            const currentValue = select.value;
+            
+            // Limpiar opciones actuales
+            select.innerHTML = '';
+            
+            // Agregar opción por defecto
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '0';
+            defaultOption.textContent = defaultText;
+            select.appendChild(defaultOption);
+            
+            // Agregar nuevas opciones
+            data.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item.id;
+                option.textContent = `${item.nombre} (${item.finca})`;
+                if (item.id == currentValue) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+        }
+        
+        // Cargar potreros al cargar la página si hay una finca seleccionada
+        if (fincaSelect && fincaSelect.value > 0) {
+            fincaSelect.dispatchEvent(new Event('change'));
+        }
+    });
+</script>
+{% endblock %}

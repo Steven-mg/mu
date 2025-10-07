@@ -1,6 +1,6 @@
 /* Estilos para la barra lateral */
 .sidebar {
-    background-color: #2c3e50;
+    background: linear-gradient(135deg, #28a745, #20c997);
     min-height: calc(100vh - 56px);
     position: sticky;
     top: 56px;
@@ -8,22 +8,19 @@
 }
 
 .sidebar-link {
-    color: rgba(255,255,255,.75);
+    color: white;
     transition: all 0.3s;
+    padding: 15px 20px;
     border-radius: 8px;
     margin: 5px 10px;
-    padding: 10px 15px;
 }
 
 .sidebar-link:hover, .sidebar-link.active {
-    color: #fff;
-    background-color: var(--primary-color);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    color: white;
+    background-color: rgba(255,255,255,0.2);
     transform: translateX(5px);
-}
-
-.sidebar-link:hover {
-    background-color: #1a9d59; /* Verde más intenso en hover */
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
 }
 
 /* Estilos para tarjetas de estadísticas */

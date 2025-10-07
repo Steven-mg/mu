@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}Animales Comprados{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Animales Comprados</h1>
+    
+    <a href="{{ url_for('gestion_animales') }}" class="btn btn-secondary mb-3">
+        <i class="fas fa-arrow-left"></i> Volver a Gestión de Animales
+    </a>
+    
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+    
+    <div class="row">
+        {% if animales %}
+            {% for animal in animales %}
+                <div class="col-md-4 mb-4">
+                    <div class="card">
+                        <div class="card-header bg-success text-white">
+                            {{ animal.nombre_animal }}
+                            <span class="badge bg-primary float-end">{{ animal.sexo }}</span>
+                        </div>
+                        <div class="card-body">
+                            <p><strong>Raza:</strong> {{ animal.raza.nombre_raza }}</p>
+                            <p><strong>Fecha de Nacimiento:</strong> {{ animal.fecha_nacimiento.strftime('%d/%m/%Y') }}</p>
+                            <p><strong>Ubicación:</strong> {{ animal.ubicacion_animal }}</p>
+                            
+                            {% if animal.compra %}
+                                <p><strong>Fecha de Compra:</strong> {{ animal.compra[0].fecha_compra.strftime('%d/%m/%Y') }}</p>
+                                <p><strong>Precio de Compra:</strong> ${{ animal.compra[0].precio_compra }}</p>
+                                {% if animal.compra[0].vendedor %}
+                                    <p><strong>Vendedor:</strong> {{ animal.compra[0].vendedor }}</p>
+                                {% endif %}
+                            {% else %}
+                                <p class="text-warning">Datos de compra no registrados</p>
+                            {% endif %}
+                            
+                            <a href="{{ url_for('editar_compra', id_animal=animal.id_animal) }}" class="btn btn-primary">
+                                <i class="fas fa-edit"></i> Editar Datos de Compra
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="alert alert-info">
+                    No hay animales comprados registrados.
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

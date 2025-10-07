@@ -6,7 +6,7 @@ from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from modelo.models import Usuario
 from config import db
-import bcrypt
+from werkzeug.security import generate_password_hash
 from controlador.controlador_actividad import registrar_actividad
 
 @login_required
@@ -63,8 +63,12 @@ def crear_usuario():
             flash('Ya existe un usuario con ese nombre de usuario o correo', 'danger')
             return render_template('root/crear_usuario.html')
         
-        # Crear hash de la contraseña
-        hashed_password = bcrypt.hashpw(contraseña.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        # Crear hash de la contraseña solo si no está vacía
+        if contraseña and contraseña.strip():
+            hashed_password = generate_password_hash(contraseña)
+        else:
+            flash('La contraseña es requerida', 'danger')
+            return render_template('root/crear_usuario.html')
         
         # Crear nuevo usuario
         nuevo_usuario = Usuario(
@@ -140,8 +144,8 @@ def editar_usuario(usuario_id):
         
         # Si se proporciona nueva contraseña, actualizarla
         nueva_contraseña = request.form.get('contraseña')
-        if nueva_contraseña:
-            usuario.contraseña = bcrypt.hashpw(nueva_contraseña.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+        if nueva_contraseña and nueva_contraseña.strip():
+            usuario.contraseña = generate_password_hash(nueva_contraseña)
         
         try:
             db.session.commit()

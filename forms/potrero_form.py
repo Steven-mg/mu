@@ -21,11 +21,6 @@ class PotreroForm(FlaskForm):
         ('descanso', 'En Descanso'),
         ('mantenimiento', 'En Mantenimiento')
     ], validators=[DataRequired()])
-    estado_actual = SelectField('Estado Actual', choices=[
-        ('disponible', 'Disponible'),
-        ('ocupado', 'Ocupado'),
-        ('en descanso', 'En Descanso')
-    ], validators=[Optional()])
     fecha_ultima_rotacion = DateField('Fecha Última Rotación', validators=[Optional()])
     notas = TextAreaField('Notas', validators=[Optional(), Length(max=500)])
     submit = SubmitField('Guardar Potrero')
