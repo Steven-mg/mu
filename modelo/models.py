@@ -148,6 +148,7 @@ class TipoServicioSalud(db.Model):
     descripcion = db.Column(Text, nullable=True)
     categoria = db.Column(db.Enum('Vacunación', 'Desparasitación', 'Tratamiento médico', 'Suplemento', 'Cirugía', 'Control preventivo'), nullable=False)
     frecuencia_recomendada = db.Column(db.String(30), nullable=True)
+    aplica_a_sexo = db.Column(db.Enum('macho', 'hembra', 'ambos'), nullable=True, default='ambos')
     
     servicios = db.relationship('ServiciosSalud', backref='tipo_servicio')
 
@@ -295,6 +296,7 @@ class TipoServicioSexual(db.Model):
     id_servicio = db.Column(db.SmallInteger, primary_key=True)
     nombre_servicio = db.Column(db.String(20), nullable=False)
     descripcion_servicio = db.Column(db.String(200), nullable=False)
+    aplica_a_sexo = db.Column(db.Enum('macho', 'hembra', 'ambos'), nullable=True, default='ambos')
     
     servicios = db.relationship('ServiciosSexuales', backref='tipo_servicio')
 

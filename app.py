@@ -9,11 +9,63 @@ from config import app, db
 from modelo.models import Usuario, Finca, Animal, Reporte, ActividadReciente, UsuarioFinca, Potrero, RotacionPotrero, GrupoAnimal  # Agregar RotacionPotrero y GrupoAnimal
 from controlador.controlador_actividad import obtener_actividades_recientes  # Importar la función
 from datetime import datetime  # Añadir esta importación
+from sqlalchemy import text
+
+# Migración segura: asegurar columnas aplica_a_sexo en tablas de tipos de servicio
+def ensure_aplica_a_sexo_columns():
+    try:
+        dialect = db.engine.dialect.name
+        if dialect != 'mysql':
+            print('Salto migración aplica_a_sexo: dialecto no MySQL ->', dialect)
+            return
+        with db.engine.connect() as conn:
+            # Salud
+            exists_salud = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'tipo_servicio_salud' 
+                  AND COLUMN_NAME = 'aplica_a_sexo'
+                """
+            )).first()
+            if not exists_salud:
+                conn.execute(text(
+                    """
+                    ALTER TABLE tipo_servicio_salud 
+                    ADD COLUMN aplica_a_sexo ENUM('macho','hembra','ambos') NULL DEFAULT 'ambos'
+                    """
+                ))
+                print('Columna aplica_a_sexo agregada a tipo_servicio_salud')
+            conn.execute(text("UPDATE tipo_servicio_salud SET aplica_a_sexo = 'ambos' WHERE aplica_a_sexo IS NULL"))
+
+            # Sexual
+            exists_sexual = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'tipo_servicio_sexual' 
+                  AND COLUMN_NAME = 'aplica_a_sexo'
+                """
+            )).first()
+            if not exists_sexual:
+                conn.execute(text(
+                    """
+                    ALTER TABLE tipo_servicio_sexual 
+                    ADD COLUMN aplica_a_sexo ENUM('macho','hembra','ambos') NULL DEFAULT 'ambos'
+                    """
+                ))
+                print('Columna aplica_a_sexo agregada a tipo_servicio_sexual')
+            conn.execute(text("UPDATE tipo_servicio_sexual SET aplica_a_sexo = 'ambos' WHERE aplica_a_sexo IS NULL"))
+    except Exception as e:
+        # No romper arranque; solo loguear
+        print('Error asegurando aplica_a_sexo:', e)
 
 # Crear todas las tablas en la base de datos
 with app.app_context():
     db.create_all()
     print("Tablas creadas correctamente en la base de datos")
+    # Ejecutar migración segura de columnas aplica_a_sexo
+    ensure_aplica_a_sexo_columns()
     
     # Importar e inicializar el usuario administrador
     from modelo.models import inicializar_usuario_admin

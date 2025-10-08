@@ -105,17 +105,18 @@ def procedimientos_animal(animal_id):
     form_salud = ServicioSaludForm()
     form_sexual = ServicioSexualForm()
 
-    # Choices dinámicos (filtrados por sexo del animal cuando corresponde)
-    tipos_salud = TipoServicioSalud.query.all()
-    tipos_sexual = TipoServicioSexual.query.all()
-
-    # Palabras clave que indican servicios de hembras (excluir si el animal es macho)
-    female_health_keywords = ['cesárea', 'cesarea', 'preñez', 'preñez', 'mastitis']
-    female_sexual_keywords = ['inseminación', 'inseminacion', 'transferencia', 'sincronización', 'sincronizacion', 'preñez', 'parto', 'postparto', 'iatf']
-
-    if (animal.sexo or '').lower() == 'macho':
-        tipos_salud = [t for t in tipos_salud if not any(k in (t.nombre_servicio or '').lower() for k in female_health_keywords)]
-        tipos_sexual = [t for t in tipos_sexual if not any(k in (t.nombre_servicio or '').lower() for k in female_sexual_keywords)]
+    # Choices dinámicos filtrados por la regla explícita aplica_a_sexo
+    sexo_animal = (animal.sexo or '').lower()
+    if sexo_animal == 'macho':
+        tipos_salud = TipoServicioSalud.query.filter(TipoServicioSalud.aplica_a_sexo.in_(['ambos', 'macho'])).all()
+        tipos_sexual = TipoServicioSexual.query.filter(TipoServicioSexual.aplica_a_sexo.in_(['ambos', 'macho'])).all()
+    elif sexo_animal == 'hembra':
+        tipos_salud = TipoServicioSalud.query.filter(TipoServicioSalud.aplica_a_sexo.in_(['ambos', 'hembra'])).all()
+        tipos_sexual = TipoServicioSexual.query.filter(TipoServicioSexual.aplica_a_sexo.in_(['ambos', 'hembra'])).all()
+    else:
+        # En caso de sexo desconocido, mostrar todos para no bloquear
+        tipos_salud = TipoServicioSalud.query.all()
+        tipos_sexual = TipoServicioSexual.query.all()
 
     form_salud.id_tipo_salud.choices = [(t.id_tipo_salud, t.nombre_servicio) for t in tipos_salud]
     form_salud.id_veterinario.choices = [(v.id_veterinario, v.nombre_veterinario) for v in Veterinario.query.all()]
@@ -124,12 +125,14 @@ def procedimientos_animal(animal_id):
 
     # Procesamiento de altas
     if form_salud.submit.data and form_salud.validate_on_submit():
-        # Validación adicional: evitar servicios de hembras para machos
+        # Validación explícita según aplica_a_sexo
         tipo_salud_sel = TipoServicioSalud.query.get(form_salud.id_tipo_salud.data)
-        if (animal.sexo or '').lower() == 'macho' and tipo_salud_sel and any(
-            k in (tipo_salud_sel.nombre_servicio or '').lower() for k in female_health_keywords
-        ):
+        aplica_salud = (getattr(tipo_salud_sel, 'aplica_a_sexo', 'ambos') or 'ambos').lower() if tipo_salud_sel else 'ambos'
+        if sexo_animal == 'macho' and aplica_salud == 'hembra':
             flash('Este servicio de salud aplica solo a hembras.', 'warning')
+            return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+        if sexo_animal == 'hembra' and aplica_salud == 'macho':
+            flash('Este servicio de salud aplica solo a machos.', 'warning')
             return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
         nuevo = ServiciosSalud(
             id_animal=animal_id,
@@ -147,12 +150,14 @@ def procedimientos_animal(animal_id):
         return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
 
     if form_sexual.submit.data and form_sexual.validate_on_submit():
-        # Validación adicional: evitar servicios sexuales de hembras para machos
+        # Validación explícita según aplica_a_sexo
         tipo_sexual_sel = TipoServicioSexual.query.get(form_sexual.id_servicioanimal.data)
-        if (animal.sexo or '').lower() == 'macho' and tipo_sexual_sel and any(
-            k in (tipo_sexual_sel.nombre_servicio or '').lower() for k in female_sexual_keywords
-        ):
+        aplica_sexual = (getattr(tipo_sexual_sel, 'aplica_a_sexo', 'ambos') or 'ambos').lower() if tipo_sexual_sel else 'ambos'
+        if sexo_animal == 'macho' and aplica_sexual == 'hembra':
             flash('Este servicio sexual aplica solo a hembras.', 'warning')
+            return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+        if sexo_animal == 'hembra' and aplica_sexual == 'macho':
+            flash('Este servicio sexual aplica solo a machos.', 'warning')
             return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
         nuevo = ServiciosSexuales(
             id_servicioanimal=form_sexual.id_servicioanimal.data,
