@@ -53,8 +53,13 @@ def dashboard_dueno():
     # Contar las fincas del usuario actual
     total_fincas = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).count()
     
-    # Contar los animales en las fincas del usuario
-    total_animales = Animal.query.join(Finca).join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).count()
+    # Contar los animales en las fincas del usuario sin seleccionar todas las columnas
+    from sqlalchemy import func
+    total_animales = db.session.query(func.count(Animal.id_animal))\
+        .join(Finca, Animal.id_finca == Finca.id_finca)\
+        .join(UsuarioFinca, UsuarioFinca.finca_id == Finca.id_finca)\
+        .filter(UsuarioFinca.usuario_id == current_user.id)\
+        .scalar()
     
     # Definir total_produccion (ajusta esto según tu modelo de datos)
     total_produccion = 0  # Inicializar con un valor predeterminado o calcular según tus necesidades
@@ -109,10 +114,18 @@ def login_google():
 from controlador.controlador_usuario import listar_usuarios, crear_usuario, editar_usuario, eliminar_usuario_controlador
 
 # Importar las funciones de gestión de animales
-from controlador.controlador_animal import listar_animales, crear_animal, editar_animal, eliminar_animal, ver_animal, obtener_animales_por_finca, obtener_animales_por_sexo, get_potreros_por_finca
+from controlador.controlador_animal import listar_animales, crear_animal, editar_animal, eliminar_animal, ver_animal, obtener_animales_por_finca, obtener_animales_por_sexo, get_potreros_por_finca, get_animales_disponibles, get_animales_potrero, asignar_animales_potrero, ver_foto_animal, ver_animales_finca, ver_animales_fuera, ver_animales_fuera_global, api_madurez_sexual_por_raza, documentos_geneticos, agregar_documento_genetico, ver_documento_genetico, descargar_documento_genetico, eliminar_documento_genetico, procedimientos_animal, eliminar_servicio_salud, eliminar_servicio_sexual
+from controlador.controlador_animal import editar_documento_genetico
 
 # Importar las funciones de gestión de fincas
-from controlador.controlador_finca import crear_finca, editar_finca, eliminar_finca, listar_fincas, gestionar_finca, obtener_fincas_usuario, ver_finca, crear_potrero, editar_potrero, eliminar_potrero
+from controlador.controlador_finca import (
+    crear_finca, editar_finca, eliminar_finca, listar_fincas, gestionar_finca,
+    obtener_fincas_usuario, ver_finca, crear_potrero, editar_potrero,
+    eliminar_potrero, ver_potrero, agregar_animales_potrero,
+    listar_grupos_finca, gestionar_grupo, api_agregar_animal_a_grupo, api_quitar_animal_de_grupo
+)
+from controlador.controlador_finca import guardar_rotacion
+from controlador.controlador_finca import api_default_tipo_uso_potrero
 
 # Importar controlador de compras
 from controlador.controlador_compra import *
@@ -191,6 +204,21 @@ def eliminar_mi_cuenta():
 def gestion_animales():
     return listar_animales()
 
+@app.route('/finca/<int:finca_id>/animales')
+@login_required
+def ver_animales_finca_route(finca_id):
+    return ver_animales_finca(finca_id)
+
+@app.route('/finca/<int:finca_id>/animales-fuera')
+@login_required
+def ver_animales_fuera_route(finca_id):
+    return ver_animales_fuera(finca_id)
+
+@app.route('/animales-fuera', endpoint='ver_animales_fuera_global_route')
+@login_required
+def ver_animales_fuera_global_route():
+    return ver_animales_fuera_global()
+
 @app.route('/animal/crear', methods=['GET', 'POST'])
 @login_required
 def crear_animal_route():
@@ -211,6 +239,57 @@ def eliminar_animal_route(animal_id):
 def ver_animal_route(animal_id):
     return ver_animal(animal_id)
 
+# Procedimientos del animal (salud y sexuales)
+@app.route('/animal/<int:animal_id>/procedimientos', endpoint='procedimientos_animal_route')
+@login_required
+def procedimientos_animal_route(animal_id):
+    return procedimientos_animal(animal_id)
+
+# Documentos genéticos
+@app.route('/animal/<int:animal_id>/documentos_geneticos', endpoint='documentos_geneticos_route')
+@login_required
+def documentos_geneticos_route(animal_id):
+    return documentos_geneticos(animal_id)
+
+@app.route('/animal/<int:animal_id>/documentos_geneticos/agregar', methods=['GET', 'POST'], endpoint='agregar_documento_genetico_route')
+@login_required
+def agregar_documento_genetico_route(animal_id):
+    return agregar_documento_genetico(animal_id)
+
+@app.route('/documento_genetico/<int:documento_id>', endpoint='ver_documento_genetico_route')
+@login_required
+def ver_documento_genetico_route(documento_id):
+    return ver_documento_genetico(documento_id)
+
+# Descargar documento genético
+@app.route('/documento_genetico/<int:documento_id>/descargar', endpoint='descargar_documento_genetico_route')
+@login_required
+def descargar_documento_genetico_route(documento_id):
+    return descargar_documento_genetico(documento_id)
+
+# Eliminar documento genético
+@app.route('/documento_genetico/<int:documento_id>/eliminar', methods=['POST'], endpoint='eliminar_documento_genetico_route')
+@login_required
+def eliminar_documento_genetico_route(documento_id):
+    return eliminar_documento_genetico(documento_id)
+
+# Eliminar procedimientos
+@app.route('/animal/<int:animal_id>/servicio_salud/<int:servicio_id>/eliminar', methods=['POST'], endpoint='eliminar_servicio_salud_route')
+@login_required
+def eliminar_servicio_salud_route(animal_id, servicio_id):
+    return eliminar_servicio_salud(animal_id, servicio_id)
+
+@app.route('/animal/<int:animal_id>/servicio_sexual/<int:servicio_id>/eliminar', methods=['POST'], endpoint='eliminar_servicio_sexual_route')
+@login_required
+def eliminar_servicio_sexual_route(animal_id, servicio_id):
+    return eliminar_servicio_sexual(animal_id, servicio_id)
+
+# Ruta para servir la foto del animal desde BD
+@app.route('/animal/<int:animal_id>/foto')
+@login_required
+def ver_foto_animal_route(animal_id):
+    return ver_foto_animal(animal_id)
+
 # API endpoints para animales
 @app.route('/api/animales/finca/<int:finca_id>')
 @login_required
@@ -226,6 +305,45 @@ def api_animales_por_sexo(sexo):
 @login_required
 def api_potreros_por_finca():
     return get_potreros_por_finca()
+
+@app.route('/api/potrero/default-tipo-uso')
+@login_required
+def api_default_tipo_uso_potrero_route():
+    return api_default_tipo_uso_potrero()
+
+# API para grupos activos por potrero
+@app.route('/api/grupos-activos-por-potrero')
+@login_required
+def api_grupos_activos_por_potrero_route():
+    return api_grupos_activos_por_potrero()
+
+# API para grupos por finca (fallback)
+@app.route('/api/grupos-por-finca')
+@login_required
+def api_grupos_por_finca_route():
+    return api_grupos_por_finca()
+
+# API para madurez sexual por raza
+@app.route('/api/raza/<int:raza_id>/madurez-sexual')
+@login_required
+def api_madurez_sexual_por_raza_route(raza_id):
+    return api_madurez_sexual_por_raza(raza_id)
+
+# Endpoints adicionales para gestión de animales en potreros
+@app.route('/api/animales-disponibles')
+@login_required
+def api_animales_disponibles():
+    return get_animales_disponibles()
+
+@app.route('/api/animales-potrero')
+@login_required
+def api_animales_potrero():
+    return get_animales_potrero()
+
+@app.route('/api/asignar-animales-potrero', methods=['POST'])
+@login_required
+def api_asignar_animales_potrero():
+    return asignar_animales_potrero()
 
 # Aplicar decoradores de rol a las rutas de gestión de usuarios
 admin_usuarios = requiere_rol(3)(admin_usuarios)
@@ -313,14 +431,77 @@ def editar_potrero_route(potrero_id):
 def eliminar_potrero_route(potrero_id):
     return eliminar_potrero(potrero_id)
 
+# Nuevas páginas de potrero
+@app.route('/potrero/<int:potrero_id>/ver')
+@login_required
+def ver_potrero_route(potrero_id):
+    return ver_potrero(potrero_id)
+
+@app.route('/potrero/<int:potrero_id>/agregar-animales')
+@login_required
+def agregar_animales_potrero_route(potrero_id):
+    return agregar_animales_potrero(potrero_id)
+
+# Endpoint para guardar rotación desde el modal
+@app.route('/guardar-rotacion', methods=['POST'])
+@login_required
+def guardar_rotacion_route():
+    return guardar_rotacion()
+
+# Gestión de grupos de animales
+@app.route('/finca/<int:finca_id>/grupos', methods=['GET', 'POST'])
+@login_required
+def listar_grupos_finca_route(finca_id):
+    return listar_grupos_finca(finca_id)
+
+@app.route('/grupo/<int:grupo_id>/gestionar')
+@login_required
+def gestionar_grupo_route(grupo_id):
+    return gestionar_grupo(grupo_id)
+
+@app.route('/api/grupo/<int:grupo_id>/agregar-animal', methods=['POST'])
+@login_required
+def api_agregar_animal_a_grupo_route(grupo_id):
+    return api_agregar_animal_a_grupo(grupo_id)
+
+@app.route('/api/grupo/<int:grupo_id>/quitar-animal', methods=['POST'])
+@login_required
+def api_quitar_animal_de_grupo_route(grupo_id):
+    return api_quitar_animal_de_grupo(grupo_id)
+
 # Aplicar decoradores de rol a las rutas de gestión de animales
 gestion_animales = requiere_rol(2)(gestion_animales)
 crear_animal_route = requiere_rol(2)(crear_animal_route)
 editar_animal_route = requiere_rol(2)(editar_animal_route)
 eliminar_animal_route = requiere_rol(2)(eliminar_animal_route)
 ver_animal_route = requiere_rol(2)(ver_animal_route)
+procedimientos_animal_route = requiere_rol(2)(procedimientos_animal_route)
+ver_foto_animal_route = requiere_rol(2)(ver_foto_animal_route)
+documentos_geneticos_route = requiere_rol(2)(documentos_geneticos_route)
+agregar_documento_genetico_route = requiere_rol(2)(agregar_documento_genetico_route)
+ver_documento_genetico_route = requiere_rol(2)(ver_documento_genetico_route)
+descargar_documento_genetico_route = requiere_rol(2)(descargar_documento_genetico_route)
+eliminar_documento_genetico_route = requiere_rol(2)(eliminar_documento_genetico_route)
+eliminar_servicio_salud_route = requiere_rol(2)(eliminar_servicio_salud_route)
+eliminar_servicio_sexual_route = requiere_rol(2)(eliminar_servicio_sexual_route)
+
+# Editar documento genético
+@app.route('/documento_genetico/<int:documento_id>/editar', methods=['GET', 'POST'], endpoint='editar_documento_genetico_route')
+@login_required
+def editar_documento_genetico_route(documento_id):
+    return editar_documento_genetico(documento_id)
+
+editar_documento_genetico_route = requiere_rol(2)(editar_documento_genetico_route)
+ver_animales_finca_route = requiere_rol(2)(ver_animales_finca_route)
+ver_animales_fuera_route = requiere_rol(2)(ver_animales_fuera_route)
+ver_animales_fuera_global_route = requiere_rol(2)(ver_animales_fuera_global_route)
 api_animales_por_finca = requiere_rol(2)(api_animales_por_finca)
 api_animales_por_sexo = requiere_rol(2)(api_animales_por_sexo)
+api_animales_disponibles = requiere_rol(2)(api_animales_disponibles)
+api_animales_potrero = requiere_rol(2)(api_animales_potrero)
+api_asignar_animales_potrero = requiere_rol(2)(api_asignar_animales_potrero)
+api_default_tipo_uso_potrero_route = requiere_rol(2)(api_default_tipo_uso_potrero_route)
+api_madurez_sexual_por_raza_route = requiere_rol(2)(api_madurez_sexual_por_raza_route)
 
 # Aplicar decoradores de rol a las rutas de gestión de fincas
 crear_finca_route = requiere_rol(2)(crear_finca_route)
@@ -335,6 +516,15 @@ ver_finca_route = requiere_rol(2)(ver_finca_route)
 crear_potrero_route = requiere_rol(2)(crear_potrero_route)
 editar_potrero_route = requiere_rol(2)(editar_potrero_route)
 eliminar_potrero_route = requiere_rol(2)(eliminar_potrero_route)
+ver_potrero_route = requiere_rol(2)(ver_potrero_route)
+agregar_animales_potrero_route = requiere_rol(2)(agregar_animales_potrero_route)
+guardar_rotacion_route = requiere_rol(2)(guardar_rotacion_route)
+listar_grupos_finca_route = requiere_rol(2)(listar_grupos_finca_route)
+gestionar_grupo_route = requiere_rol(2)(gestionar_grupo_route)
+api_agregar_animal_a_grupo_route = requiere_rol(2)(api_agregar_animal_a_grupo_route)
+api_quitar_animal_de_grupo_route = requiere_rol(2)(api_quitar_animal_de_grupo_route)
+api_grupos_activos_por_potrero_route = requiere_rol(2)(api_grupos_activos_por_potrero_route)
+api_grupos_por_finca_route = requiere_rol(2)(api_grupos_por_finca_route)
 
 # Eliminada: Ruta /guardar-potrero que procesaba el formulario modal mediante AJAX
 if __name__ == '__main__':

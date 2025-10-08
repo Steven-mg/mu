@@ -79,6 +79,8 @@ class Animal(db.Model):
     ubicacion_animal = db.Column(db.Enum('en finca', 'fuera de la finca', 'desconocido'), nullable=False)
     origen = db.Column(db.Enum('nacido_en_finca', 'comprado', 'otro'), nullable=True, default='otro')
     id_estado_reprod = db.Column(db.SmallInteger, db.ForeignKey('estado_reproductivo.id_estado_reprod'), nullable=True)
+    # Ajuste para coincidir con la BD: almacenar bytes en columna existente `foto_animal`
+    foto_animal = db.Column(db.LargeBinary, nullable=True)
 
     padre = db.relationship('Animal', foreign_keys=[id_padre], remote_side=[id_animal], backref='crias_padre')
     madre = db.relationship('Animal', foreign_keys=[id_madre], remote_side=[id_animal], backref='crias_madre')
@@ -87,6 +89,31 @@ class Animal(db.Model):
     registros_peso = db.relationship('RegistroPeso', backref='animal')
     servicios_salud = db.relationship('ServiciosSalud', backref='animal')
     ciclos_reproductivos = db.relationship('CicloReproductivo', backref='animal')
+
+class DocumentoGenetico(db.Model):
+    __tablename__ = 'documentos_geneticos'
+    __table_args__ = {'extend_existing': True}
+
+    # PK del documento genético
+    id_documento = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    # FK al animal propietario del documento
+    id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal', ondelete='CASCADE'), nullable=False)
+
+    # Metadatos opcionales del documento (ajustables según la BD real)
+    nombre_documento = db.Column(db.String(100), nullable=False)
+    # Alinear con BD: ENUM('pedigri','prueba_adn','certificado_raza') y NOT NULL
+    tipo_documento = db.Column(db.Enum('pedigri', 'prueba_adn', 'certificado_raza'), nullable=False)
+    descripcion = db.Column(db.Text, nullable=True)
+    # Campos adicionales presentes en la BD
+    fecha_emision = db.Column(db.Date, nullable=True)
+    entidad_emisora = db.Column(db.String(100), nullable=True)
+    fecha_registro = db.Column(db.DateTime, nullable=True, default=datetime.utcnow)
+
+    # Contenido binario del documento (e.g., PDF, imagen de análisis ADN, etc.)
+    archivo = db.Column(db.LargeBinary, nullable=False)
+
+    # Relación con Animal
+    animal = db.relationship('Animal', backref='documentos_geneticos')
 
 class Productos(db.Model):
     __tablename__ = 'productos'

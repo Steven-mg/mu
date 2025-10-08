@@ -8,6 +8,15 @@
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
+            {% if 'usuario_id' in session and session['tipo_usuario'] == 2 %}
+            <!-- Navbar mínimo para dueño logueado: solo nombre y Cerrar Sesión -->
+            <div class="d-flex align-items-center ms-auto">
+                <span class="me-3" style="color: white; font-weight: 500;">{{ session['nik_name'] }}</span>
+                <a class="btn btn-light btn-sm rounded-pill fw-semibold" href="{{ url_for('logout') }}" style="color: #28a745; border: 2px solid white; padding: 6px 16px;">
+                    Cerrar Sesión
+                </a>
+            </div>
+            {% else %}
             <ul class="navbar-nav">
                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'pagina_inicio' %}active fw-bold{% endif %}" href="{{ url_for('pagina_inicio') }}" style="color: rgba(255,255,255,0.9); font-weight: 500; transition: all 0.3s ease;" onmouseover="this.style.color='white'; this.style.transform='translateY(-2px)'" onmouseout="this.style.color='rgba(255,255,255,0.9)'; this.style.transform='translateY(0)'">Inicio</a>
@@ -29,6 +38,7 @@
                     <a class="btn rounded-pill px-4 fw-bold" href="{{ url_for('login') }}" style="background-color: white; color: #28a745; border: 2px solid white; border-radius: 25px; padding: 8px 20px; font-weight: 600; transition: all 0.3s ease;" onmouseover="this.style.backgroundColor='#f8f9fa'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'" onmouseout="this.style.backgroundColor='white'; this.style.transform='translateY(0)'; this.style.boxShadow='none'">Iniciar Sesión</a>
                 </li>
             </ul>
+            {% endif %}
         </div>
     </div>
 </nav>

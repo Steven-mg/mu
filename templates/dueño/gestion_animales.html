@@ -73,33 +73,30 @@
         background-color: #e83e8c;
         color: white;
     }
-    
+    /* Color de fondo para la tarjeta de Hembras */
+    .bg-pink {
+        background-color: #e83e8c !important;
+    }
+    /* Estilos mínimos para tarjetas de fincas (reutiliza naming de mis_fincas) */
+    .finca-card {
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        transition: all 0.2s ease;
+        margin-bottom: 20px;
+        border: 1px solid #e9ecef;
+        background: #ffffff;
+    }
+    .finca-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); transform: translateY(-2px); }
+    .finca-header { background: #28a745; color: white; padding: 12px 16px; font-weight: 600; }
+    .finca-body { padding: 16px; }
+    .finca-footer { padding: 12px 16px; background-color: #f8f9fa; border-top: 1px solid #e9ecef; }
+    .finca-action-btn { border-radius: 6px; font-weight: 500; }
+
 </style>
 {% endblock %}
 
-{% block navbar %}
-<nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #28a745, #20c997); box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-    <div class="container">
-        <a class="navbar-brand d-flex align-items-center" href="#" style="color: white; text-decoration: none;">
-            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="40" class="me-2 navbar-logo" style="filter: brightness(1.2);">
-            <span class="brand-text" style="font-weight: 600; font-size: 1.3rem;">GanaControl - Dueño</span>
-        </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto">
-                <li class="nav-item">
-                    <span class="nav-link" style="color: white;">Bienvenido, {{ session['nik_name'] }}</span>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('logout') }}" style="color: rgba(255,255,255,0.9); transition: all 0.3s ease;" onmouseover="this.style.color='white';" onmouseout="this.style.color='rgba(255,255,255,0.9)';">Cerrar Sesión</a>
-                </li>
-            </ul>
-        </div>
-    </div>
-</nav>
-{% endblock %}
+{% block navbar %}{% include 'components/navbar.html' %}{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
@@ -113,106 +110,50 @@
                        <p class="mb-0">Administra todos los animales de tus fincas</p>
                    </div>
 
-                <!-- Add Animal Button -->
-                <div class="d-flex justify-content-between align-items-center mb-4">
-                    <h4>Mis Animales</h4>
-                    <div>
-                        <a href="{{ url_for('listar_animales_comprados') }}" class="btn btn-primary add-animal-btn me-2" style="background-color: #0d6efd; border-color: #0d6efd;">
-                            <i class="fas fa-shopping-cart me-2"></i>Animales Comprados
-                        </a>
-                        <a href="{{ url_for('crear_animal_route') }}" class="btn btn-success add-animal-btn" style="background-color: #28a745; border-color: #28a745;">
-                            <i class="fas fa-plus me-2"></i>Registrar Nuevo Animal
-                        </a>
+                <!-- Fincas del Usuario: tarjetas con botón Ver Animales -->
+                <div class="mb-4">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h4>Mis Fincas</h4>
+                        <div class="d-flex align-items-center gap-2">
+                            <a href="{{ url_for('ver_animales_fuera_global_route') }}" class="btn btn-outline-danger btn-sm">
+                                <i class="fas fa-truck me-1"></i> Animales fuera
+                            </a>
+                            <a href="{{ url_for('crear_animal_route') }}" class="btn btn-success btn-sm">
+                                <i class="fas fa-plus me-1"></i> Registrar animal
+                            </a>
+                        </div>
                     </div>
-                </div>
-
-                <!-- Animals Grid -->
-                {% if animales %}
                     <div class="row">
-                        {% for animal in animales %}
-                        <div class="col-md-6 col-lg-4">
-                            <div class="card animal-card">
-                                <div class="animal-header">
-                                    <h5 class="mb-1">{{ animal.nombre_animal }}</h5>
-                                    <small>
-                                        <span class="sexo-badge {% if animal.sexo == 'Macho' %}sexo-macho{% else %}sexo-hembra{% endif %}">
-                                            {{ animal.sexo }}
-                                        </span>
-                                    </small>
-                                </div>
-                                <div class="animal-body">
-                                    <p class="mb-2"><strong>Finca:</strong> {{ animal.finca.nombre_finca if animal.finca else 'No asignada' }}</p>
-                                    <p class="mb-2"><strong>Potrero:</strong> {{ animal.potrero.nombre_potrero if animal.potrero else 'No asignado' }}</p>
-                                    <p class="mb-2"><strong>Raza:</strong> {{ animal.raza.nombre_raza if animal.raza else 'No especificada' }}</p>
-                                    <p class="mb-2"><strong>Fecha de Nacimiento:</strong> {{ animal.fecha_nacimiento.strftime('%d/%m/%Y') if animal.fecha_nacimiento else 'No especificada' }}</p>
-                                    <p class="mb-2"><strong>Ubicación:</strong> {{ animal.ubicacion_animal or 'No especificada' }}</p>
-                                    <p class="mb-0"><strong>Origen:</strong> {{ animal.origen or 'No especificado' }}</p>
-                                </div>
-                                <div class="animal-footer">
-                                    <a href="{{ url_for('ver_animal_route', animal_id=animal.id_animal) }}" class="btn btn-info btn-sm">
-                                        <i class="fas fa-eye me-1"></i>Ver
-                                    </a>
-                                    <a href="{{ url_for('editar_animal_route', animal_id=animal.id_animal) }}" class="btn btn-warning btn-sm">
-                                        <i class="fas fa-edit me-1"></i>Editar
-                                    </a>
-                                    <form method="POST" action="{{ url_for('eliminar_animal_route', animal_id=animal.id_animal) }}" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este animal?');">
-                                        <button type="submit" class="btn btn-danger btn-sm">
-                                            <i class="fas fa-trash me-1"></i>Eliminar
-                                        </button>
-                                    </form>
+                        {% if fincas %}
+                            {% for finca in fincas %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card finca-card">
+                                    <div class="finca-header">
+                                        <h5 class="mb-0">{{ finca.nombre_finca }}</h5>
+                                    </div>
+                                    <div class="finca-body">
+                                        <p><i class="fas fa-map-marker-alt me-2 text-success"></i> {{ finca.localizacion or 'No especificada' }}</p>
+                                        <p><i class="fas fa-user me-2 text-success"></i> {{ finca.nombreEncargado or 'No especificado' }}</p>
+                                        <p><i class="fas fa-phone me-2 text-success"></i> {{ finca.telefono or 'No especificado' }}</p>
+                                    </div>
+                                    <div class="finca-footer d-flex justify-content-start gap-2">
+                                        <a href="{{ url_for('ver_animales_finca_route', finca_id=finca.id_finca) }}" class="btn btn-outline-primary btn-sm finca-action-btn">
+                                            <i class="fas fa-cow me-1"></i> Ver Animales
+                                        </a>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                        {% endfor %}
-                    </div>
-                {% else %}
-                    <div class="text-center py-5">
-                        <img src="{{ url_for('static', filename='img/muuu-cow-icon.svg') }}" alt="No hay animales" width="80" height="80" class="mb-3">
-                        <h4 class="text-muted">No tienes animales registrados</h4>
-                        <p class="text-muted">Comienza registrando tu primer animal haciendo clic en el botón "Registrar Nuevo Animal"</p>
-                        <a href="{{ url_for('crear_animal_route') }}" class="btn btn-success add-animal-btn">
-                            <i class="fas fa-plus me-2"></i>Registrar Primer Animal
-                        </a>
-                    </div>
-                {% endif %}
-
-                <!-- Summary Cards -->
-                {% if animales %}
-                <div class="row mt-4">
-                    <div class="col-md-3">
-                        <div class="card bg-primary text-white">
-                            <div class="card-body text-center">
-                                <h3>{{ animales|length }}</h3>
-                                <p class="mb-0">Total Animales</p>
+                            {% endfor %}
+                        {% else %}
+                            <div class="col-12">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle me-2"></i> No tienes fincas registradas. ¡Agrega tu primera finca!
+                                </div>
                             </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-info text-white">
-                            <div class="card-body text-center">
-                                <h3>{{ animales|selectattr('sexo', 'equalto', 'Macho')|list|length }}</h3>
-                                <p class="mb-0">Machos</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-pink text-white">
-                            <div class="card-body text-center">
-                                <h3>{{ animales|selectattr('sexo', 'equalto', 'Hembra')|list|length }}</h3>
-                                <p class="mb-0">Hembras</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-3">
-                        <div class="card bg-success text-white">
-                            <div class="card-body text-center">
-                                <h3>{{ fincas|length }}</h3>
-                                <p class="mb-0">Fincas</p>
-                            </div>
-                        </div>
+                        {% endif %}
                     </div>
                 </div>
-                {% endif %}
+
             </div>
         </div>
     </div>

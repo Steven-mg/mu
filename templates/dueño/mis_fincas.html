@@ -97,20 +97,20 @@
     .finca-footer .btn {
         margin: 0;
         flex: 1;
-        max-width: 85px;
+        max-width: 120px; /* ampliar para que el texto quepa */
     }
     
     .finca-footer form {
         margin: 0;
         flex: 1;
-        max-width: 85px;
+        max-width: 120px; /* ampliar para que el texto quepa */
     }
     
     .finca-action-btn {
         border-radius: 4px !important;
-        padding: 6px 10px !important;
+        padding: 8px 12px !important; /* más padding para icono + texto */
         font-weight: 500 !important;
-        font-size: 0.75rem !important;
+        font-size: 0.8rem !important; /* ligeramente mayor para legibilidad */
         transition: all 0.2s ease !important;
         border-width: 1px !important;
         width: 100%;
@@ -192,9 +192,13 @@
             gap: 6px;
         }
         
+        .finca-footer .btn,
+        .finca-footer form {
+            max-width: 130px; /* móvil: un poco más para evitar cortes */
+        }
         .finca-action-btn {
-            font-size: 0.7rem !important;
-            padding: 5px 8px !important;
+            font-size: 0.75rem !important;
+            padding: 6px 10px !important;
         }
     }
     
@@ -227,9 +231,13 @@
             gap: 4px;
         }
         
+        .finca-footer .btn,
+        .finca-footer form {
+            max-width: 130px; /* muy pequeño: mantener ancho suficiente */
+        }
         .finca-action-btn {
-            font-size: 0.65rem !important;
-            padding: 4px 6px !important;
+            font-size: 0.7rem !important;
+            padding: 5px 8px !important;
         }
     }
      
@@ -286,22 +294,7 @@
 </style>
 {% endblock %}
 
-{% block navbar %}
-<nav class="navbar navbar-expand-lg navbar-dark" style="background: #28a745; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-    <div class="container">
-        <a class="navbar-brand d-flex align-items-center" href="#" style="color: white; text-decoration: none;">
-            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="35" class="me-2">
-            <span style="font-weight: 500; font-size: 1.2rem;">GanaControl</span>
-        </a>
-        <div class="d-flex align-items-center">
-            <span class="me-3" style="color: white; font-size: 0.9rem;">{{ session['nik_name'] }}</span>
-            <a class="btn btn-outline-light btn-sm" href="{{ url_for('logout') }}" style="border-radius: 4px; padding: 6px 12px;">
-                Cerrar Sesión
-            </a>
-        </div>
-    </div>
-</nav>
-{% endblock %}
+{% block navbar %}{% include 'components/navbar.html' %}{% endblock %}
 
 {% block content %}
 <div class="container-fluid">

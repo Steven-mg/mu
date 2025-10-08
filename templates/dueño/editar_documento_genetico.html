@@ -1,0 +1,60 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar Documento Genético{% endblock %}
+
+{% block sidebar %}
+{% include 'components/sidebar_dueno.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h3>Editar documento genético de {{ animal.nombre_animal }}</h3>
+        <a href="{{ url_for('documentos_geneticos_route', animal_id=animal.id_animal) }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Volver
+        </a>
+    </div>
+
+    <div class="card">
+        <div class="card-header">Datos del documento</div>
+        <div class="card-body">
+            <form method="POST" enctype="multipart/form-data" action="{{ url_for('editar_documento_genetico_route', documento_id=documento.id_documento) }}">
+                {{ form.hidden_tag() }}
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        {{ form.nombre_documento.label(class='form-label') }}
+                        {{ form.nombre_documento(class='form-control') }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.tipo_documento.label(class='form-label') }}
+                        {{ form.tipo_documento(class='form-select') }}
+                    </div>
+                    <div class="col-md-4">
+                        {{ form.fecha_emision.label(class='form-label') }}
+                        {{ form.fecha_emision(class='form-control') }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.entidad_emisora.label(class='form-label') }}
+                        {{ form.entidad_emisora(class='form-control') }}
+                    </div>
+                    <div class="col-md-6">
+                        {{ form.archivo.label(class='form-label') }}
+                        {{ form.archivo(class='form-control') }}
+                        <div class="form-text">Dejar vacío para mantener el archivo actual.</div>
+                    </div>
+                    <div class="col-12">
+                        {{ form.descripcion.label(class='form-label') }}
+                        {{ form.descripcion(class='form-control', rows=3) }}
+                    </div>
+                </div>
+
+                <div class="mt-3 d-flex justify-content-end">
+                    <button class="btn btn-primary" type="submit">
+                        <i class="fas fa-save me-1"></i>Guardar cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -113,3 +113,8 @@
 /* .add-finca-btn {
     display: none !important;
 } */
+
+/* Utilidad global: fondo rosa para tarjetas/resaltados de hembras */
+.bg-pink {
+    background-color: #e83e8c !important;
+}

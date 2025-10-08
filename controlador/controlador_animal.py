@@ -1,25 +1,198 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-from modelo.models import db, Animal, Raza, Finca, EstadoReproductivo, UsuarioFinca, CompraAnimales, Potrero
+from modelo.models import db, Animal, Raza, Finca, EstadoReproductivo, UsuarioFinca, CompraAnimales, Potrero, AnimalGrupo, GrupoAnimal, DocumentoGenetico, ServiciosSalud, TipoServicioSalud, Veterinario, ServiciosSexuales, TipoServicioSexual
 from sqlalchemy.orm import joinedload
 from forms.animal_form import AnimalForm, FiltroAnimalForm
-from config import registrar_actividad
+from controlador.controlador_actividad import registrar_actividad
+from config import app, allowed_image, allowed_document
+from io import BytesIO
+from io import BytesIO
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
+from werkzeug.utils import secure_filename
+import os
 from datetime import datetime
 
 @login_required
 def listar_animales():
-    """Listar todos los animales de las fincas del usuario"""
-    # Obtener las fincas del usuario actual
+    """Listar animales, con opción de filtrar por `finca_id` del usuario"""
+    # Fincas del usuario
     fincas_usuario = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()
     finca_ids = [f.id_finca for f in fincas_usuario]
-    
-    # Obtener animales de las fincas del usuario
-    if finca_ids:
-        animales = Animal.query.filter(Animal.id_finca.in_(finca_ids)).all()
-    else:
+
+    # Filtro opcional por finca específica
+    finca_id = request.args.get('finca_id', type=int)
+
+    if not finca_ids:
         animales = []
-    
-    return render_template('dueño/gestion_animales.html', animales=animales, fincas=fincas_usuario)
+    else:
+        query = Animal.query.filter(Animal.id_finca.in_(finca_ids))
+        if finca_id and finca_id in finca_ids:
+            query = query.filter(Animal.id_finca == finca_id)
+        animales = query.all()
+
+    return render_template('dueño/gestion_animales.html', animales=animales, fincas=fincas_usuario, finca_id_seleccionada=finca_id)
+
+@login_required
+def ver_animales_finca(finca_id):
+    """Mostrar información de una finca y los animales presentes solo en esa finca"""
+    # Verificar acceso del usuario a la finca
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=finca_id).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para ver esta finca', 'danger')
+        return redirect(url_for('mis_fincas'))
+
+    # Obtener finca y animales asociados
+    finca = Finca.query.get_or_404(finca_id)
+    animales = (Animal.query
+                .filter(
+                    Animal.id_finca == finca_id,
+                    Animal.ubicacion_animal.in_(['en finca', 'en_finca'])
+                )
+                .all())
+
+    return render_template('dueño/ver_animales_finca.html', finca=finca, animales=animales)
+
+@login_required
+def ver_animales_fuera(finca_id):
+    """Mostrar información de una finca y los animales registrados como fuera de la finca"""
+    # Verificar acceso del usuario a la finca
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=finca_id).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para ver esta finca', 'danger')
+        return redirect(url_for('mis_fincas'))
+
+    # Obtener finca y animales fuera de la finca
+    finca = Finca.query.get_or_404(finca_id)
+    animales = (Animal.query
+                .filter(
+                    Animal.id_finca == finca_id,
+                    Animal.ubicacion_animal == 'fuera de la finca'
+                )
+                .all())
+
+    return render_template('dueño/ver_animales_fuera_finca.html', finca=finca, animales=animales)
+
+@login_required
+def ver_animales_fuera_global():
+    """Listar todos los animales registrados como fuera de la finca en las fincas del usuario"""
+    # Fincas del usuario
+    fincas_usuario = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()
+    finca_ids = [f.id_finca for f in fincas_usuario]
+
+    if not finca_ids:
+        animales = []
+    else:
+        animales = (Animal.query
+                    .filter(
+                        Animal.id_finca.in_(finca_ids),
+                        Animal.ubicacion_animal == 'fuera de la finca'
+                    )
+                    .all())
+
+    return render_template('dueño/ver_animales_fuera_global.html', animales=animales)
+
+@login_required
+def procedimientos_animal(animal_id):
+    """Gestionar procedimientos de salud y sexuales para un animal"""
+    animal = Animal.query.get_or_404(animal_id)
+
+    # Formularios
+    from forms.servicio_salud_form import ServicioSaludForm
+    from forms.servicio_sexual_form import ServicioSexualForm
+    form_salud = ServicioSaludForm()
+    form_sexual = ServicioSexualForm()
+
+    # Choices dinámicos (filtrados por sexo del animal cuando corresponde)
+    tipos_salud = TipoServicioSalud.query.all()
+    tipos_sexual = TipoServicioSexual.query.all()
+
+    # Palabras clave que indican servicios de hembras (excluir si el animal es macho)
+    female_health_keywords = ['cesárea', 'cesarea', 'preñez', 'preñez', 'mastitis']
+    female_sexual_keywords = ['inseminación', 'inseminacion', 'transferencia', 'sincronización', 'sincronizacion', 'preñez', 'parto', 'postparto', 'iatf']
+
+    if (animal.sexo or '').lower() == 'macho':
+        tipos_salud = [t for t in tipos_salud if not any(k in (t.nombre_servicio or '').lower() for k in female_health_keywords)]
+        tipos_sexual = [t for t in tipos_sexual if not any(k in (t.nombre_servicio or '').lower() for k in female_sexual_keywords)]
+
+    form_salud.id_tipo_salud.choices = [(t.id_tipo_salud, t.nombre_servicio) for t in tipos_salud]
+    form_salud.id_veterinario.choices = [(v.id_veterinario, v.nombre_veterinario) for v in Veterinario.query.all()]
+    form_sexual.id_servicioanimal.choices = [(t.id_servicio, t.nombre_servicio) for t in tipos_sexual]
+    form_sexual.id_veterinario.choices = [(v.id_veterinario, v.nombre_veterinario) for v in Veterinario.query.all()]
+
+    # Procesamiento de altas
+    if form_salud.submit.data and form_salud.validate_on_submit():
+        # Validación adicional: evitar servicios de hembras para machos
+        tipo_salud_sel = TipoServicioSalud.query.get(form_salud.id_tipo_salud.data)
+        if (animal.sexo or '').lower() == 'macho' and tipo_salud_sel and any(
+            k in (tipo_salud_sel.nombre_servicio or '').lower() for k in female_health_keywords
+        ):
+            flash('Este servicio de salud aplica solo a hembras.', 'warning')
+            return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+        nuevo = ServiciosSalud(
+            id_animal=animal_id,
+            id_tipo_salud=form_salud.id_tipo_salud.data,
+            id_veterinario=form_salud.id_veterinario.data,
+            fecha_servicio=form_salud.fecha_servicio.data,
+            fecha_proximo=form_salud.fecha_proximo.data,
+            dosis=form_salud.dosis.data,
+            observaciones=form_salud.observaciones.data,
+            costo=form_salud.costo.data,
+        )
+        db.session.add(nuevo)
+        db.session.commit()
+        flash('Servicio de salud registrado', 'success')
+        return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+
+    if form_sexual.submit.data and form_sexual.validate_on_submit():
+        # Validación adicional: evitar servicios sexuales de hembras para machos
+        tipo_sexual_sel = TipoServicioSexual.query.get(form_sexual.id_servicioanimal.data)
+        if (animal.sexo or '').lower() == 'macho' and tipo_sexual_sel and any(
+            k in (tipo_sexual_sel.nombre_servicio or '').lower() for k in female_sexual_keywords
+        ):
+            flash('Este servicio sexual aplica solo a hembras.', 'warning')
+            return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+        nuevo = ServiciosSexuales(
+            id_servicioanimal=form_sexual.id_servicioanimal.data,
+            id_animal=animal_id,
+            id_veterinario=form_sexual.id_veterinario.data,
+            fecha_servicio=form_sexual.fecha_servicio.data,
+            notas_servicio=form_sexual.notas_servicio.data,
+            costo_total=form_sexual.costo_total.data,
+        )
+        db.session.add(nuevo)
+        db.session.commit()
+        flash('Servicio sexual registrado', 'success')
+        return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+
+    servicios_salud = ServiciosSalud.query.filter_by(id_animal=animal_id).order_by(ServiciosSalud.fecha_servicio.desc()).all()
+    servicios_sexuales = ServiciosSexuales.query.filter_by(id_animal=animal_id).order_by(ServiciosSexuales.fecha_servicio.desc()).all()
+
+    return render_template('dueño/procedimientos_animal.html', animal=animal, form_salud=form_salud, form_sexual=form_sexual, servicios_salud=servicios_salud, servicios_sexuales=servicios_sexuales)
+
+@login_required
+def eliminar_servicio_salud(animal_id, servicio_id):
+    servicio = ServiciosSalud.query.get_or_404(servicio_id)
+    if servicio.id_animal != animal_id:
+        flash('El servicio no pertenece al animal indicado.', 'danger')
+        return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+    db.session.delete(servicio)
+    db.session.commit()
+    flash('Servicio de salud eliminado', 'success')
+    return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+
+@login_required
+def eliminar_servicio_sexual(animal_id, servicio_id):
+    servicio = ServiciosSexuales.query.get_or_404(servicio_id)
+    if servicio.id_animal != animal_id:
+        flash('El servicio no pertenece al animal indicado.', 'danger')
+        return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+    db.session.delete(servicio)
+    db.session.commit()
+    flash('Servicio sexual eliminado', 'success')
+    return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
 
 @login_required
 def crear_animal():
@@ -29,6 +202,19 @@ def crear_animal():
     # Filtrar fincas del usuario actual
     fincas_usuario = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()
     form.id_finca.choices = [(0, 'Seleccione una finca')] + [(f.id_finca, f.nombre_finca) for f in fincas_usuario]
+
+    # Poblar opciones de potrero según finca seleccionada en POST para evitar "Not a valid choice"
+    try:
+        if request.method == 'POST':
+            finca_sel = request.form.get('id_finca', type=int)
+            if finca_sel and finca_sel != 0:
+                potreros = Potrero.query.filter(Potrero.id_finca == finca_sel, Potrero.estado != 'descanso').all()
+                form.id_potrero.choices = [(0, 'Seleccione un potrero')] + [(p.id_potrero, p.nombre_potrero) for p in potreros]
+            else:
+                form.id_potrero.choices = [(0, 'Seleccione primero una finca')]
+    except Exception:
+        # En caso de error, mantener opción por defecto para no bloquear
+        form.id_potrero.choices = [(0, 'Seleccione un potrero')]
     
     # Verificar si el animal es inmaduro según su edad y la madurez sexual de su raza
     if request.method == 'POST' and form.id_raza.data and form.fecha_nacimiento.data and form.sexo.data:
@@ -55,6 +241,13 @@ def crear_animal():
                     form.id_estado_reprod.data = 15
     
     if form.validate_on_submit():
+        # Validar que el potrero seleccionado pertenezca a la finca y no esté en descanso
+        if form.id_potrero.data and form.id_potrero.data != 0:
+            potrero_sel = Potrero.query.get(form.id_potrero.data)
+            if not potrero_sel or potrero_sel.id_finca != form.id_finca.data or potrero_sel.estado == 'descanso':
+                flash('Seleccione un potrero válido de la finca y que esté activo.', 'danger')
+                return render_template('dueño/crear_animal.html', form=form)
+
         # Verificar si el animal es inmaduro según su edad y la madurez sexual de su raza
         estado_reprod = form.id_estado_reprod.data if form.id_estado_reprod.data != 0 else None
         
@@ -75,6 +268,33 @@ def crear_animal():
                     # ID 15 corresponde a "Inmaduro" en la tabla estado_reproductivo
                     estado_reprod = 15
         
+        # Manejar foto subida como blob
+        foto_bytes = None
+        if 'foto' in request.files:
+            file = request.files['foto']
+            if file and file.filename:
+                if allowed_image(file.filename):
+                    # Leer bytes directamente y almacenar en BD
+                    foto_bytes = file.read()
+                else:
+                    flash('Formato de imagen no permitido. Use jpg, jpeg, png o gif.', 'danger')
+                    return render_template('dueño/crear_animal.html', form=form)
+
+        # Validación: nombre único por dueño (en todas sus fincas)
+        try:
+            fincas_usuario_ids = [f.id_finca for f in Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()]
+        except Exception:
+            fincas_usuario_ids = []
+
+        if fincas_usuario_ids:
+            duplicado = Animal.query.filter(
+                Animal.nombre_animal == form.nombre_animal.data,
+                Animal.id_finca.in_(fincas_usuario_ids)
+            ).first()
+            if duplicado:
+                flash('Ya tienes un animal con este nombre en tus fincas.', 'danger')
+                return render_template('dueño/crear_animal.html', form=form)
+
         # Crear nuevo animal
         nuevo_animal = Animal(
             nombre_animal=form.nombre_animal.data,
@@ -87,12 +307,31 @@ def crear_animal():
             id_madre=form.id_madre.data if form.id_madre.data != 0 else None,
             ubicacion_animal=form.ubicacion_animal.data,
             origen=form.origen.data,
-            id_estado_reprod=estado_reprod
+            id_estado_reprod=estado_reprod,
+            foto_animal=foto_bytes
         )
         
         try:
             db.session.add(nuevo_animal)
             db.session.commit()
+
+            # Si se seleccionó un grupo, crear relación en AnimalGrupo
+            try:
+                grupo_id = form.id_grupo.data if hasattr(form, 'id_grupo') else 0
+                if grupo_id and grupo_id != 0:
+                    grupo = GrupoAnimal.query.get(grupo_id)
+                    # Validar que el grupo exista y pertenezca a la misma finca
+                    if grupo and grupo.id_finca == nuevo_animal.id_finca:
+                        existe_rel = AnimalGrupo.query.filter_by(id_animal=nuevo_animal.id_animal, id_grupo=grupo_id).first()
+                        if not existe_rel:
+                            relacion = AnimalGrupo(id_animal=nuevo_animal.id_animal,
+                                                   id_grupo=grupo_id,
+                                                   fecha_asignacion=datetime.now().date())
+                            db.session.add(relacion)
+                            db.session.commit()
+            except Exception:
+                # No bloquear creación del animal si falla la asignación al grupo
+                db.session.rollback()
             
             # Si el origen es "comprado", registrar la compra automáticamente
             if form.origen.data == 'comprado':
@@ -120,10 +359,14 @@ def crear_animal():
 @login_required
 def get_potreros_por_finca():
     finca_id = request.args.get('finca_id', 0, type=int)
+    exclude_descanso = request.args.get('exclude_descanso', 0, type=int)
     if finca_id == 0:
         return jsonify([])
     
-    potreros = Potrero.query.filter_by(id_finca=finca_id).all()
+    query = Potrero.query.filter_by(id_finca=finca_id)
+    if exclude_descanso:
+        query = query.filter(Potrero.estado != 'descanso')
+    potreros = query.all()
     return jsonify([(p.id_potrero, p.nombre_potrero) for p in potreros])
 
 @login_required
@@ -139,10 +382,19 @@ def get_animales_disponibles():
         return jsonify([])
     
     # Obtener animales sin potrero asignado (id_potrero es NULL) o con valor 0
-    animales = Animal.query.options(joinedload(Animal.raza)).filter(
-        Animal.id_finca == finca_id,
-        (Animal.id_potrero == None) | (Animal.id_potrero == 0)
-    ).all()
+    # y que estén físicamente en la finca
+    # Nota: En algunos datos existentes, "ubicacion_animal" puede estar almacenado como
+    # "en_finca" (con guion bajo). Para garantizar que se listen correctamente,
+    # aceptamos ambos formatos.
+    animales = (Animal.query
+                .options(joinedload(Animal.raza))
+                .filter(
+                    Animal.id_finca == finca_id,
+                    (Animal.id_potrero == None) | (Animal.id_potrero == 0),
+                    Animal.ubicacion_animal.in_(['en finca', 'en_finca'])
+                )
+                .order_by(Animal.nombre_animal.asc())
+                .all())
     
     # Convertir a formato JSON
     resultado = []
@@ -214,16 +466,27 @@ def asignar_animales_potrero():
     finca_usuario = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=potrero.id_finca).first()
     if not finca_usuario:
         return jsonify({'success': False, 'message': 'No tienes permiso para modificar este potrero'})
-    
+
     try:
+        # Validar capacidad del potrero si está definida
+        # Contar animales actualmente asignados
+        animales_actuales = Animal.query.filter(Animal.id_potrero == potrero_id).count()
+        capacidad = potrero.capacidad_animal or 0
+        # Convertir IDs a enteros por seguridad
+        ids_a_asignar = [int(a) for a in animales_ids]
+        cantidad_nueva = len(ids_a_asignar)
+        if capacidad and (animales_actuales + cantidad_nueva) > capacidad:
+            cupos = max(0, capacidad - animales_actuales)
+            return jsonify({'success': False, 'message': f'Capacidad insuficiente. Cupos disponibles: {cupos}'}), 400
+
         # Asignar los animales al potrero
-        for animal_id in animales_ids:
+        for animal_id in ids_a_asignar:
             animal = Animal.query.get(animal_id)
             if animal and animal.id_finca == potrero.id_finca:
                 animal.id_potrero = potrero_id
         
         db.session.commit()
-        registrar_actividad(f'Asignó {len(animales_ids)} animales al potrero {potrero.nombre_potrero}')
+        registrar_actividad(f'Asignó {cantidad_nueva} animales al potrero {potrero.nombre_potrero}')
         return jsonify({'success': True, 'message': 'Animales asignados correctamente'})
     except Exception as e:
         db.session.rollback()
@@ -267,6 +530,22 @@ def editar_animal(animal_id):
                     # ID 15 corresponde a "Inmaduro" en la tabla estado_reproductivo
                     estado_reprod = 15
         
+        # Validación: nombre único por dueño (en todas sus fincas) excluyendo el propio animal
+        try:
+            fincas_usuario_ids = [f.id_finca for f in Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()]
+        except Exception:
+            fincas_usuario_ids = []
+
+        if fincas_usuario_ids:
+            duplicado = Animal.query.filter(
+                Animal.nombre_animal == form.nombre_animal.data,
+                Animal.id_finca.in_(fincas_usuario_ids),
+                Animal.id_animal != animal.id_animal
+            ).first()
+            if duplicado:
+                flash('Ya tienes un animal con este nombre en tus fincas.', 'danger')
+                return render_template('dueño/editar_animal.html', form=form, animal=animal)
+
         # Actualizar datos del animal
         animal.nombre_animal = form.nombre_animal.data
         animal.id_raza = form.id_raza.data if form.id_raza.data != 0 else None
@@ -278,9 +557,35 @@ def editar_animal(animal_id):
         animal.ubicacion_animal = form.ubicacion_animal.data
         animal.origen = form.origen.data
         animal.id_estado_reprod = estado_reprod
+
+        # Manejar reemplazo de foto si se sube (blob)
+        if 'foto' in request.files:
+            file = request.files['foto']
+            if file and file.filename:
+                if allowed_image(file.filename):
+                    animal.foto_animal = file.read()
+                else:
+                    flash('Formato de imagen no permitido. Use jpg, jpeg, png o gif.', 'danger')
+                    return render_template('dueño/editar_animal.html', form=form, animal=animal)
         
         try:
             db.session.commit()
+
+            # Persistir selección de grupo si se proporcionó
+            try:
+                grupo_id = form.id_grupo.data if hasattr(form, 'id_grupo') else 0
+                if grupo_id and grupo_id != 0:
+                    grupo = GrupoAnimal.query.get(grupo_id)
+                    if grupo and grupo.id_finca == animal.id_finca:
+                        existe_rel = AnimalGrupo.query.filter_by(id_animal=animal.id_animal, id_grupo=grupo_id).first()
+                        if not existe_rel:
+                            relacion = AnimalGrupo(id_animal=animal.id_animal,
+                                                   id_grupo=grupo_id,
+                                                   fecha_asignacion=datetime.now().date())
+                            db.session.add(relacion)
+                            db.session.commit()
+            except Exception:
+                db.session.rollback()
             
             # Registrar actividad
             registrar_actividad("Editó", f"Animal: {animal.nombre_animal}")
@@ -292,6 +597,19 @@ def editar_animal(animal_id):
             flash(f'Error al actualizar el animal: {str(e)}', 'danger')
     
     return render_template('dueño/editar_animal.html', form=form, animal=animal)
+
+
+@login_required
+def api_madurez_sexual_por_raza(raza_id):
+    """Devuelve meses de madurez sexual por raza para machos y hembras"""
+    raza = Raza.query.get(raza_id)
+    if not raza:
+        return jsonify({'success': False, 'message': 'Raza no encontrada'}), 404
+    return jsonify({
+        'success': True,
+        'macho': raza.madurez_sexual_machos_meses,
+        'hembra': raza.madurez_sexual_hembras_meses
+    })
 
 @login_required
 def eliminar_animal(animal_id):
@@ -333,6 +651,227 @@ def ver_animal(animal_id):
     
     return render_template('dueño/ver_animal.html', animal=animal)
 
+
+# --- Documentos Genéticos ---
+@login_required
+def documentos_geneticos(animal_id):
+    animal = Animal.query.get_or_404(animal_id)
+    # Validar pertenencia del usuario a la finca del animal
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=animal.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para ver este animal', 'danger')
+        return redirect(url_for('gestion_animales'))
+
+    documentos = DocumentoGenetico.query.filter_by(id_animal=animal_id).order_by(DocumentoGenetico.id_documento.desc()).all()
+    from forms.documento_genetico_form import DocumentoGeneticoForm
+    form = DocumentoGeneticoForm()
+    tipo_labels = {
+        'prueba_adn': 'Análisis ADN',
+        'pedigri': 'Pedigrí / Registro genealógico',
+        'certificado_raza': 'Certificado de raza'
+    }
+    return render_template('dueño/documentos_geneticos.html', animal=animal, documentos=documentos, form=form, tipo_labels=tipo_labels)
+
+
+@login_required
+def agregar_documento_genetico(animal_id):
+    from forms.documento_genetico_form import DocumentoGeneticoForm
+    animal = Animal.query.get_or_404(animal_id)
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=animal.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para modificar este animal', 'danger')
+        return redirect(url_for('gestion_animales'))
+
+    form = DocumentoGeneticoForm()
+    if request.method == 'POST' and form.validate_on_submit():
+        file = request.files.get('archivo')
+        if not file or not file.filename:
+            flash('Debe seleccionar un archivo', 'danger')
+            return render_template('dueño/documentos_geneticos.html', animal=animal, documentos=animal.documentos_geneticos, form=form)
+
+        filename = secure_filename(file.filename)
+        if not allowed_document(filename):
+            flash('Tipo de archivo no permitido. Use pdf o imagen (png, jpg, jpeg, gif, webp).', 'danger')
+            return render_template('dueño/documentos_geneticos.html', animal=animal, documentos=animal.documentos_geneticos, form=form)
+
+        try:
+            nuevo = DocumentoGenetico(
+                id_animal=animal_id,
+                nombre_documento=form.nombre_documento.data or filename,
+                tipo_documento=form.tipo_documento.data,
+                descripcion=form.descripcion.data,
+                fecha_emision=form.fecha_emision.data,
+                entidad_emisora=form.entidad_emisora.data,
+                archivo=file.read()
+            )
+            db.session.add(nuevo)
+            db.session.commit()
+            flash('Documento genético agregado correctamente', 'success')
+            return redirect(url_for('documentos_geneticos_route', animal_id=animal_id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al guardar el documento: {str(e)}', 'danger')
+
+    documentos = DocumentoGenetico.query.filter_by(id_animal=animal_id).order_by(DocumentoGenetico.id_documento.desc()).all()
+    return render_template('dueño/documentos_geneticos.html', animal=animal, documentos=documentos, form=form)
+
+
+@login_required
+def ver_documento_genetico(documento_id):
+    doc = DocumentoGenetico.query.get_or_404(documento_id)
+    animal = Animal.query.get_or_404(doc.id_animal)
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=animal.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para ver este documento', 'danger')
+        return redirect(url_for('gestion_animales'))
+
+    # Calcular tipo MIME por nombre y detectar PDF por firma
+    mime = _guess_mime_type(doc.nombre_documento or 'archivo')
+    try:
+        if doc.archivo and doc.archivo[:4] == b'%PDF':
+            mime = 'application/pdf'
+    except Exception:
+        pass
+
+    # Servir inline para abrir en el navegador sin descargar
+    resp = app.response_class(doc.archivo, mimetype=mime or 'application/octet-stream')
+    resp.headers['Content-Disposition'] = f'inline; filename="{(doc.nombre_documento or 'documento').replace('"','')}"'
+    return resp
+
+
+@login_required
+def descargar_documento_genetico(documento_id):
+    """Descargar el archivo del documento genético como attachment"""
+    doc = DocumentoGenetico.query.get_or_404(documento_id)
+    animal = Animal.query.get_or_404(doc.id_animal)
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=animal.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para descargar este documento', 'danger')
+        return redirect(url_for('gestion_animales'))
+
+    mime = _guess_mime_type(doc.nombre_documento or 'archivo')
+    try:
+        if doc.archivo and doc.archivo[:4] == b'%PDF':
+            mime = 'application/pdf'
+    except Exception:
+        pass
+
+    resp = app.response_class(doc.archivo, mimetype=mime or 'application/octet-stream')
+    resp.headers['Content-Disposition'] = f'attachment; filename="{(doc.nombre_documento or 'documento').replace('"','')}"'
+    return resp
+
+
+@login_required
+def eliminar_documento_genetico(documento_id):
+    """Eliminar un documento genético"""
+    doc = DocumentoGenetico.query.get_or_404(documento_id)
+    animal = Animal.query.get_or_404(doc.id_animal)
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=animal.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para eliminar este documento', 'danger')
+        return redirect(url_for('gestion_animales'))
+
+    try:
+        db.session.delete(doc)
+        db.session.commit()
+        flash('Documento eliminado correctamente', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar el documento: {str(e)}', 'danger')
+
+    return redirect(url_for('documentos_geneticos_route', animal_id=animal.id_animal))
+
+
+@login_required
+def editar_documento_genetico(documento_id):
+    """Editar metadatos y, opcionalmente, reemplazar el archivo del documento genético."""
+    from forms.documento_genetico_form import EditarDocumentoGeneticoForm
+    doc = DocumentoGenetico.query.get_or_404(documento_id)
+    animal = Animal.query.get_or_404(doc.id_animal)
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=animal.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para editar este documento', 'danger')
+        return redirect(url_for('gestion_animales'))
+
+    form = EditarDocumentoGeneticoForm(obj=doc)
+
+    if request.method == 'POST' and form.validate_on_submit():
+        try:
+            doc.nombre_documento = form.nombre_documento.data or doc.nombre_documento
+            doc.tipo_documento = form.tipo_documento.data
+            doc.descripcion = form.descripcion.data
+            doc.fecha_emision = form.fecha_emision.data
+            doc.entidad_emisora = form.entidad_emisora.data
+
+            file = request.files.get('archivo')
+            if file and file.filename:
+                filename = secure_filename(file.filename)
+                if not allowed_document(filename):
+                    flash('Tipo de archivo no permitido. Use pdf o imagen (png, jpg, jpeg, gif, webp).', 'danger')
+                    return render_template('dueño/editar_documento_genetico.html', animal=animal, documento=doc, form=form)
+                doc.archivo = file.read()
+
+            db.session.commit()
+            flash('Documento actualizado correctamente', 'success')
+            return redirect(url_for('documentos_geneticos_route', animal_id=animal.id_animal))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error al actualizar el documento: {str(e)}', 'danger')
+
+    return render_template('dueño/editar_documento_genetico.html', animal=animal, documento=doc, form=form)
+
+
+def _guess_mime_type(filename):
+    ext = filename.rsplit('.', 1)[1].lower() if '.' in filename else ''
+    mapping = {
+        'png': 'image/png',
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'gif': 'image/gif',
+        'webp': 'image/webp',
+        'pdf': 'application/pdf'
+    }
+    return mapping.get(ext, 'application/octet-stream')
+
+
+def _stream_blob(blob_bytes, mime_type):
+    if not blob_bytes:
+        return jsonify({'error': 'Archivo no disponible'}), 404
+    try:
+        return app.response_class(blob_bytes, mimetype=mime_type or 'application/octet-stream')
+    except Exception:
+        return app.response_class(blob_bytes, mimetype='application/octet-stream')
+
+@login_required
+def ver_foto_animal(animal_id):
+    """Servir la foto del animal desde la BD"""
+    animal = Animal.query.get_or_404(animal_id)
+
+    # Verificar permisos: usuario debe tener acceso a la finca o ser root
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=animal.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        return jsonify({'error': 'No tienes permisos para ver esta imagen'}), 403
+
+    if not animal.foto_animal:
+        return jsonify({'error': 'Imagen no disponible'}), 404
+
+    # Detectar tipo de imagen para el mimetype
+    mime = 'image/jpeg'
+    if Image:
+        try:
+            img = Image.open(BytesIO(animal.foto_animal))
+            fmt = (img.format or '').upper()
+            if fmt == 'PNG':
+                mime = 'image/png'
+            elif fmt == 'GIF':
+                mime = 'image/gif'
+            elif fmt == 'WEBP':
+                mime = 'image/webp'
+        except Exception:
+            pass
+
+    return app.response_class(animal.foto_animal, mimetype=mime)
+
 @login_required
 def obtener_animales_por_finca(finca_id):
     """API endpoint para obtener animales de una finca específica"""
@@ -355,20 +894,58 @@ def obtener_animales_por_finca(finca_id):
 
 @login_required
 def obtener_animales_por_sexo(sexo):
-    """API endpoint para obtener animales por sexo (para padre/madre)"""
-    # Obtener las fincas del usuario actual
+    """Devuelve animales filtrados por sexo con filtros opcionales.
+    Filtros soportados vía query string:
+      - finca_id: limitar a una finca específica (verificando acceso del usuario)
+      - raza_id: limitar por raza
+      - fecha_nacimiento_max: incluir animales nacidos en o antes de esta fecha (YYYY-MM-DD)
+    """
+    # Fincas accesibles por el usuario
     fincas_usuario = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()
-    finca_ids = [f.id_finca for f in fincas_usuario]
-    
-    if finca_ids:
-        animales = Animal.query.filter(Animal.id_finca.in_(finca_ids), Animal.sexo == sexo).all()
+    finca_ids_usuario = [f.id_finca for f in fincas_usuario]
+
+    # Leer filtros
+    finca_id = request.args.get('finca_id', type=int)
+    raza_id = request.args.get('raza_id', type=int)
+    fecha_max_str = request.args.get('fecha_nacimiento_max', type=str)
+
+    # Construir consulta base por sexo
+    query = Animal.query.filter(Animal.sexo == sexo)
+
+    # Filtro por fincas accesibles
+    if finca_id:
+        # Verificar acceso a la finca específica
+        tiene_acceso = (current_user.tipo_usuario == 3) or (finca_id in finca_ids_usuario)
+        if not tiene_acceso:
+            return jsonify({'error': 'No tienes permisos para acceder a esta finca'}), 403
+        query = query.filter(Animal.id_finca == finca_id)
     else:
-        animales = []
-    
+        # Limitar a las fincas del usuario si no se especifica una
+        if finca_ids_usuario:
+            query = query.filter(Animal.id_finca.in_(finca_ids_usuario))
+        else:
+            return jsonify([])
+
+    # Filtro por raza
+    if raza_id:
+        query = query.filter(Animal.id_raza == raza_id)
+
+    # Filtro por fecha de nacimiento máxima
+    if fecha_max_str:
+        try:
+            from datetime import datetime
+            fecha_max = datetime.strptime(fecha_max_str, '%Y-%m-%d').date()
+            query = query.filter(Animal.fecha_nacimiento <= fecha_max)
+        except Exception:
+            # Si la fecha no es válida, ignorar el filtro
+            pass
+
+    animales = query.all()
+
     animales_json = [{
         'id': animal.id_animal,
         'nombre': animal.nombre_animal,
         'finca': animal.finca.nombre_finca if animal.finca else 'Sin finca'
     } for animal in animales]
-    
+
     return jsonify(animales_json)

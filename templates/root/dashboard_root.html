@@ -5,25 +5,18 @@
 {% block extra_css %}
 <style>
     .sidebar {
-        background: linear-gradient(135deg, #28a745, #20c997);
+        background-color: #343a40;
         min-height: calc(100vh - 56px);
         position: sticky;
         top: 56px;
-        box-shadow: 2px 0 10px rgba(0,0,0,0.1);
     }
     .sidebar-link {
-        color: white;
+        color: rgba(255,255,255,.75);
         transition: all 0.3s;
-        padding: 15px 20px;
-        border-radius: 8px;
-        margin: 5px 10px;
     }
     .sidebar-link:hover, .sidebar-link.active {
-        color: white;
-        background-color: rgba(255,255,255,0.2);
-        transform: translateX(5px);
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        color: #fff;
+        background-color: rgba(255,255,255,.1);
     }
     .stat-card {
         border-left: 4px solid var(--primary-color);
@@ -94,50 +87,33 @@
         align-items: center;
         font-weight: 500;
     }
-    
-    /* Efectos hover para botones */
-    .btn-success:hover {
-        background-color: #1a9d59 !important;
-        border-color: #1a9d59 !important;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(26, 157, 89, 0.4);
-        transition: all 0.3s ease;
-    }
-    
-    .dashboard-card .btn:hover {
-        background-color: #1a9d59 !important;
-        border-color: #1a9d59 !important;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(26, 157, 89, 0.4);
-        transition: all 0.3s ease;
-    }
 </style>
 {% endblock %}
 
 {% block navbar %}
-<nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #28a745, #20c997);">
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
     <div class="container">
-        <a class="navbar-brand d-flex align-items-center" href="#" style="font-weight: 600;">
-            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="40" class="me-2 navbar-logo" style="border-radius: 8px;">
-            <span class="brand-text" style="font-size: 1.5rem; color: white;">GanaControl - Admin</span>
+        <a class="navbar-brand d-flex align-items-center" href="#">
+            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="40" class="me-2 navbar-logo">
+            <span class="brand-text">GanaControl - Admin</span>
         </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="border: 2px solid rgba(255,255,255,0.3);">
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
             <ul class="navbar-nav align-items-center">
                 <li class="nav-item me-3">
-                    <a href="#" class="nav-link" style="color: rgba(255,255,255,0.9); transition: all 0.3s ease;" onmouseover="this.style.color='white'; this.style.transform='scale(1.1)'" onmouseout="this.style.color='rgba(255,255,255,0.9)'; this.style.transform='scale(1)'">
+                    <a href="#" class="nav-link">
                         <i class="fas fa-bell position-relative">
                             <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style="font-size: 0.5rem;">3</span>
                         </i>
                     </a>
                 </li>
                 <li class="nav-item">
-                    <span class="nav-link" style="color: rgba(255,255,255,0.9); font-weight: 500;">Bienvenido, <strong style="color: white;">{{ session['nombre_usuario'] }}</strong></span>
+                    <span class="nav-link">Bienvenido, <strong>{{ session['nombre_usuario'] }}</strong></span>
                 </li>
                 <li class="nav-item ms-2">
-                    <a class="btn btn-sm rounded-pill" href="{{ url_for('logout') }}" style="background-color: rgba(255,255,255,0.2); color: white; border: 2px solid rgba(255,255,255,0.3); padding: 8px 16px; font-weight: 500; transition: all 0.3s ease;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.3)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.2)'" onmouseout="this.style.backgroundColor='rgba(255,255,255,0.2)'; this.style.transform='translateY(0)'; this.style.boxShadow='none'">
+                    <a class="btn btn-outline-light btn-sm rounded-pill" href="{{ url_for('logout') }}">
                         <i class="fas fa-sign-out-alt me-1"></i> Cerrar Sesión
                     </a>
                 </li>
@@ -160,12 +136,12 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link sidebar-link py-3 px-3" href="{{ url_for('admin_usuarios') }}">
+                        <a class="nav-link sidebar-link py-3 px-3" href="#">
                             <i class="fas fa-users me-2"></i> Gestión de Usuarios
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link sidebar-link py-3 px-3" href="{{ url_for('admin_fincas') }}">
+                        <a class="nav-link sidebar-link py-3 px-3" href="#">
                             <i class="fas fa-farm me-2"></i> Gestión de Fincas
                         </a>
                     </li>
@@ -304,7 +280,7 @@
                                 <li><i class="fas fa-check-circle text-success me-2"></i> Asignar propietarios</li>
                                 <li><i class="fas fa-check-circle text-success me-2"></i> Gestionar ubicaciones</li>
                             </ul>
-                            <a href="{{ url_for('admin_fincas') }}" class="btn btn-success mt-2">
+                            <a href="#" class="btn btn-success mt-2">
                                 <i class="fas fa-cog me-1"></i> Administrar
                             </a>
                         </div>
@@ -334,7 +310,7 @@
             <div class="row">
                 <div class="col-12">
                     <div class="card dashboard-card">
-                        <div class="card-header text-white" style="background: linear-gradient(135deg, #28a745, #20c997);">
+                        <div class="card-header bg-dark text-white">
                             <h5 class="mb-0"><i class="fas fa-history me-2"></i> Actividad Reciente</h5>
                         </div>
                         <div class="card-body">

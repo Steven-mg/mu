@@ -9,6 +9,7 @@
             <div class="modal-body">
                 <form id="formRotacion">
                     <input type="hidden" id="potreroIdRotacion" name="potreroIdRotacion">
+                    <input type="hidden" id="accionRotacion" name="accionRotacion">
                     
                     <div class="mb-3">
                         <label for="grupoAnimal" class="form-label">Grupo Animal</label>
@@ -24,6 +25,14 @@
                             </button>
                         </div>
                         <div class="invalid-feedback">Por favor seleccione un grupo animal</div>
+                    </div>
+
+                    <div class="mb-3 d-none" id="potreroDestinoGroup">
+                        <label for="potreroDestino" class="form-label">Potrero destino</label>
+                        <select class="form-select" id="potreroDestino">
+                            <option value="">Seleccione potrero destino</option>
+                        </select>
+                        <div class="form-text">Se mostrarán los potreros disponibles de la finca.</div>
                     </div>
                     
                     <div class="mb-3">
@@ -43,8 +52,10 @@
                         <select class="form-select" id="tipoUso" required>
                             <option value="">Seleccione un tipo</option>
                             <option value="pastoreo">Pastoreo</option>
-                            <option value="corte">Corte</option>
-                            <option value="mixto">Mixto</option>
+                            <option value="descanso">Descanso</option>
+                            <option value="siembra">Siembra</option>
+                            <option value="fertilización">Fertilización</option>
+                            <option value="mantenimiento">Mantenimiento</option>
                         </select>
                         <div class="invalid-feedback">Por favor seleccione un tipo de uso</div>
                     </div>

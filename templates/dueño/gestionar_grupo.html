@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestionar Grupo - {{ grupo.nombre_grupo }}{% endblock %}
+
+{% block sidebar %}
+{% include 'components/sidebar_dueno.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12 px-md-4 py-4">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h2 class="h4 mb-0">Grupo: {{ grupo.nombre_grupo }}</h2>
+                {% if potrero_id %}
+                <a href="{{ url_for('ver_potrero_route', potrero_id=potrero_id) }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Volver
+                </a>
+                {% else %}
+                <a href="{{ url_for('listar_grupos_finca_route', finca_id=grupo.id_finca) }}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-1"></i>Volver
+                </a>
+                {% endif %}
+            </div>
+
+            <div id="alertContainer" class="mb-2"></div>
+
+            <div class="row g-4">
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-info text-white">
+                            <strong>Animales en el Grupo</strong>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Nombre</th>
+                                            <th>Raza</th>
+                                            <th>Sexo</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if animales_grupo %}
+                                            {% for animal in animales_grupo %}
+                                            <tr>
+                                                <td>{{ animal.id_animal }}</td>
+                                                <td>{{ animal.nombre_animal }}</td>
+                                                <td>{{ animal.raza.nombre_raza if animal.raza else 'Sin raza' }}</td>
+                                                <td>{{ animal.sexo }}</td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-danger" onclick="quitarAnimal({{ animal.id_animal }})">
+                                                        <i class="fas fa-minus me-1"></i>Quitar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        {% else %}
+                                            <tr>
+                                                <td colspan="5" class="text-center">No hay animales en este grupo</td>
+                                            </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-lg-6">
+                    <div class="card h-100">
+                        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                            <strong>Animales Disponibles en la Finca</strong>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Nombre</th>
+                                            <th>Raza</th>
+                                            <th>Sexo</th>
+                                            <th>Acciones</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% if animales_disponibles %}
+                                            {% for animal in animales_disponibles %}
+                                            <tr>
+                                                <td>{{ animal.id_animal }}</td>
+                                                <td>{{ animal.nombre_animal }}</td>
+                                                <td>{{ animal.raza.nombre_raza if animal.raza else 'Sin raza' }}</td>
+                                                <td>{{ animal.sexo }}</td>
+                                                <td>
+                                                    <button class="btn btn-sm btn-outline-success" onclick="agregarAnimal({{ animal.id_animal }})">
+                                                        <i class="fas fa-plus me-1"></i>Agregar
+                                                    </button>
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        {% else %}
+                                            <tr>
+                                                <td colspan="5" class="text-center">No hay animales disponibles</td>
+                                            </tr>
+                                        {% endif %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+function mostrarAlerta(mensaje, tipo, id = null) {
+    const container = document.getElementById('alertContainer');
+    const alerta = document.createElement('div');
+    alerta.className = `alert alert-${tipo}`;
+    if (id) alerta.id = id;
+    let icono = '';
+    switch (tipo) {
+        case 'success': icono = '<i class="fas fa-check-circle me-2"></i>'; break;
+        case 'danger': icono = '<i class="fas fa-exclamation-circle me-2"></i>'; break;
+        case 'info': icono = '<i class="fas fa-info-circle me-2"></i>'; break;
+        default: icono = '';
+    }
+    alerta.innerHTML = icono + mensaje;
+    container.appendChild(alerta);
+}
+
+function agregarAnimal(animalId) {
+    fetch(`{{ url_for('api_agregar_animal_a_grupo_route', grupo_id=grupo.id_grupo) }}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+        body: JSON.stringify({ animal_id: animalId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            mostrarAlerta(data.message, 'success');
+            setTimeout(() => { window.location.reload(); }, 1000);
+        } else {
+            mostrarAlerta(data.message || 'No se pudo agregar el animal', 'danger');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        mostrarAlerta('Error al agregar el animal', 'danger');
+    });
+}
+
+function quitarAnimal(animalId) {
+    fetch(`{{ url_for('api_quitar_animal_de_grupo_route', grupo_id=grupo.id_grupo) }}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': '{{ csrf_token() }}' },
+        body: JSON.stringify({ animal_id: animalId })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            mostrarAlerta(data.message, 'success');
+            setTimeout(() => { window.location.reload(); }, 1000);
+        } else {
+            mostrarAlerta(data.message || 'No se pudo quitar el animal', 'danger');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        mostrarAlerta('Error al quitar el animal', 'danger');
+    });
+}
+</script>
+{% endblock %}

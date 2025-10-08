@@ -2,22 +2,12 @@
 
 {% block title %}Registrar Nuevo Animal - GanaControl{% endblock %}
 
+{% block sidebar %}
+{% include 'components/sidebar_dueno.html' %}
+{% endblock %}
+
 {% block extra_css %}
 <style>
-    .sidebar {
-        background-color: #343a40;
-        min-height: calc(100vh - 56px);
-        position: sticky;
-        top: 56px;
-    }
-    .sidebar-link {
-        color: rgba(255,255,255,.75);
-        transition: all 0.3s;
-    }
-    .sidebar-link:hover, .sidebar-link.active {
-        color: #fff;
-        background-color: rgba(255,255,255,.1);
-    }
     .form-card {
         border-radius: 15px;
         overflow: hidden;
@@ -34,79 +24,13 @@
 </style>
 {% endblock %}
 
-{% block navbar %}
-<nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #28a745, #20c997); box-shadow: 0 2px 10px rgba(0,0,0,0.1);">
-    <div class="container">
-        <a class="navbar-brand d-flex align-items-center" href="#" style="color: white; text-decoration: none;">
-            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="40" class="me-2 navbar-logo" style="filter: brightness(1.2);">
-            <span class="brand-text" style="font-weight: 600; font-size: 1.3rem;">GanaControl - Dueño</span>
-        </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto">
-                <li class="nav-item">
-                    <span class="nav-link" style="color: white;">Bienvenido, {{ session['nik_name'] }}</span>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('logout') }}" style="color: rgba(255,255,255,0.9); transition: all 0.3s ease;" onmouseover="this.style.color='white';" onmouseout="this.style.color='rgba(255,255,255,0.9)';">Cerrar Sesión</a>
-                </li>
-            </ul>
-        </div>
-    </div>
-</nav>
-{% endblock %}
+{% block navbar %}{% include 'components/navbar.html' %}{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="row">
-        <!-- Sidebar -->
-        <div class="col-md-3 col-lg-2 sidebar">
-            <div class="p-3">
-                <h6 class="text-white-50 mb-3">MENÚ PRINCIPAL</h6>
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link" href="{{ url_for('dashboard_dueno') }}">
-                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link" href="{{ url_for('mis_fincas') }}">
-                            <i class="fas fa-farm me-2"></i> Mis Fincas
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link active" href="{{ url_for('gestion_animales') }}">
-                            <img src="{{ url_for('static', filename='img/muuu-cow-icon.svg') }}" alt="Icono de vaca" width="20" height="20" class="me-2"> Gestión de Ganado
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link" href="#">
-                            <i class="fas fa-chart-line me-2"></i> Producción
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link" href="#">
-                            <i class="fas fa-users me-2"></i> Trabajadores
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link" href="#">
-                            <i class="fas fa-file-alt me-2"></i> Reportes
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link" href="#">
-                            <i class="fas fa-cog me-2"></i> Configuración
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
-        <!-- Main Content -->
-        <div class="col-md-9 col-lg-10">
+        <!-- Contenido principal -->
+        <div class="col-12 px-md-4">
             <div class="p-4">
                 <div class="card form-card">
                     <div class="form-header">
@@ -114,7 +38,7 @@
                         <p class="mb-0">Completa el formulario para registrar un nuevo animal en tu finca</p>
                     </div>
                     <div class="form-body">
-                        <form method="POST" action="{{ url_for('crear_animal_route') }}">
+                        <form method="POST" action="{{ url_for('crear_animal_route') }}" enctype="multipart/form-data">
                             {{ form.hidden_tag() }}
                             
                             <div class="row mb-3">
@@ -191,6 +115,20 @@
                                     {% endif %}
                                 </div>
                             </div>
+
+                            <div class="row mb-3">
+                                <div class="col-md-6" style="display:none;">
+                                    {{ form.id_grupo.label(class="form-label") }}
+                                    {{ form.id_grupo(class="form-select", id="id_grupo") }}
+                                    {% if form.id_grupo.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.id_grupo.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
                             
                             <div class="row mb-3">
                                 <div class="col-md-6">
@@ -244,11 +182,11 @@
                             
                             <div class="row mb-3">
                                 <div class="col-md-6">
-                                    {{ form.ubicacion_animal.label(class="form-label") }}
-                                    {{ form.ubicacion_animal(class="form-select") }}
-                                    {% if form.ubicacion_animal.errors %}
+                                    {{ form.foto.label(class="form-label") }}
+                                    {{ form.foto(class="form-control") }}
+                                    {% if form.foto.errors %}
                                         <div class="text-danger">
-                                            {% for error in form.ubicacion_animal.errors %}
+                                            {% for error in form.foto.errors %}
                                                 {{ error }}
                                             {% endfor %}
                                         </div>
@@ -284,77 +222,200 @@
 
 {% block extra_js %}
 <script>
-    // Cargar potreros según la finca seleccionada
+    // Cargar potreros según la finca seleccionada y al cargar la página
     document.addEventListener('DOMContentLoaded', function() {
         const fincaSelect = document.getElementById('id_finca');
         const potreroSelect = document.getElementById('id_potrero');
-        
+        const grupoSelect = document.getElementById('id_grupo');
+        const razaSelect = document.getElementById('id_raza');
+        const sexoSelect = document.getElementById('sexo');
+        const fechaInput = document.getElementById('fecha_nacimiento');
+        const estadoReprodSelect = document.getElementById('id_estado_reprod');
+
+        function setDefaultPotrero(text, disabled = true) {
+            potreroSelect.innerHTML = '';
+            const opt = document.createElement('option');
+            opt.value = '0';
+            opt.textContent = text;
+            potreroSelect.appendChild(opt);
+            potreroSelect.disabled = !!disabled;
+        }
+
+        function cargarPotreros(fincaId) {
+            if (!fincaId || fincaId === '0') {
+                setDefaultPotrero('Seleccione primero una finca', true);
+                return;
+            }
+            setDefaultPotrero('Seleccione un potrero', false);
+            // Excluir potreros en descanso
+            fetch(`/api/potreros-por-finca?finca_id=${fincaId}&exclude_descanso=1`)
+                .then(response => response.json())
+                .then(data => {
+                    // Limpiar, mantener opción por defecto
+                    const firstOption = potreroSelect.querySelector('option');
+                    potreroSelect.innerHTML = '';
+                    if (firstOption) potreroSelect.appendChild(firstOption);
+                    data.forEach(([id, nombre]) => {
+                        const option = document.createElement('option');
+                        option.value = id;
+                        option.textContent = nombre;
+                        potreroSelect.appendChild(option);
+                    });
+                })
+                .catch(error => console.error('Error cargando potreros:', error));
+        }
+
         if (fincaSelect && potreroSelect) {
+            // Inicial: cargar según valor actual
+            cargarPotreros(fincaSelect.value);
+            // Cambio: recargar potreros
             fincaSelect.addEventListener('change', function() {
-                const fincaId = this.value;
-                
-                // Limpiar opciones actuales
-                potreroSelect.innerHTML = '';
-                
-                // Opción por defecto
-                const defaultOption = document.createElement('option');
-                defaultOption.value = '0';
-                defaultOption.textContent = 'Seleccione un potrero';
-                potreroSelect.appendChild(defaultOption);
-                
-                if (fincaId && fincaId != '0') {
-                    // Cargar potreros de la finca seleccionada
-                    fetch(`/api/potreros-por-finca?finca_id=${fincaId}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            data.forEach(([id, nombre]) => {
-                                const option = document.createElement('option');
-                                option.value = id;
-                                option.textContent = nombre;
-                                potreroSelect.appendChild(option);
-                            });
-                        })
-                        .catch(error => console.error('Error cargando potreros:', error));
+                cargarPotreros(this.value);
+                actualizarPadresMadres(this.value);
+                // Al cambiar la finca, resetear grupos
+                if (grupoSelect) {
+                    grupoSelect.innerHTML = '';
+                    const opt = document.createElement('option');
+                    opt.value = '0';
+                    opt.textContent = 'Seleccione primero un potrero';
+                    grupoSelect.appendChild(opt);
+                    grupoSelect.disabled = true;
                 }
             });
+            // Cuando cambia el potrero, cargar grupos activos del potrero
+            potreroSelect.addEventListener('change', function() {
+                const potreroId = this.value;
+                if (!grupoSelect) return;
+                grupoSelect.innerHTML = '';
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '0';
+                defaultOption.textContent = 'Seleccione un grupo';
+                grupoSelect.appendChild(defaultOption);
+                if (!potreroId || potreroId === '0') {
+                    grupoSelect.disabled = true;
+                    grupoSelect.firstChild.textContent = 'Seleccione primero un potrero';
+                    return;
+                }
+                // Verificar si el potrero está en descanso y bloquear grupos
+                fetch(`/api/potrero/default-tipo-uso?potrero_id=${potreroId}`)
+                    .then(r => r.json())
+                    .then(info => {
+                        const tipo = info && info.default_tipo_uso ? info.default_tipo_uso : null;
+                        if (tipo === 'descanso') {
+                            grupoSelect.disabled = true;
+                            grupoSelect.firstChild.textContent = 'Potrero en descanso: grupos no disponibles';
+                            return; // No cargar grupos
+                        }
+                        // Habilitar y cargar grupos activos del potrero
+                        grupoSelect.disabled = false;
+                        fetch(`/api/grupos-activos-por-potrero?potrero_id=${potreroId}`)
+                            .then(r => r.json())
+                            .then(data => {
+                                if (!data.success) return;
+                                const gruposPotrero = data.grupos || [];
+                                if (gruposPotrero.length > 0) {
+                                    gruposPotrero.forEach(g => {
+                                        const option = document.createElement('option');
+                                        option.value = g.id;
+                                        option.textContent = g.nombre;
+                                        grupoSelect.appendChild(option);
+                                    });
+                                } else {
+                                    // Fallback: cargar grupos por finca si el potrero no tiene activos
+                                    const fincaId = fincaSelect ? fincaSelect.value : '0';
+                                    if (fincaId && fincaId !== '0') {
+                                        fetch(`/api/grupos-por-finca?finca_id=${fincaId}`)
+                                            .then(resp => resp.json())
+                                            .then(d => {
+                                                if (!d.success) return;
+                                                const gruposFinca = d.grupos || [];
+                                                gruposFinca.forEach(g => {
+                                                    const option = document.createElement('option');
+                                                    option.value = g.id;
+                                                    option.textContent = g.nombre;
+                                                    grupoSelect.appendChild(option);
+                                                });
+                                            })
+                                            .catch(err => console.error('Error cargando grupos de finca:', err));
+                                    }
+                                }
+                            })
+                            .catch(err => console.error('Error cargando grupos:', err));
+                    })
+                    .catch(err => {
+                        console.error('Error verificando estado del potrero:', err);
+                        // En caso de error, mantener comportamiento previo
+                        grupoSelect.disabled = false;
+                    });
+            });
         }
-        
-        // Actualizar opciones de padre/madre según el sexo seleccionado
-        const sexoSelect = document.getElementById('sexo');
-        const fincaSelect = document.getElementById('id_finca');
-        
-        // Cuando cambia la finca, actualizar las opciones de padre/madre
-        fincaSelect.addEventListener('change', function() {
-            const fincaId = this.value;
-            if (fincaId > 0) {
-                // Actualizar padres (machos)
-                fetch(`/api/animales/sexo/Macho`)
-                    .then(response => response.json())
-                    .then(data => {
-                        updateSelectOptions('id_padre', data, 'Sin padre registrado');
-                    });
-                
-                // Actualizar madres (hembras)
-                fetch(`/api/animales/sexo/Hembra`)
-                    .then(response => response.json())
-                    .then(data => {
-                        updateSelectOptions('id_madre', data, 'Sin madre registrada');
-                    });
+
+        // Comportamiento para sexo Hembra: ocultar 'Semental' y deshabilitar grupo
+        function aplicarReglasPorSexo() {
+            if (!sexoSelect) return;
+            const sexo = sexoSelect.value;
+            // Reset visibilidad de opciones de estado
+            if (estadoReprodSelect) {
+                Array.from(estadoReprodSelect.options).forEach(opt => opt.hidden = false);
             }
-        });
-        
+            if (sexo === 'Hembra') {
+                // Ocultar 'Semental'
+                if (estadoReprodSelect) {
+                    Array.from(estadoReprodSelect.options).forEach(opt => {
+                        if (opt.textContent.trim().toLowerCase() === 'semental') {
+                            opt.hidden = true;
+                            if (estadoReprodSelect.value === opt.value) {
+                                const sinEstado = Array.from(estadoReprodSelect.options).find(o => o.value === '0');
+                                if (sinEstado) estadoReprodSelect.value = '0';
+                            }
+                        }
+                    });
+                }
+                // Deshabilitar selector de grupo
+                if (grupoSelect) {
+                    grupoSelect.value = '0';
+                    grupoSelect.disabled = true;
+                    grupoSelect.title = 'Grupo deshabilitado para hembras';
+                }
+            } else {
+                // Habilitar grupo para machos
+                if (grupoSelect) {
+                    grupoSelect.disabled = false;
+                    grupoSelect.title = '';
+                }
+            }
+        }
+        aplicarReglasPorSexo();
+        if (sexoSelect) sexoSelect.addEventListener('change', aplicarReglasPorSexo);
+
+        function actualizarPadresMadres(fincaId) {
+            if (!fincaId || fincaId === '0') return;
+            const razaId = razaSelect ? razaSelect.value : null;
+            const fechaMax = fechaInput ? fechaInput.value : null;
+            const qs = new URLSearchParams();
+            qs.set('finca_id', fincaId);
+            if (razaId && razaId !== '0') qs.set('raza_id', razaId);
+            if (fechaMax) qs.set('fecha_nacimiento_max', fechaMax);
+            fetch(`/api/animales/sexo/Macho?${qs.toString()}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateSelectOptions('id_padre', data, 'Sin padre registrado');
+                });
+            fetch(`/api/animales/sexo/Hembra?${qs.toString()}`)
+                .then(response => response.json())
+                .then(data => {
+                    updateSelectOptions('id_madre', data, 'Sin madre registrada');
+                });
+        }
+
         function updateSelectOptions(selectId, data, defaultText) {
             const select = document.getElementById(selectId);
-            // Limpiar opciones actuales
+            if (!select) return;
             select.innerHTML = '';
-            
-            // Agregar opción por defecto
             const defaultOption = document.createElement('option');
             defaultOption.value = '0';
             defaultOption.textContent = defaultText;
             select.appendChild(defaultOption);
-            
-            // Agregar nuevas opciones
             data.forEach(item => {
                 const option = document.createElement('option');
                 option.value = item.id;
@@ -362,6 +423,83 @@
                 select.appendChild(option);
             });
         }
+
+        // --- Enforzar "Inmaduro" según raza/edad/sexo ---
+        function calcularEdadMeses(fechaStr) {
+            if (!fechaStr) return null;
+            const nacimiento = new Date(fechaStr);
+            if (isNaN(nacimiento.getTime())) return null;
+            const hoy = new Date();
+            let meses = (hoy.getFullYear() - nacimiento.getFullYear()) * 12 + (hoy.getMonth() - nacimiento.getMonth());
+            // Ajuste simple por día del mes
+            if (hoy.getDate() < nacimiento.getDate()) meses -= 1;
+            return Math.max(0, meses);
+        }
+
+        function setEstadoInmaduroEnforced(enforce) {
+            if (!estadoReprodSelect) return;
+            if (enforce) {
+                // Fijar valor a 15 si existe esa opción
+                const tieneInmaduro = Array.from(estadoReprodSelect.options).some(opt => opt.value == '15');
+                if (tieneInmaduro) {
+                    estadoReprodSelect.value = '15';
+                }
+                estadoReprodSelect.disabled = true;
+                estadoReprodSelect.title = 'Estado fijado automáticamente a Inmaduro por madurez sexual.';
+            } else {
+                estadoReprodSelect.disabled = false;
+                estadoReprodSelect.title = '';
+            }
+        }
+
+        function evaluarMadurez() {
+            if (!razaSelect || !fechaInput || !sexoSelect || !estadoReprodSelect) return;
+            const razaId = razaSelect.value;
+            const fecha = fechaInput.value;
+            const sexo = sexoSelect.value;
+            if (!razaId || razaId === '0' || !fecha || !sexo) {
+                setEstadoInmaduroEnforced(false);
+                return;
+            }
+            fetch(`/api/raza/${razaId}/madurez-sexual`)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) { setEstadoInmaduroEnforced(false); return; }
+                    const umbral = sexo === 'Macho' ? data.macho : data.hembra;
+                    const edadMeses = calcularEdadMeses(fecha);
+                    if (!umbral || umbral <= 0 || edadMeses == null) {
+                        setEstadoInmaduroEnforced(false);
+                        return;
+                    }
+                    setEstadoInmaduroEnforced(edadMeses < umbral);
+                })
+                .catch(() => setEstadoInmaduroEnforced(false));
+        }
+
+        if (razaSelect) razaSelect.addEventListener('change', function(){ evaluarMadurez(); actualizarPadresMadres(fincaSelect ? fincaSelect.value : '0'); });
+        if (sexoSelect) sexoSelect.addEventListener('change', function(){ evaluarMadurez(); restringirEstadosPorSexo(); });
+        if (fechaInput) fechaInput.addEventListener('change', function(){ evaluarMadurez(); actualizarPadresMadres(fincaSelect ? fincaSelect.value : '0'); });
+        // Restringir estados reproductivos para Macho (permitir Inmaduro, Semental y Problema reproductivo)
+        function restringirEstadosPorSexo(){
+            if (!estadoReprodSelect || !sexoSelect) return;
+            const sexo = sexoSelect.value;
+            // Mostrar todas primero
+            Array.from(estadoReprodSelect.options).forEach(opt => opt.hidden = false);
+            if (sexo === 'Macho') {
+                // Mantener visibles solo opciones con valores 15 (Inmaduro), la que corresponda a Semental y "Problema reproductivo" si existe
+                Array.from(estadoReprodSelect.options).forEach(opt => {
+                    const val = opt.value;
+                    const texto = opt.textContent.trim().toLowerCase();
+                    const esPermitido = (val === '0') || (val === '15') || (texto === 'semental') || (texto === 'problema reproductivo');
+                    if (!esPermitido) {
+                        opt.hidden = true;
+                    }
+                });
+            }
+        }
+        restringirEstadosPorSexo();
+        // Evaluar al cargar
+        evaluarMadurez();
     });
 </script>
 {% endblock %}

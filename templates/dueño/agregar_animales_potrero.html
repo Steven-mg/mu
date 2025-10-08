@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Agregar Grupo - {{ potrero.nombre_potrero }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2><i class="fas fa-plus me-2"></i>Agregar Grupo al Potrero</h2>
+        <a href="{{ url_for('ver_potrero_route', potrero_id=potrero.id_potrero) }}" class="btn btn-secondary">
+            <i class="fas fa-arrow-left me-1"></i>Volver
+        </a>
+    </div>
+
+    <div class="alert alert-info">Selecciona animales disponibles para asignarlos al potrero <strong>{{ potrero.nombre_potrero }}</strong>.</div>
+
+    <div class="card">
+        <div class="card-header bg-light">
+            <strong>Animales Disponibles</strong>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped" id="tabla-animales-disponibles">
+                    <thead>
+                        <tr>
+                            <th>Seleccionar</th>
+                            <th>ID</th>
+                            <th>Nombre</th>
+                            <th>Raza</th>
+                            <th>Sexo</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- Contenido cargado vía JS desde /api/animales/disponibles -->
+                    </tbody>
+                </table>
+            </div>
+            <div class="d-flex justify-content-end">
+                <button id="btn-asignar" class="btn btn-success" disabled>
+                    <i class="fas fa-check me-1"></i>Asignar Seleccionados
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const tbody = document.querySelector('#tabla-animales-disponibles tbody');
+    const btnAsignar = document.getElementById('btn-asignar');
+    const potreroId = {{ potrero.id_potrero }};
+
+    function actualizarBoton() {
+        const seleccionados = tbody.querySelectorAll('input[type="checkbox"]:checked').length;
+        btnAsignar.disabled = seleccionados === 0;
+    }
+
+    fetch(`/api/animales-disponibles?finca_id={{ potrero.id_finca }}`)
+        .then(r => r.json())
+        .then(data => {
+            if (!Array.isArray(data) || data.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="text-center">No hay animales disponibles</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = data.map(a => `
+                <tr>
+                    <td><input type="checkbox" value="${a.id_animal}" /></td>
+                    <td>${a.id_animal}</td>
+                    <td>${a.nombre_animal ?? ''}</td>
+                    <td>${a.raza?.nombre_raza ?? ''}</td>
+                    <td>${a.sexo ?? ''}</td>
+                </tr>
+            `).join('');
+            tbody.addEventListener('change', actualizarBoton);
+        })
+        .catch(() => {
+            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Error cargando animales</td></tr>`;
+        });
+
+    btnAsignar.addEventListener('click', () => {
+        const ids = Array.from(tbody.querySelectorAll('input[type="checkbox"]:checked')).map(i => i.value);
+        if (ids.length === 0) return;
+        fetch('/api/asignar-animales-potrero', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ potrero_id: potreroId, animales_ids: ids })
+        })
+        .then(r => r.json())
+        .then(res => {
+            if (res.success) {
+                window.location.href = `{{ url_for('ver_potrero_route', potrero_id=potrero.id_potrero) }}`;
+            } else {
+                alert(res.message || 'No se pudieron asignar los animales');
+            }
+        })
+        .catch(() => alert('Error en la asignación'));
+    });
+});
+</script>
+{% endblock %}

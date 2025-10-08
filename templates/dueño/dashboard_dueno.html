@@ -14,29 +14,7 @@
 {% include 'components/sidebar_dueno.html' %}
 {% endblock %}
 
-{% block navbar %}
-<nav class="navbar navbar-expand-lg navbar-dark" style="background: linear-gradient(135deg, #28a745, #20c997);">
-    <div class="container">
-        <a class="navbar-brand d-flex align-items-center" href="#" style="font-weight: 600;">
-            <img src="{{ url_for('static', filename='img/logo.png') }}" alt="Logo" height="40" class="me-2 navbar-logo" style="border-radius: 8px;">
-            <span class="brand-text" style="font-size: 1.5rem; color: white;">GanaControl - Dueño</span>
-        </a>
-        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" style="border: 2px solid rgba(255,255,255,0.3);">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-            <ul class="navbar-nav ms-auto">
-                <li class="nav-item">
-                    <span class="nav-link" style="color: rgba(255,255,255,0.9); font-weight: 500;">Bienvenido, <strong style="color: white;">{{ session['nik_name'] }}</strong></span>
-                </li>
-                <li class="nav-item">
-                    <a class="nav-link" href="{{ url_for('logout') }}" style="color: rgba(255,255,255,0.9); transition: all 0.3s ease;" onmouseover="this.style.color='white'; this.style.transform='translateY(-2px)'" onmouseout="this.style.color='rgba(255,255,255,0.9)'; this.style.transform='translateY(0)'">Cerrar Sesión</a>
-                </li>
-            </ul>
-        </div>
-    </div>
-</nav>
-{% endblock %}
+{% block navbar %}{% include 'components/navbar.html' %}{% endblock %}
 
 {% block content %}
 <div class="container-fluid">

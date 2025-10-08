@@ -11,6 +11,8 @@ load_dotenv()
 # Configuración de la aplicación Flask
 app = Flask(__name__)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'clave-secreta-predeterminada')
+# Asegurar que CSRF solo aplique a métodos que modifican estado
+app.config['WTF_CSRF_METHODS'] = ['POST', 'PUT', 'PATCH', 'DELETE']
 
 # Inicializar protección CSRF
 csrf = CSRFProtect(app)  # Añadir esta línea
@@ -55,3 +57,20 @@ def registrar_actividad(usuario_id, accion, elemento):
     
     db.session.add(nueva_actividad)
     db.session.commit()
+
+"""
+Soporte de archivos
+"""
+# Extensiones permitidas para subida de imágenes
+ALLOWED_IMAGE_EXTENSIONS = {"png", "jpg", "jpeg", "gif", "webp"}
+
+# Extensiones permitidas para documentos genéticos
+ALLOWED_DOC_EXTENSIONS = {"pdf", "png", "jpg", "jpeg", "gif", "webp"}
+
+def allowed_image(filename: str) -> bool:
+    """Verifica si el nombre de archivo tiene una extensión de imagen permitida."""
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_IMAGE_EXTENSIONS
+
+def allowed_document(filename: str) -> bool:
+    """Verifica si el nombre de archivo tiene una extensión de documento genético permitida."""
+    return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_DOC_EXTENSIONS

@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+
+{% block title %}Animales Fuera - Todas las Fincas{% endblock %}
+
+{% block sidebar %}
+{% include 'components/sidebar_dueno.html' %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    .table thead th { white-space: nowrap; }
+    .badge-sexo { font-size: 0.85rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="page-header">
+        <h3 class="mb-0">Animales fuera de todas tus fincas</h3>
+        <div class="btn-group">
+            <a href="{{ url_for('gestion_animales') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-2"></i> Volver a Gestión
+            </a>
+        </div>
+    </div>
+
+    {% if animales %}
+    <div class="card">
+        <div class="card-body p-0">
+            <table class="table mb-0 align-middle">
+                <thead class="table-danger">
+                    <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Raza</th>
+                        <th>Sexo</th>
+                        <th>Finca</th>
+                        <th class="text-end">Acciones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for animal in animales %}
+                    <tr>
+                        <td>{{ animal.id_animal }}</td>
+                        <td>{{ animal.nombre_animal }}</td>
+                        <td>{{ animal.raza.nombre_raza if animal.raza else 'No especificada' }}</td>
+                        <td>
+                            <span class="badge bg-{% if animal.sexo == 'Macho' %}primary{% else %}pink{% endif %} badge-sexo">{{ animal.sexo }}</span>
+                        </td>
+                        <td>{{ animal.finca.nombre_finca if animal.finca else 'Sin Finca' }}</td>
+                        <td class="text-end">
+                            <a href="{{ url_for('ver_animal_route', animal_id=animal.id_animal) }}" class="btn btn-info btn-sm">
+                                <i class="fas fa-eye me-1"></i>Ver
+                            </a>
+                            <a href="{{ url_for('editar_animal_route', animal_id=animal.id_animal) }}" class="btn btn-warning btn-sm ms-1">
+                                <i class="fas fa-edit me-1"></i>Editar
+                            </a>
+                            <form method="POST" action="{{ url_for('eliminar_animal_route', animal_id=animal.id_animal) }}" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este animal?');">
+                                <button type="submit" class="btn btn-danger btn-sm ms-1">
+                                    <i class="fas fa-trash me-1"></i>Eliminar
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="text-center py-5">
+        <img src="{{ url_for('static', filename='img/muuu-cow-icon.svg') }}" alt="No hay animales" width="80" height="80" class="mb-3">
+        <h4 class="text-muted">No hay animales registrados como fuera de la finca</h4>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

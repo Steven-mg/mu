@@ -1,7 +1,8 @@
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField
 from wtforms import StringField, SubmitField, SelectField, DateField, IntegerField
 from wtforms.validators import DataRequired, Length, ValidationError, Optional
-from modelo.models import Animal, Raza, Finca, EstadoReproductivo, Potrero
+from modelo.models import Animal, Raza, Finca, EstadoReproductivo, Potrero, GrupoAnimal
 
 class FiltroAnimalForm(FlaskForm):
     raza = SelectField('Raza', coerce=int, validators=[Optional()])
@@ -32,7 +33,9 @@ class AnimalForm(FlaskForm):
     fecha_nacimiento = DateField('Fecha de Nacimiento', validators=[DataRequired()])
     sexo = SelectField('Sexo', choices=[('Macho', 'Macho'), ('Hembra', 'Hembra')], validators=[DataRequired()])
     id_finca = SelectField('Finca', coerce=int, validators=[DataRequired()])
-    id_potrero = SelectField('Potrero', coerce=int, validators=[Optional()])
+    # validate_choice=False porque las opciones se cargan dinámicamente vía JS
+    id_potrero = SelectField('Potrero', coerce=int, validators=[Optional()], validate_choice=False)
+    id_grupo = SelectField('Grupo', coerce=int, validators=[Optional()], validate_choice=False)
     id_padre = SelectField('Padre', coerce=int, validators=[Optional()])
     id_madre = SelectField('Madre', coerce=int, validators=[Optional()])
     ubicacion_animal = SelectField('Ubicación', 
@@ -40,6 +43,7 @@ class AnimalForm(FlaskForm):
                                          ('fuera de la finca', 'Fuera de la Finca'), 
                                          ('desconocido', 'Desconocido')], 
                                  validators=[DataRequired()])
+    foto = FileField('Foto', validators=[Optional()])
     origen = SelectField('Origen', 
                         choices=[('nacido_en_finca', 'Nacido en Finca'), 
                                 ('comprado', 'Comprado'), 
@@ -58,6 +62,8 @@ class AnimalForm(FlaskForm):
         
         # Inicialmente, sin potreros hasta que se seleccione una finca
         self.id_potrero.choices = [(0, 'Seleccione primero una finca')]
+        # Inicialmente, sin grupos hasta que se seleccione potrero (o finca)
+        self.id_grupo.choices = [(0, 'Seleccione primero un potrero')]
         
         # Para padre y madre, cargar solo animales machos y hembras respectivamente
         machos = Animal.query.filter_by(sexo='Macho').all()
