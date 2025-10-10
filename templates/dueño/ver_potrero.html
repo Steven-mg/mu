@@ -35,7 +35,11 @@
                     <p class="mb-2"><strong>Capacidad:</strong> {{ potrero.capacidad_animal or 'No especificada' }} animales</p>
                     <p class="mb-2"><strong>Ocupación actual:</strong> {{ ocupacion_total or 0 }} animales</p>
                     <p class="mb-2"><strong>Tipo de pasto:</strong> {{ potrero.tipo_pasto or 'No especificado' }}</p>
-                    <p class="mb-2"><strong>Estado:</strong> {{ potrero.estado }}</p>
+                    <p class="mb-2"><strong>Estado:</strong> {{ potrero.estado }}
+                        {% if capacidad_excedida %}
+                        <span class="badge bg-danger ms-2">Sobrecupo</span>
+                        {% endif %}
+                    </p>
                     <p class="mb-0"><strong>Fecha última rotación:</strong> {{ potrero.fecha_ultima_rotacion.strftime('%d/%m/%Y') if potrero.fecha_ultima_rotacion else 'Sin registro' }}</p>
                     {% if capacidad_excedida %}
                     <div class="alert alert-danger mt-3">

@@ -238,6 +238,86 @@ def gestionar_finca(finca_id):
     except Exception:
         documentos_map = {}
 
+    # Calcular sobrecupo por potrero (basado en suma de animales por grupos)
+    sobrecupo_map = {}
+    for p in potreros:
+        # Rotaciones activas en este potrero
+        rotaciones_activas = RotacionPotrero.query.filter_by(id_potrero=p.id_potrero, fecha_fin=None).all()
+
+        # Filtrar: solo considerar la última rotación abierta del grupo en todo el sistema
+        rotaciones_filtradas = []
+        grupos_activos = []
+        for rot in rotaciones_activas:
+            grupo_id = rot.id_grupo_animal or rot.id_grupo
+            ultima_abierta = (RotacionPotrero.query
+                .filter(
+                    RotacionPotrero.fecha_fin.is_(None),
+                    ((RotacionPotrero.id_grupo_animal == grupo_id) | (RotacionPotrero.id_grupo == grupo_id))
+                )
+                .order_by(RotacionPotrero.fecha_inicio.desc(), RotacionPotrero.id_rotacion.desc())
+                .first())
+
+            if ultima_abierta and ultima_abierta.id_potrero != p.id_potrero:
+                continue
+
+            rotaciones_filtradas.append(rot)
+
+            grupo_obj = rot.grupo_animal or GrupoAnimal.query.get(grupo_id)
+            if grupo_obj and grupo_obj not in grupos_activos:
+                grupos_activos.append(grupo_obj)
+
+        # Incluir grupos cuyos animales están físicamente en el potrero
+        grupos_por_animales = (db.session.query(GrupoAnimal)
+            .join(AnimalGrupo, GrupoAnimal.id_grupo == AnimalGrupo.id_grupo)
+            .join(Animal, AnimalGrupo.id_animal == Animal.id_animal)
+            .filter(Animal.id_potrero == p.id_potrero)
+            .all())
+
+        for g in grupos_por_animales:
+            if g not in grupos_activos:
+                grupos_activos.append(g)
+
+        # Conteos presentes (evitar duplicados) y totales por grupo
+        conteos_presentes = (
+            db.session.query(
+                AnimalGrupo.id_grupo,
+                db.func.count(db.func.distinct(AnimalGrupo.id_animal))
+            )
+            .join(Animal, Animal.id_animal == AnimalGrupo.id_animal)
+            .filter(Animal.id_potrero == p.id_potrero)
+            .group_by(AnimalGrupo.id_grupo)
+            .all()
+        )
+        presentes_dict = {gid: cnt for gid, cnt in conteos_presentes}
+
+        conteos_totales = (
+            db.session.query(
+                AnimalGrupo.id_grupo,
+                db.func.count(db.func.distinct(AnimalGrupo.id_animal))
+            )
+            .group_by(AnimalGrupo.id_grupo)
+            .all()
+        )
+        totales_dict = {gid: cnt for gid, cnt in conteos_totales}
+
+        grupos_con_rotacion = set()
+        for rot in rotaciones_filtradas:
+            gid = rot.id_grupo_animal or rot.id_grupo
+            if gid:
+                grupos_con_rotacion.add(gid)
+
+        # Sumar ocupación por grupos con la regla de rotación
+        ocupacion_por_grupos = 0
+        for grupo in grupos_activos:
+            gid = grupo.id_grupo
+            if gid in grupos_con_rotacion:
+                ocupacion_por_grupos += totales_dict.get(gid, 0)
+            else:
+                ocupacion_por_grupos += presentes_dict.get(gid, 0)
+
+        capacidad = p.capacidad_animal or 0
+        sobrecupo_map[p.id_potrero] = bool(capacidad and ocupacion_por_grupos > capacidad)
+
     return render_template(
         'dueño/gestionarfinca.html',
         finca=finca,
@@ -246,7 +326,8 @@ def gestionar_finca(finca_id):
         relaciones_trabajadores=relaciones_trabajadores,
         trabajadores_dueno=trabajadores_dueno,
         asignados_ids=asignados_ids,
-        documentos_map=documentos_map
+        documentos_map=documentos_map,
+        sobrecupo_map=sobrecupo_map
     )
 
 @login_required
@@ -588,30 +669,52 @@ def ver_potrero(potrero_id):
         if g not in grupos_activos:
             grupos_activos.append(g)
 
-    # Conteo de animales por grupo presentes en el potrero
-    conteos = db.session.query(AnimalGrupo.id_grupo, db.func.count(AnimalGrupo.id_animal)).\
-        join(Animal, Animal.id_animal == AnimalGrupo.id_animal).\
-        filter(Animal.id_potrero == potrero_id).\
-        group_by(AnimalGrupo.id_grupo).all()
-    conteo_animales_potrero = {gid: cnt for gid, cnt in conteos}
+    # Conteo de animales por grupo presentes en el potrero (evitar duplicados)
+    conteos_presentes = (
+        db.session.query(
+            AnimalGrupo.id_grupo,
+            db.func.count(db.func.distinct(AnimalGrupo.id_animal))
+        )
+        .join(Animal, Animal.id_animal == AnimalGrupo.id_animal)
+        .filter(Animal.id_potrero == potrero_id)
+        .group_by(AnimalGrupo.id_grupo)
+        .all()
+    )
+    conteo_presentes_dict = {gid: cnt for gid, cnt in conteos_presentes}
 
-    # Fallback: si un grupo tiene rotación activa en este potrero pero
-    # aún no se han actualizado sus animales a este potrero, mostrar
-    # la cantidad de animales del grupo para evitar ver "0".
+    # Tamaño total del grupo según relaciones en animal_grupo (conteo real por grupo)
+    conteos_totales = (
+        db.session.query(
+            AnimalGrupo.id_grupo,
+            db.func.count(db.func.distinct(AnimalGrupo.id_animal))
+        )
+        .group_by(AnimalGrupo.id_grupo)
+        .all()
+    )
+    conteo_totales_dict = {gid: cnt for gid, cnt in conteos_totales}
+
+    # Si el grupo tiene rotación activa en este potrero, mostrar el tamaño total del grupo;
+    # de lo contrario, mostrar los animales presentes físicamente en el potrero.
     grupos_con_rotacion = set()
     for rot in rotaciones_activas_filtradas:
         gid = rot.id_grupo_animal or rot.id_grupo
         if gid:
             grupos_con_rotacion.add(gid)
-    for grupo in grupos_activos:
-        if grupo.id_grupo in grupos_con_rotacion and grupo.id_grupo not in conteo_animales_potrero:
-            conteo_animales_potrero[grupo.id_grupo] = len(grupo.animales)
 
-    # Ocupación total y bandera de capacidad excedida
+    conteo_animales_potrero = {}
+    for grupo in grupos_activos:
+        gid = grupo.id_grupo
+        if gid in grupos_con_rotacion:
+            conteo_animales_potrero[gid] = conteo_totales_dict.get(gid, 0)
+        else:
+            conteo_animales_potrero[gid] = conteo_presentes_dict.get(gid, 0)
+
+    # Ocupación por grupos con regla de rotación y bandera de capacidad excedida
     ocupacion_total = db.session.query(db.func.count(Animal.id_animal)).\
         filter(Animal.id_potrero == potrero_id).scalar() or 0
+    ocupacion_grupos_total = sum(conteo_animales_potrero.values()) if conteo_animales_potrero else 0
     capacidad = potrero.capacidad_animal or 0
-    capacidad_excedida = bool(capacidad and ocupacion_total > capacidad)
+    capacidad_excedida = bool(capacidad and ocupacion_grupos_total > capacidad)
 
     return render_template(
         'dueño/ver_potrero.html',
@@ -789,6 +892,46 @@ def gestionar_grupo(grupo_id):
     potrero_id = request.args.get('potrero_id', type=int)
 
     return render_template('dueño/gestionar_grupo.html', grupo=grupo, animales_grupo=animales_grupo, animales_disponibles=animales_disponibles, potrero_id=potrero_id)
+
+@login_required
+def eliminar_grupo(grupo_id):
+    """Eliminar un grupo de animales de forma segura"""
+    grupo = GrupoAnimal.query.get_or_404(grupo_id)
+
+    # Verificar permisos sobre la finca del grupo
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=grupo.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para eliminar este grupo', 'danger')
+        return redirect(url_for('mis_fincas'))
+
+    try:
+        # Cerrar y desvincular rotaciones que referencian este grupo (para evitar FK rotas)
+        rotaciones = RotacionPotrero.query.filter_by(id_grupo_animal=grupo_id).all()
+        for rot in rotaciones:
+            if rot.fecha_fin is None:
+                rot.fecha_fin = datetime.now().date()
+            # Preservar el id del grupo en el campo legado y limpiar FK
+            rot.id_grupo = grupo.id_grupo
+            rot.id_grupo_animal = None
+
+        nombre_grupo = grupo.nombre_grupo
+        finca_id = grupo.id_finca
+
+        # Eliminar el grupo (las relaciones AnimalGrupo se borran por CASCADE)
+        db.session.delete(grupo)
+        db.session.commit()
+
+        registrar_actividad('Eliminó', f'Grupo: {nombre_grupo}')
+        flash(f'Grupo "{nombre_grupo}" eliminado exitosamente', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar el grupo: {str(e)}', 'danger')
+
+    # Redirigir: si viene desde un potrero, regresar allí; si no, a la lista de grupos
+    potrero_id = request.form.get('potrero_id', type=int)
+    if potrero_id:
+        return redirect(url_for('ver_potrero_route', potrero_id=potrero_id))
+    return redirect(url_for('listar_grupos_finca_route', finca_id=finca_id))
 
 
 @login_required

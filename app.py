@@ -545,7 +545,7 @@ from controlador.controlador_finca import (
     crear_finca, editar_finca, eliminar_finca, listar_fincas, gestionar_finca,
     obtener_fincas_usuario, ver_finca, crear_potrero, editar_potrero,
     eliminar_potrero, ver_potrero, agregar_animales_potrero,
-    listar_grupos_finca, gestionar_grupo, api_agregar_animal_a_grupo, api_quitar_animal_de_grupo
+    listar_grupos_finca, gestionar_grupo, api_agregar_animal_a_grupo, api_quitar_animal_de_grupo, eliminar_grupo
 )
 from controlador.controlador_finca import guardar_rotacion
 from controlador.controlador_finca import api_default_tipo_uso_potrero
@@ -890,6 +890,11 @@ def listar_grupos_finca_route(finca_id):
 def gestionar_grupo_route(grupo_id):
     return gestionar_grupo(grupo_id)
 
+@app.route('/grupo/<int:grupo_id>/eliminar', methods=['POST'], endpoint='eliminar_grupo_route')
+@login_required
+def eliminar_grupo_route(grupo_id):
+    return eliminar_grupo(grupo_id)
+
 @app.route('/api/grupo/<int:grupo_id>/agregar-animal', methods=['POST'])
 @login_required
 def api_agregar_animal_a_grupo_route(grupo_id):
@@ -1005,6 +1010,7 @@ api_agregar_animal_a_grupo_route = requiere_rol(2)(api_agregar_animal_a_grupo_ro
 api_quitar_animal_de_grupo_route = requiere_rol(2)(api_quitar_animal_de_grupo_route)
 api_grupos_activos_por_potrero_route = requiere_rol(2)(api_grupos_activos_por_potrero_route)
 api_grupos_por_finca_route = requiere_rol(2)(api_grupos_por_finca_route)
+eliminar_grupo_route = requiere_rol(2)(eliminar_grupo_route)
 
 # Eliminada: Ruta /guardar-potrero que procesaba el formulario modal mediante AJAX
 if __name__ == '__main__':

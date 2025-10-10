@@ -214,9 +214,14 @@
                                 <div class="card potrero-card">
                                     <div class="card-header d-flex justify-content-between align-items-center">
                                         <h5 class="mb-0">{{ potrero.nombre_potrero }}</h5>
-                                        <span class="badge {% if potrero.estado == 'activo' %}bg-success{% elif potrero.estado == 'descanso' %}bg-warning text-dark{% elif potrero.estado == 'mantenimiento' %}bg-danger{% else %}bg-secondary{% endif %}">
-                                            {{ potrero.estado|capitalize }}
-                                        </span>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge {% if potrero.estado == 'activo' %}bg-success{% elif potrero.estado == 'descanso' %}bg-warning text-dark{% elif potrero.estado == 'mantenimiento' %}bg-danger{% else %}bg-secondary{% endif %}">
+                                                {{ potrero.estado|capitalize }}
+                                            </span>
+                                            {% if sobrecupo_map and sobrecupo_map.get(potrero.id_potrero) %}
+                                            <span class="badge bg-danger">Sobrecupo</span>
+                                            {% endif %}
+                                        </div>
                                     </div>
                                     <div class="card-body">
                                         <p><strong>Área:</strong> {{ potrero.extension }} hectáreas</p>
