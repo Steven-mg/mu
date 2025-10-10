@@ -4,6 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from flask import render_template, redirect, url_for, flash, session, request
 from forms.login_form import LoginForm
+from forms.cambiar_password_form import CambiarPasswordForm
 from modelo.models import Usuario
 from werkzeug.security import check_password_hash, generate_password_hash  # Cambiar bcrypt por werkzeug
 from config import db, app  # Importar app desde config
@@ -130,6 +131,15 @@ def ruta_login():
                 flash('Has iniciado sesión correctamente', 'success')
             
             # Redireccionar según el tipo de usuario
+            # Si el usuario tiene la contraseña por defecto '0000', forzar cambio
+            try:
+                default_pass = check_password_hash(usuario.contraseña, '0000')
+            except Exception:
+                default_pass = False
+
+            if default_pass:
+                return redirect(url_for('cambiar_password_route'))
+
             if usuario.tipo_usuario == 3:  # Root/Super admin
                 return redirect(url_for('dashboard_root'))
             elif usuario.tipo_usuario == 2:  # Dueño de finca
@@ -140,6 +150,23 @@ def ruta_login():
             flash('Error al iniciar sesión. Verifica tu nombre de usuario/correo y contraseña', 'danger')
     
     return render_template('login.html', form=form)
+
+@login_required
+def cambiar_password():
+    form = CambiarPasswordForm()
+    if form.validate_on_submit():
+        nueva = form.nueva_contraseña.data
+        current_user.contraseña = generate_password_hash(nueva)
+        db.session.commit()
+        flash('Contraseña actualizada correctamente', 'success')
+        # Redirigir según tipo luego de cambiar
+        if current_user.tipo_usuario == 3:
+            return redirect(url_for('dashboard_root'))
+        elif current_user.tipo_usuario == 2:
+            return redirect(url_for('dashboard_dueno'))
+        else:
+            return redirect(url_for('dashboard_trabajador'))
+    return render_template('cambiar_password.html', form=form)
 
 # Función para manejar la ruta de cierre de sesión
 def ruta_logout():

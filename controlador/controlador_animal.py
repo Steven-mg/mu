@@ -327,13 +327,19 @@ def crear_animal():
                     grupo = GrupoAnimal.query.get(grupo_id)
                     # Validar que el grupo exista y pertenezca a la misma finca
                     if grupo and grupo.id_finca == nuevo_animal.id_finca:
-                        existe_rel = AnimalGrupo.query.filter_by(id_animal=nuevo_animal.id_animal, id_grupo=grupo_id).first()
-                        if not existe_rel:
-                            relacion = AnimalGrupo(id_animal=nuevo_animal.id_animal,
-                                                   id_grupo=grupo_id,
-                                                   fecha_asignacion=datetime.now().date())
-                            db.session.add(relacion)
-                            db.session.commit()
+                        # Asegurar unicidad: no permitir que un animal pertenezca a múltiples grupos
+                        existe_cualquier = AnimalGrupo.query.filter_by(id_animal=nuevo_animal.id_animal).first()
+                        if existe_cualquier:
+                            # Si ya pertenece a algún grupo, no crear una nueva relación
+                            pass
+                        else:
+                            existe_rel = AnimalGrupo.query.filter_by(id_animal=nuevo_animal.id_animal, id_grupo=grupo_id).first()
+                            if not existe_rel:
+                                relacion = AnimalGrupo(id_animal=nuevo_animal.id_animal,
+                                                       id_grupo=grupo_id,
+                                                       fecha_asignacion=datetime.now().date())
+                                db.session.add(relacion)
+                                db.session.commit()
             except Exception:
                 # No bloquear creación del animal si falla la asignación al grupo
                 db.session.rollback()
@@ -582,13 +588,19 @@ def editar_animal(animal_id):
                 if grupo_id and grupo_id != 0:
                     grupo = GrupoAnimal.query.get(grupo_id)
                     if grupo and grupo.id_finca == animal.id_finca:
-                        existe_rel = AnimalGrupo.query.filter_by(id_animal=animal.id_animal, id_grupo=grupo_id).first()
-                        if not existe_rel:
-                            relacion = AnimalGrupo(id_animal=animal.id_animal,
-                                                   id_grupo=grupo_id,
-                                                   fecha_asignacion=datetime.now().date())
-                            db.session.add(relacion)
-                            db.session.commit()
+                        # Evitar múltiples relaciones a distintos grupos
+                        relacion_any = AnimalGrupo.query.filter_by(id_animal=animal.id_animal).first()
+                        if relacion_any and relacion_any.id_grupo != grupo_id:
+                            # Ya pertenece a un grupo distinto, no crear nueva relación
+                            flash('El animal ya pertenece a un grupo. Debe quitarlo primero antes de reasignar.', 'warning')
+                        else:
+                            existe_rel = AnimalGrupo.query.filter_by(id_animal=animal.id_animal, id_grupo=grupo_id).first()
+                            if not existe_rel:
+                                relacion = AnimalGrupo(id_animal=animal.id_animal,
+                                                       id_grupo=grupo_id,
+                                                       fecha_asignacion=datetime.now().date())
+                                db.session.add(relacion)
+                                db.session.commit()
             except Exception:
                 db.session.rollback()
             

@@ -1,11 +1,17 @@
-/* Estilos para botones generales */
-.btn:not(.btn-outline-primary):not(.btn-outline-success):not(.btn-outline-danger):not(.btn-outline-info) {
-    color: #000 !important; /* Texto negro para todos los botones */
+/* Base: consistencia en bordes y transición */
+.btn {
+    border-radius: 8px !important;
+    font-weight: 500 !important;
     transition: all 0.3s ease !important;
 }
 
+/* Estilos para botones generales (no outline) */
+.btn:not(.btn-outline-primary):not(.btn-outline-success):not(.btn-outline-danger):not(.btn-outline-info):not(.btn-outline-secondary) {
+    color: #000 !important; /* Texto negro para botones sólidos por defecto */
+}
+
 /* Hover para botones generales (excepto los específicos) */
-.btn:not(.btn-outline-primary):not(.btn-outline-success):not(.btn-outline-danger):not(.btn-outline-info):hover {
+.btn:not(.btn-outline-primary):not(.btn-outline-success):not(.btn-outline-danger):not(.btn-outline-info):not(.btn-outline-secondary):hover {
     background-color: #1a9d59 !important; /* Verde al hacer hover */
     color: #fff !important; /* Texto blanco al hacer hover */
     transform: translateY(-3px);
@@ -42,31 +48,23 @@
 }
 
 /* Mantener los colores originales para los botones específicos */
-.btn-outline-primary {
-    /* Mantener estilos originales */
+/* Outline: consistencia en transición */
+.btn-outline-primary,
+.btn-outline-success,
+.btn-outline-danger,
+.btn-outline-info,
+.btn-outline-secondary {
     transition: all 0.3s ease !important;
-}
-
-.btn-outline-success {
-    /* Mantener estilos originales */
-    transition: all 0.3s ease !important;
-}
-
-.btn-outline-danger {
-    /* Mantener estilos originales */
-    transition: all 0.3s ease !important;
-}
-
-.btn-outline-info {
-    /* Mantener estilos originales */
-    transition: all 0.3s ease !important;
+    border-width: 1px !important;
+    border-radius: 8px !important;
 }
 
 /* Añadir efecto de elevación al hacer hover en los botones específicos */
 .btn-outline-primary:hover,
 .btn-outline-success:hover,
 .btn-outline-danger:hover,
-.btn-outline-info:hover {
+.btn-outline-info:hover,
+.btn-outline-secondary:hover {
     transform: translateY(-3px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }

@@ -7,6 +7,11 @@ from config import db
 
 class Usuario(UserMixin, db.Model):
     __tablename__ = 'usuario'
+    __table_args__ = (
+        db.UniqueConstraint('nik_name', name='uq_usuario_nik_name'),
+        db.UniqueConstraint('correo', name='uq_usuario_correo'),
+        db.Index('ix_usuario_tipo_usuario', 'tipo_usuario'),
+    )
 
     id = db.Column(db.Integer, primary_key=True) 
     nik_name = db.Column(db.String(50), nullable=False)  
@@ -20,7 +25,30 @@ class Usuario(UserMixin, db.Model):
     pais = db.Column(db.String(50), nullable=True)
     departamento = db.Column(db.String(50), nullable=True)
     ciudad = db.Column(db.String(50), nullable=True)
+    # Foto del usuario almacenada como binario
+    foto_usuario = db.Column(db.LargeBinary, nullable=True)
     fincas = db.relationship('Finca', secondary='usuario_finca', backref='usuarios')
+
+class Trabajador(db.Model):
+    __tablename__ = 'trabajador'
+    __table_args__ = (
+        db.UniqueConstraint('usuario', name='usuario_unique'),
+        db.UniqueConstraint('documento', name='documento_unique'),
+        db.Index('ix_trabajador_id_jefe', 'id_jefe'),
+    )
+
+    id_trabajador = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    id_jefe = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=False)
+    usuario = db.Column(db.String(50), nullable=False)
+    nombre = db.Column(db.String(100), nullable=False)
+    apellido = db.Column(db.String(100), nullable=False)
+    documento = db.Column(db.String(20), nullable=False)
+    telefono = db.Column(db.String(20), nullable=True)
+    correo = db.Column(db.String(100), nullable=True)
+    rol = db.Column(db.Enum('administrador', 'operario', 'veterinario'), nullable=False)
+    fecha_registro = db.Column(db.DateTime, nullable=True, default=datetime.utcnow)
+    foto = db.Column(db.LargeBinary, nullable=True)
+    estado = db.Column(db.Enum('activo', 'inactivo'), nullable=True, default='activo')
 
 class Raza(db.Model):
     __tablename__ = 'raza'
@@ -176,9 +204,20 @@ class ServiciosSalud(db.Model):
 
 class UsuarioFinca(db.Model):
     __tablename__ = 'usuario_finca'
+    __table_args__ = (
+        db.UniqueConstraint('usuario_id', 'finca_id', name='uq_usuario_finca'),
+        db.Index('ix_usuario_finca_usuario_id', 'usuario_id'),
+        db.Index('ix_usuario_finca_finca_id', 'finca_id'),
+    )
     id = db.Column(db.Integer, primary_key=True)
     usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id', ondelete='CASCADE'), nullable=False)
     finca_id = db.Column(db.SmallInteger, db.ForeignKey('finca.id_finca', ondelete='CASCADE'), nullable=False)
+    # Nuevo: rol del usuario en esta finca (1=trabajador, 2=veterinario)
+    rol_en_finca = db.Column(db.SmallInteger, nullable=True)
+    # Nuevo: permisos de edición específicos para esta finca
+    puede_editar = db.Column(db.Boolean, nullable=True, default=False)
+    # Estado específico de la asignación trabajador-finca: 'asignado' o 'no_asignado'
+    estado_asignacion = db.Column(db.Enum('asignado', 'no_asignado'), nullable=False, default='asignado')
 
 class CicloReproductivo(db.Model):
     __tablename__ = 'ciclo_reproductivo'

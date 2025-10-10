@@ -64,8 +64,16 @@
                             </div>
                             
                             <div class="form-floating mb-3">
-                                {{ form.nombreEncargado(class="form-control login-input", id="floatingEncargado", placeholder="Nombre del Encargado") }}
+                                {# Campo con sugerencias de trabajadores existentes #}
+                                {{ form.nombreEncargado(class="form-control login-input", id="floatingEncargado", placeholder="Nombre del Encargado", list="listaEncargados") }}
                                 {{ form.nombreEncargado.label(for="floatingEncargado") }}
+                                <datalist id="listaEncargados">
+                                    {% if trabajadores_existentes %}
+                                        {% for t in trabajadores_existentes %}
+                                            <option value="{{ t.nik_name }}">{{ t.nik_name }}</option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </datalist>
                             </div>
                             
                             <div class="row mb-3">

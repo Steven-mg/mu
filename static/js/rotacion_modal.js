@@ -243,8 +243,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     const modal = bootstrap.Modal.getInstance(document.getElementById('rotarAnimales'));
                     modal.hide();
                     
-                    // Mostrar mensaje de éxito
-                    mostrarAlerta(data.message, 'success', 'alertaGeneral');
+                    // Mostrar mensajes según capacidad
+                    if (data.excede_capacidad) {
+                        const msg = `Capacidad excedida: ${data.ocupacion_total} / ${data.capacidad} animales`;
+                        mostrarAlerta(msg, 'danger', 'alertaGeneral');
+                    } else {
+                        mostrarAlerta(data.message, 'success', 'alertaGeneral');
+                    }
                     
                     // Recargar la página para mostrar la nueva rotación
                     setTimeout(() => {

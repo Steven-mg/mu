@@ -4,6 +4,7 @@ from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect  # Añadir esta importación
 import os
 from dotenv import load_dotenv
+from sqlalchemy.engine.url import make_url
 
 # Cargar variables de entorno
 load_dotenv()
@@ -22,9 +23,40 @@ app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = 1800  # 30 minutos de inactividad (opcional)
 
-# Configuración de la base de datos
-app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URI', 'mysql+pymysql://usuario:contraseña@localhost/nombre_base_datos')
+"""
+Configuración de la base de datos (MySQL)
+- No se modifica .env; se respeta DATABASE_URI existente
+- Se agrega configuración de pool para reconexión y timeouts, ayudando a mitigar
+  errores como WinError 10053 / conexiones abortadas.
+"""
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv(
+    'DATABASE_URI',
+    'mysql+pymysql://usuario:contraseña@localhost/nombre_base_datos'
+)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+# Opciones del engine para conexiones más resilientes en MySQL
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+    'pool_pre_ping': True,     # verifica conexiones antes de usarlas
+    'pool_recycle': 280,       # recicla conexiones para evitar cierre por servidor
+    'pool_timeout': 30,        # tiempo de espera al obtener conexión del pool
+    'connect_args': {
+        'charset': 'utf8mb4',
+        'connect_timeout': 10,
+        'read_timeout': 10,
+        'write_timeout': 10,
+    },
+}
+
+# Log seguro del destino de la BD (sin credenciales)
+try:
+    _uri = app.config['SQLALCHEMY_DATABASE_URI']
+    _url = make_url(_uri)
+    print(
+        f"Usando BD -> driver={_url.drivername}, host={_url.host}, port={_url.port}, database={_url.database}"
+    )
+except Exception:
+    pass
 
 # Configuración de Google OAuth
 app.config['GOOGLE_CLIENT_ID'] = os.getenv('GOOGLE_CLIENT_ID')

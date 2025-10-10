@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestionar Trabajadores - GanaControl{% endblock %}
+
+{% block sidebar %}
+{% include 'components/sidebar_dueno.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="row">
+    <main class="px-md-4 py-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h4 mb-0">Trabajadores y Veterinarios</h2>
+        <a href="{{ url_for('crear_trabajador_dueno_route') }}" class="btn btn-success">
+          <i class="fas fa-user-plus me-1"></i> Crear y asignar
+        </a>
+      </div>
+
+      <!-- Tabs: Crear vs Asignar/Permisos -->
+      <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+          <a class="nav-link {% if form %}active{% endif %}" href="{{ url_for('crear_trabajador_dueno_route') }}">
+            Crear
+          </a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link {% if not form %}active{% endif %}" href="{{ url_for('gestionar_trabajadores_route') }}">
+            Asignar / Permisos
+          </a>
+        </li>
+      </ul>
+
+      {% if form %}
+      <div class="card mb-4">
+        <div class="card-header bg-success text-white">Crear Trabajador</div>
+        <div class="card-body">
+          <form method="POST" enctype="multipart/form-data">
+            {{ form.hidden_tag() }}
+            <div class="row g-3">
+              <div class="col-md-3">{{ form.nik_name.label }} {{ form.nik_name(class='form-control') }}
+                {% if form.nik_name.errors %}<div class="text-danger small">{{ form.nik_name.errors[0] }}</div>{% endif %}
+              </div>
+              <div class="col-md-3">{{ form.nombres.label }} {{ form.nombres(class='form-control') }}
+                {% if form.nombres.errors %}<div class="text-danger small">{{ form.nombres.errors[0] }}</div>{% endif %}
+              </div>
+              <div class="col-md-3">{{ form.apellidos.label }} {{ form.apellidos(class='form-control') }}
+                {% if form.apellidos.errors %}<div class="text-danger small">{{ form.apellidos.errors[0] }}</div>{% endif %}
+              </div>
+              <div class="col-md-3">{{ form.correo.label }} {{ form.correo(class='form-control') }}
+                {% if form.correo.errors %}<div class="text-danger small">{{ form.correo.errors[0] }}</div>{% endif %}
+              </div>
+              <div class="col-md-3">{{ form.documento.label }} {{ form.documento(class='form-control') }}
+                {% if form.documento.errors %}<div class="text-danger small">{{ form.documento.errors[0] }}</div>{% endif %}
+              </div>
+              <div class="col-md-3">{{ form.telefono.label }} {{ form.telefono(class='form-control') }}
+                {% if form.telefono.errors %}<div class="text-danger small">{{ form.telefono.errors[0] }}</div>{% endif %}
+              </div>
+              <div class="col-md-3">{{ form.foto.label }} {{ form.foto(class='form-control', accept='image/*') }}</div>
+              <div class="col-md-3">{{ form.rol.label }} {{ form.rol(class='form-select') }}</div>
+              <div class="col-md-3">{{ form.rol_en_finca.label }} {{ form.rol_en_finca(class='form-select') }}</div>
+              <div class="col-md-3">{{ form.finca_id.label }} {{ form.finca_id(class='form-select') }}</div>
+              <!-- Opción de 'Puede editar en la finca' eliminada del formulario de creación/asignación -->
+            </div>
+            <div class="mt-3">
+              {{ form.submit(class='btn btn-success') }}
+              <a href="{{ url_for('gestionar_trabajadores_route') }}" class="btn btn-outline-secondary ms-2">Cancelar</a>
+            </div>
+          </form>
+        </div>
+      </div>
+      {% endif %}
+      {% if not form %}
+      <div class="card">
+        <div class="card-header bg-light">
+          <strong>Asignar finca y gestionar permisos</strong>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-striped">
+              <thead>
+                <tr>
+                  <th>Usuario</th>
+                  <th>Documento</th>
+                  <th>Finca</th>
+                  <th>Rol</th>
+                  <th>Puede editar</th>
+                  <th>Asignación</th>
+                  <th>Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if relaciones and relaciones|length > 0 %}
+                {% for rel in relaciones %}
+                {% set u = trabajadores|selectattr('id', 'equalto', rel.usuario_id)|list|first %}
+                {% set f = fincas|selectattr('id_finca', 'equalto', rel.finca_id)|list|first %}
+                <tr>
+                  <td>
+                    <span class="text-body">{{ u.nik_name if u else rel.usuario_id }}</span>
+                  </td>
+                  <td>{{ documentos_map.get(rel.usuario_id) or '—' }}</td>
+                  <td>{{ f.nombre_finca if f else rel.finca_id }}</td>
+                  <td>
+                    {% if rel.rol_en_finca == 3 %}Administrador{% elif rel.rol_en_finca == 2 %}Veterinario{% else %}Trabajador{% endif %}
+                  </td>
+                  <td>
+                    <span class="badge {% if rel.puede_editar %}bg-success{% else %}bg-secondary{% endif %}">
+                      {% if rel.puede_editar %}Habilitado{% else %}Deshabilitado{% endif %}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge {% if rel.estado_asignacion == 'asignado' %}bg-success{% else %}bg-warning{% endif %}">
+                      {{ rel.estado_asignacion or 'asignado' }}
+                    </span>
+                  </td>
+                  <td>
+                    <form method="POST" action="{{ url_for('actualizar_permiso_trabajador_route') }}" class="d-flex align-items-center">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="usuario_id" value="{{ rel.usuario_id }}">
+                      <input type="hidden" name="finca_id" value="{{ rel.finca_id }}">
+                      <div class="me-2">
+                        <select name="rol_en_finca" class="form-select form-select-sm">
+                          <option value="1" {% if rel.rol_en_finca == 1 %}selected{% endif %}>Trabajador</option>
+                          <option value="2" {% if rel.rol_en_finca == 2 %}selected{% endif %}>Veterinario</option>
+                          <option value="3" {% if rel.rol_en_finca == 3 %}selected{% endif %}>Administrador</option>
+                        </select>
+                      </div>
+                      <div class="form-check form-switch me-2">
+                        <input class="form-check-input" type="checkbox" name="puede_editar" value="true" {% if rel.puede_editar %}checked{% endif %}>
+                      </div>
+                      <div class="me-2">
+                        <select name="estado_asignacion" class="form-select form-select-sm">
+                          <option value="asignado" {% if rel.estado_asignacion == 'asignado' %}selected{% endif %}>Asignado</option>
+                          <option value="no_asignado" {% if rel.estado_asignacion == 'no_asignado' %}selected{% endif %}>No asignado</option>
+                        </select>
+                      </div>
+                      <a href="{{ url_for('administrar_trabajador_route', usuario_id=rel.usuario_id) }}" class="btn btn-outline-primary btn-sm me-2">Administrar</a>
+                      <button type="submit" class="btn btn-outline-success btn-sm me-2">Guardar permisos</button>
+                    </form>
+                  </td>
+                </tr>
+                {% endfor %}
+                {% endif %}
+
+                {% if trabajadores_sin_asignacion and trabajadores_sin_asignacion|length > 0 %}
+                {% for u in trabajadores_sin_asignacion %}
+                <tr class="table-light">
+                  <td><span class="text-body">{{ u.nik_name }}</span></td>
+                  <td>{{ documentos_map.get(u.id) or '—' }}</td>
+                  <td><span class="text-muted">Sin asignar</span></td>
+                  <td><span class="text-muted">—</span></td>
+                  <td>
+                    <span class="badge bg-secondary">Deshabilitado</span>
+                  </td>
+                  <td>
+                    <span class="badge bg-warning">no_asignado</span>
+                  </td>
+                  <td>
+                    <a href="{{ url_for('administrar_trabajador_route', usuario_id=u.id) }}" class="btn btn-outline-primary btn-sm me-2">Administrar</a>
+                    <a href="{{ url_for('crear_trabajador_dueno_route') }}" class="btn btn-outline-success btn-sm">Asignar a finca</a>
+                  </td>
+                </tr>
+                {% endfor %}
+                {% endif %}
+
+                {% if (not relaciones or relaciones|length == 0) and (not trabajadores_sin_asignacion or trabajadores_sin_asignacion|length == 0) %}
+                <tr>
+                  <td colspan="7" class="text-center text-muted py-4">
+                    No hay trabajadores registrados todavía.
+                    <a href="{{ url_for('crear_trabajador_dueno_route') }}" class="ms-2">Crear y asignar</a>
+                  </td>
+                </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </main>
+  </div>
+</div>
+{% endblock %}

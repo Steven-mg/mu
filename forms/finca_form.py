@@ -14,7 +14,22 @@ class FincaForm(FlaskForm):
     ciudad = StringField('Ciudad/Localidad', validators=[Length(max=50)])
     submit = SubmitField('Guardar Finca')
     
+    def __init__(self, *args, **kwargs):
+        # Permitir que el controlador de edición pase el ID actual de la finca
+        self._finca_id = kwargs.pop('finca_id', None)
+        super(FincaForm, self).__init__(*args, **kwargs)
+    
     def validate_nombre_finca(self, nombre_finca):
-        finca = Finca.query.filter_by(nombre_finca=nombre_finca.data).first()
-        if finca:
+        # Normalizar valor ingresado
+        nombre = (nombre_finca.data or '').strip()
+        if not nombre:
+            return  # DataRequired se encargará
+
+        # Excluir la finca actual al validar duplicados
+        duplicada = Finca.query.filter(
+            Finca.nombre_finca == nombre,
+            Finca.id_finca != (self._finca_id or 0)
+        ).first()
+
+        if duplicada:
             raise ValidationError('Este nombre de finca ya está en uso. Por favor, elija otro.')

@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container mt-4">
+  <h3>Administrar trabajador</h3>
+  <div class="row">
+    <div class="col-md-4">
+      <div class="card">
+        <div class="card-body text-center">
+          {% if usuario.foto_usuario %}
+          <img src="{{ url_for('ver_foto_usuario_route', usuario_id=usuario.id) }}" alt="Foto" class="img-fluid rounded"/>
+          {% else %}
+          <div class="text-muted">Sin foto</div>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+<div class="col-md-8">
+      <form method="post" enctype="multipart/form-data" action="{{ url_for('administrar_trabajador_route', usuario_id=usuario.id) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="mb-3">
+          <label class="form-label">Nombres</label>
+          <input type="text" name="nombres" class="form-control" value="{{ usuario.nombres }}" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Apellidos</label>
+          <input type="text" name="apellidos" class="form-control" value="{{ usuario.apellidos }}" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Teléfono</label>
+          <input type="text" name="telefono" class="form-control" value="{{ usuario.telefono }}" />
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Foto</label>
+          <input type="file" name="foto" accept="image/*" class="form-control" />
+        </div>
+        {% if trabajador_rel %}
+        <div class="mb-3">
+          <label class="form-label">Estado</label>
+          <select name="estado" class="form-select">
+            <option value="activo" {% if trabajador_rel.estado == 'activo' %}selected{% endif %}>Activo</option>
+            <option value="inactivo" {% if trabajador_rel.estado == 'inactivo' %}selected{% endif %}>Inactivo</option>
+          </select>
+          <small class="text-muted">Cambiar a inactivo desasigna al trabajador de todas las fincas.</small>
+        </div>
+        {% endif %}
+        <div class="d-flex gap-2 align-items-center">
+          <button type="submit" class="btn btn-primary">Guardar cambios</button>
+          <a href="{{ url_for('gestionar_trabajadores_route') }}" class="btn btn-secondary">Volver</a>
+        </div>
+      </form>
+      <form method="post" action="{{ url_for('eliminar_trabajador_route', usuario_id=usuario.id) }}" onsubmit="return confirm('¿Seguro que deseas eliminar este trabajador? Esta acción es irreversible.');" class="mt-2">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <button type="submit" class="btn btn-danger">Eliminar trabajador</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

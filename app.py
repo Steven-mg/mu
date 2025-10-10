@@ -6,7 +6,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from forms.login_form import LoginForm
 from flask_login import login_required, current_user, logout_user  # Añadir logout_user
 from config import app, db
-from modelo.models import Usuario, Finca, Animal, Reporte, ActividadReciente, UsuarioFinca, Potrero, RotacionPotrero, GrupoAnimal  # Agregar RotacionPotrero y GrupoAnimal
+from modelo.models import Usuario, Finca, Animal, Reporte, ActividadReciente, UsuarioFinca, Potrero, RotacionPotrero, GrupoAnimal, Trabajador  # Agregar RotacionPotrero y GrupoAnimal
 from controlador.controlador_actividad import obtener_actividades_recientes  # Importar la función
 from datetime import datetime  # Añadir esta importación
 from sqlalchemy import text
@@ -60,12 +60,367 @@ def ensure_aplica_a_sexo_columns():
         # No romper arranque; solo loguear
         print('Error asegurando aplica_a_sexo:', e)
 
+# Migración segura: asegurar columnas de permisos por finca en usuario_finca
+def ensure_usuario_finca_permission_columns():
+    try:
+        dialect = db.engine.dialect.name
+        if dialect != 'mysql':
+            print('Salto migración usuario_finca: dialecto no MySQL ->', dialect)
+            return
+        with db.engine.connect() as conn:
+            # Verificar columna rol_en_finca
+            exists_rol = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'usuario_finca' 
+                  AND COLUMN_NAME = 'rol_en_finca'
+                """
+            )).first()
+            if not exists_rol:
+                conn.execute(text(
+                    """
+                    ALTER TABLE usuario_finca 
+                    ADD COLUMN rol_en_finca SMALLINT NULL
+                    """
+                ))
+                print('Columna rol_en_finca agregada a usuario_finca')
+
+            # Verificar columna puede_editar
+            exists_editar = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'usuario_finca' 
+                  AND COLUMN_NAME = 'puede_editar'
+                """
+            )).first()
+            if not exists_editar:
+                conn.execute(text(
+                    """
+                    ALTER TABLE usuario_finca 
+                    ADD COLUMN puede_editar TINYINT(1) NULL DEFAULT 0
+                    """
+                ))
+                print('Columna puede_editar agregada a usuario_finca')
+
+            # Verificar columna estado_asignacion
+            exists_estado_asignacion = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'usuario_finca' 
+                  AND COLUMN_NAME = 'estado_asignacion'
+                """
+            )).first()
+            if not exists_estado_asignacion:
+                conn.execute(text(
+                    """
+                    ALTER TABLE usuario_finca 
+                    ADD COLUMN estado_asignacion ENUM('asignado','no_asignado') NOT NULL DEFAULT 'asignado'
+                    """
+                ))
+                print('Columna estado_asignacion agregada a usuario_finca')
+                # Inicializar estado_asignacion para filas existentes
+                conn.execute(text("UPDATE usuario_finca SET estado_asignacion = 'asignado' WHERE estado_asignacion IS NULL"))
+    except Exception as e:
+        print('Error asegurando columnas usuario_finca:', e)
+
+# Migración segura: agregar columna foto_usuario en tabla usuario si no existe
+def ensure_foto_usuario_column():
+    try:
+        dialect = db.engine.dialect.name
+        if dialect != 'mysql':
+            print('Salto migración foto_usuario: dialecto no MySQL ->', dialect)
+            return
+        with db.engine.connect() as conn:
+            exists_foto = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'usuario' 
+                  AND COLUMN_NAME = 'foto_usuario'
+                """
+            )).first()
+            if not exists_foto:
+                conn.execute(text(
+                    """
+                    ALTER TABLE usuario 
+                    ADD COLUMN foto_usuario LONGBLOB NULL
+                    """
+                ))
+                print('Columna foto_usuario agregada a usuario')
+    except Exception as e:
+        print('Error asegurando columna foto_usuario:', e)
+
+# Migración segura: crear tabla trabajador si no existe y asegurar índices/unique
+def ensure_trabajador_table():
+    try:
+        dialect = db.engine.dialect.name
+        if dialect != 'mysql':
+            print('Salto migración trabajador: dialecto no MySQL ->', dialect)
+            return
+        with db.engine.connect() as conn:
+            exists_tbl = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.TABLES 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'trabajador'
+                """
+            )).first()
+            if not exists_tbl:
+                conn.execute(text(
+                    """
+                    CREATE TABLE trabajador (
+                      id INT AUTO_INCREMENT PRIMARY KEY,
+                      usuario_id INT NOT NULL,
+                      dueno_id INT NOT NULL,
+                      fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                      estado ENUM('activo','inactivo') NOT NULL DEFAULT 'activo',
+                      activo TINYINT(1) NOT NULL DEFAULT 1,
+                      CONSTRAINT fk_trabajador_usuario FOREIGN KEY (usuario_id) REFERENCES usuario(id) ON DELETE CASCADE,
+                      CONSTRAINT fk_trabajador_dueno FOREIGN KEY (dueno_id) REFERENCES usuario(id) ON DELETE CASCADE,
+                      CONSTRAINT uq_trabajador_dueno_usuario UNIQUE (dueno_id, usuario_id)
+                    )
+                    """
+                ))
+                print('Tabla trabajador creada')
+
+            # Asegurar columnas clave si la tabla ya existía pero sin ellas
+            exists_usuario_col = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'trabajador' 
+                  AND COLUMN_NAME = 'usuario_id'
+                """
+            )).first()
+            if not exists_usuario_col:
+                conn.execute(text("ALTER TABLE trabajador ADD COLUMN usuario_id INT NULL"))
+                print('Columna usuario_id agregada a trabajador')
+
+            exists_dueno_col = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'trabajador' 
+                  AND COLUMN_NAME = 'dueno_id'
+                """
+            )).first()
+            if not exists_dueno_col:
+                conn.execute(text("ALTER TABLE trabajador ADD COLUMN dueno_id INT NULL"))
+                print('Columna dueno_id agregada a trabajador')
+
+            # Asegurar columna fecha_creacion para evitar errores 1054 al insertar
+            exists_fecha_creacion = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'trabajador' 
+                  AND COLUMN_NAME = 'fecha_creacion'
+                """
+            )).first()
+            if not exists_fecha_creacion:
+                conn.execute(text(
+                    """
+                    ALTER TABLE trabajador 
+                    ADD COLUMN fecha_creacion DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+                    """
+                ))
+                print('Columna fecha_creacion agregada a trabajador')
+
+            # Asegurar columna legacy activo para compatibilidad con el modelo
+            exists_activo = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'trabajador' 
+                  AND COLUMN_NAME = 'activo'
+                """
+            )).first()
+            if not exists_activo:
+                conn.execute(text("ALTER TABLE trabajador ADD COLUMN activo TINYINT(1) NOT NULL DEFAULT 1"))
+                print('Columna activo agregada a trabajador')
+
+            # Mitigar columna legacy id_jefe (algunos esquemas antiguos la requieren NOT NULL)
+            try:
+                id_jefe_info = conn.execute(text(
+                    """
+                    SELECT IS_NULLABLE, COLUMN_DEFAULT 
+                    FROM information_schema.COLUMNS 
+                    WHERE TABLE_SCHEMA = DATABASE() 
+                      AND TABLE_NAME = 'trabajador' 
+                      AND COLUMN_NAME = 'id_jefe'
+                    """
+                )).first()
+            except Exception:
+                id_jefe_info = None
+
+            if id_jefe_info:
+                # Si existe y no permite NULL, flexibilizar para evitar 1364
+                try:
+                    if id_jefe_info[0] == 'NO':
+                        conn.execute(text(
+                            """
+                            ALTER TABLE trabajador 
+                            MODIFY COLUMN id_jefe INT NULL DEFAULT NULL
+                            """
+                        ))
+                        print('Columna legacy id_jefe flexibilizada (NULL DEFAULT NULL)')
+                except Exception:
+                    pass
+                # Opcional: backfill con dueno_id si está NULL para mayor compatibilidad
+                try:
+                    conn.execute(text("UPDATE trabajador SET id_jefe = dueno_id WHERE id_jefe IS NULL"))
+                except Exception:
+                    pass
+
+            # Mitigar columna legacy usuario (evitar 1364 si es NOT NULL sin default)
+            try:
+                usuario_info = conn.execute(text(
+                    """
+                    SELECT COLUMN_TYPE, IS_NULLABLE, COLUMN_DEFAULT 
+                    FROM information_schema.COLUMNS 
+                    WHERE TABLE_SCHEMA = DATABASE() 
+                      AND TABLE_NAME = 'trabajador' 
+                      AND COLUMN_NAME = 'usuario'
+                    """
+                )).first()
+            except Exception:
+                usuario_info = None
+
+            if usuario_info:
+                col_type, is_nullable, col_default = usuario_info
+                try:
+                    if is_nullable == 'NO':
+                        conn.execute(text(
+                            f"""
+                            ALTER TABLE trabajador 
+                            MODIFY COLUMN usuario {col_type} NULL DEFAULT NULL
+                            """
+                        ))
+                        print('Columna legacy usuario flexibilizada (NULL DEFAULT NULL)')
+                except Exception:
+                    pass
+                # Opcional: normalizar valores vacíos a NULL
+                try:
+                    conn.execute(text("UPDATE trabajador SET usuario = NULL WHERE usuario = ''"))
+                except Exception:
+                    pass
+
+            # Asegurar llaves foráneas si faltan (no falla si ya existen)
+            try:
+                fk_usuario = conn.execute(text(
+                    """
+                    SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE 
+                    WHERE TABLE_SCHEMA = DATABASE() 
+                      AND TABLE_NAME = 'trabajador' 
+                      AND COLUMN_NAME = 'usuario_id' 
+                      AND REFERENCED_TABLE_NAME = 'usuario'
+                    """
+                )).first()
+                if not fk_usuario:
+                    conn.execute(text("ALTER TABLE trabajador ADD CONSTRAINT fk_trabajador_usuario FOREIGN KEY (usuario_id) REFERENCES usuario(id) ON DELETE CASCADE"))
+            except Exception:
+                pass
+            try:
+                fk_dueno = conn.execute(text(
+                    """
+                    SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE 
+                    WHERE TABLE_SCHEMA = DATABASE() 
+                      AND TABLE_NAME = 'trabajador' 
+                      AND COLUMN_NAME = 'dueno_id' 
+                      AND REFERENCED_TABLE_NAME = 'usuario'
+                    """
+                )).first()
+                if not fk_dueno:
+                    conn.execute(text("ALTER TABLE trabajador ADD CONSTRAINT fk_trabajador_dueno FOREIGN KEY (dueno_id) REFERENCES usuario(id) ON DELETE CASCADE"))
+            except Exception:
+                pass
+
+            # Asegurar índices si faltan
+            exists_ix_dueno = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.STATISTICS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'trabajador' 
+                  AND INDEX_NAME = 'ix_trabajador_dueno_id'
+                """
+            )).first()
+            if not exists_ix_dueno:
+                conn.execute(text("CREATE INDEX ix_trabajador_dueno_id ON trabajador(dueno_id)"))
+                print('Índice ix_trabajador_dueno_id agregado')
+
+            exists_ix_usuario = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.STATISTICS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'trabajador' 
+                  AND INDEX_NAME = 'ix_trabajador_usuario_id'
+                """
+            )).first()
+            if not exists_ix_usuario:
+                conn.execute(text("CREATE INDEX ix_trabajador_usuario_id ON trabajador(usuario_id)"))
+                print('Índice ix_trabajador_usuario_id agregado')
+
+            # Asegurar unique compuesto
+            exists_uq = conn.execute(text(
+                """
+                SELECT 1 
+                FROM information_schema.TABLE_CONSTRAINTS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'trabajador' 
+                  AND CONSTRAINT_NAME = 'uq_trabajador_dueno_usuario' 
+                  AND CONSTRAINT_TYPE = 'UNIQUE'
+                """
+            )).first()
+            if not exists_uq:
+                conn.execute(text("ALTER TABLE trabajador ADD UNIQUE KEY uq_trabajador_dueno_usuario (dueno_id, usuario_id)"))
+                print('Unique uq_trabajador_dueno_usuario agregado')
+
+            # Asegurar columna estado en esquema existente
+            exists_estado = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'trabajador' 
+                  AND COLUMN_NAME = 'estado'
+                """
+            )).first()
+            if not exists_estado:
+                conn.execute(text(
+                    """
+                    ALTER TABLE trabajador 
+                    ADD COLUMN estado ENUM('activo','inactivo') NOT NULL DEFAULT 'activo'
+                    """
+                ))
+                print('Columna estado agregada a trabajador')
+                # Migrar desde columna legacy activo si existe
+                exists_activo_col = conn.execute(text(
+                    """
+                    SELECT 1 FROM information_schema.COLUMNS 
+                    WHERE TABLE_SCHEMA = DATABASE() 
+                      AND TABLE_NAME = 'trabajador' 
+                      AND COLUMN_NAME = 'activo'
+                    """
+                )).first()
+                if exists_activo_col:
+                    conn.execute(text("UPDATE trabajador SET estado = 'activo' WHERE activo = 1"))
+                    conn.execute(text("UPDATE trabajador SET estado = 'inactivo' WHERE activo = 0"))
+    except Exception as e:
+        print('Error asegurando tabla trabajador:', e)
+
 # Crear todas las tablas en la base de datos
 with app.app_context():
     db.create_all()
     print("Tablas creadas correctamente en la base de datos")
     # Ejecutar migración segura de columnas aplica_a_sexo
     ensure_aplica_a_sexo_columns()
+    # Ejecutar migración segura de columnas de usuario_finca
+    ensure_usuario_finca_permission_columns()
+    # Ejecutar migración segura de foto_usuario
+    ensure_foto_usuario_column()
+    # Omitir migración de tabla trabajador para respetar esquema del dump
     
     # Importar e inicializar el usuario administrador
     from modelo.models import inicializar_usuario_admin
@@ -102,22 +457,33 @@ def dashboard_dueno():
     # Obtener el usuario actual
     usuario_actual = Usuario.query.get(current_user.id)
     
-    # Contar las fincas del usuario actual
-    total_fincas = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).count()
+    # Contar las fincas del usuario actual de forma eficiente (evita subconsulta pesada en MySQL)
+    from sqlalchemy import func
+    # Optimizado: usar subconsulta de las fincas del dueño con DISTINCT y COUNT
+    fincas_dueno_subq = db.session.query(UsuarioFinca.finca_id).\
+        filter(UsuarioFinca.usuario_id == current_user.id).distinct()
+    total_fincas = db.session.query(func.count()).select_from(fincas_dueno_subq).scalar() or 0
     
     # Contar los animales en las fincas del usuario sin seleccionar todas las columnas
-    from sqlalchemy import func
-    total_animales = db.session.query(func.count(Animal.id_animal))\
-        .join(Finca, Animal.id_finca == Finca.id_finca)\
-        .join(UsuarioFinca, UsuarioFinca.finca_id == Finca.id_finca)\
-        .filter(UsuarioFinca.usuario_id == current_user.id)\
-        .scalar()
+    # Optimizado: filtrar por fincas del dueño usando subconsulta y contar ids
+    total_animales = db.session.query(func.count(Animal.id_animal)).\
+        filter(Animal.id_finca.in_(fincas_dueno_subq)).scalar() or 0
     
     # Definir total_produccion (ajusta esto según tu modelo de datos)
     total_produccion = 0  # Inicializar con un valor predeterminado o calcular según tus necesidades
     
-    # Definir total_trabajadores (ajusta esto según tu modelo de datos)
-    total_trabajadores = 0  # Inicializar con un valor predeterminado o calcular según tus necesidades
+    # Contar trabajadores: preferir Trabajador con estado 'activo', fallback seguro a UsuarioFinca
+    from sqlalchemy import func
+    try:
+        total_trabajadores = db.session.query(func.count(Trabajador.id_trabajador)).\
+            filter(Trabajador.id_jefe == current_user.id, Trabajador.estado == 'activo').scalar() or 0
+    except Exception:
+        # Fallback: contar usuarios relacionados a fincas del dueño que no sean el dueño mismo
+        total_trabajadores = db.session.query(func.count(UsuarioFinca.usuario_id)).\
+            filter(
+                UsuarioFinca.finca_id.in_(fincas_dueno_subq),
+                UsuarioFinca.usuario_id != current_user.id
+            ).scalar() or 0
     
     # Obtener actividades recientes del usuario
     actividades_recientes = ActividadReciente.query.filter_by(usuario_id=current_user.id).order_by(ActividadReciente.fecha.desc()).limit(5).all()
@@ -138,7 +504,7 @@ def dashboard_trabajador():
 
 # Ahora importar las funciones de autenticación
 # Agregar después de la importación de controlador_autenticacion
-from controlador.controlador_autenticacion import ruta_login, ruta_logout, requiere_rol, ruta_registro, configurar_google_oauth, google_login
+from controlador.controlador_autenticacion import ruta_login, ruta_logout, requiere_rol, ruta_registro, configurar_google_oauth, google_login, cambiar_password
 
 # Configurar Google OAuth
 google_blueprint = configurar_google_oauth(app)
@@ -162,6 +528,11 @@ def logout():
 def login_google():
     return google_login()
 
+# Ruta de cambio de contraseña obligatoria
+@app.route('/cambiar-password', methods=['GET', 'POST'])
+def cambiar_password_route():
+    return cambiar_password()
+
 # Importar controlador de usuarios
 from controlador.controlador_usuario import listar_usuarios, crear_usuario, editar_usuario, eliminar_usuario_controlador
 
@@ -181,6 +552,8 @@ from controlador.controlador_finca import api_default_tipo_uso_potrero
 
 # Importar controlador de compras
 from controlador.controlador_compra import *
+from controlador.controlador_trabajador import listar_trabajadores_dueno, crear_trabajador_dueno, actualizar_permiso_trabajador, asignar_trabajador_finca, quitar_trabajador_finca
+from controlador.controlador_trabajador_admin import ver_trabajador_admin, actualizar_trabajador_admin, ver_foto_usuario, eliminar_trabajador
 
 # Aplicar los decoradores de rol a las rutas ya definidas
 dashboard_root = requiere_rol(3)(dashboard_root)  # Solo accesible para rol 3 (root)
@@ -341,6 +714,12 @@ def eliminar_servicio_sexual_route(animal_id, servicio_id):
 @login_required
 def ver_foto_animal_route(animal_id):
     return ver_foto_animal(animal_id)
+
+# Ruta para servir la foto del usuario
+@app.route('/usuario/<int:usuario_id>/foto')
+@login_required
+def ver_foto_usuario_route(usuario_id):
+    return ver_foto_usuario(usuario_id)
 
 # API endpoints para animales
 @app.route('/api/animales/finca/<int:finca_id>')
@@ -536,6 +915,55 @@ descargar_documento_genetico_route = requiere_rol(2)(descargar_documento_genetic
 eliminar_documento_genetico_route = requiere_rol(2)(eliminar_documento_genetico_route)
 eliminar_servicio_salud_route = requiere_rol(2)(eliminar_servicio_salud_route)
 eliminar_servicio_sexual_route = requiere_rol(2)(eliminar_servicio_sexual_route)
+
+# Rutas de gestión de trabajadores (Dueño)
+@app.route('/trabajadores')
+@login_required
+def gestionar_trabajadores_route():
+    return listar_trabajadores_dueno()
+
+@app.route('/trabajadores/crear', methods=['GET', 'POST'])
+@login_required
+def crear_trabajador_dueno_route():
+    return crear_trabajador_dueno()
+
+@app.route('/trabajadores/actualizar-permisos', methods=['POST'])
+@login_required
+def actualizar_permiso_trabajador_route():
+    return actualizar_permiso_trabajador()
+
+# Ruta y vista de administración de trabajador
+@app.route('/trabajador/<int:usuario_id>/administrar', methods=['GET', 'POST'])
+@login_required
+@requiere_rol(2)
+def administrar_trabajador_route(usuario_id):
+    return ver_trabajador_admin(usuario_id) if request.method == 'GET' else actualizar_trabajador_admin(usuario_id)
+
+# Eliminar trabajador
+@app.route('/trabajador/<int:usuario_id>/eliminar', methods=['POST'], endpoint='eliminar_trabajador_route')
+@login_required
+@requiere_rol(2)
+def eliminar_trabajador_route(usuario_id):
+    return eliminar_trabajador(usuario_id)
+
+# Aplicar decoradores de rol a rutas de trabajadores
+gestionar_trabajadores_route = requiere_rol(2)(gestionar_trabajadores_route)
+crear_trabajador_dueno_route = requiere_rol(2)(crear_trabajador_dueno_route)
+actualizar_permiso_trabajador_route = requiere_rol(2)(actualizar_permiso_trabajador_route)
+ver_foto_usuario_route = requiere_rol(1)(ver_foto_usuario_route)
+
+# Asignar/Quitar trabajador en finca
+@app.route('/finca/<int:finca_id>/trabajador/<int:usuario_id>/asignar', methods=['POST'])
+@login_required
+@requiere_rol(2)
+def asignar_trabajador_finca_route(finca_id, usuario_id):
+    return asignar_trabajador_finca(finca_id, usuario_id)
+
+@app.route('/finca/<int:finca_id>/trabajador/<int:usuario_id>/quitar', methods=['POST'])
+@login_required
+@requiere_rol(2)
+def quitar_trabajador_finca_route(finca_id, usuario_id):
+    return quitar_trabajador_finca(finca_id, usuario_id)
 
 # Editar documento genético
 @app.route('/documento_genetico/<int:documento_id>/editar', methods=['GET', 'POST'], endpoint='editar_documento_genetico_route')

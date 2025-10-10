@@ -64,8 +64,16 @@
                             </div>
                             
                             <div class="form-floating mb-3">
-                                {{ form.nombreEncargado(class="form-control login-input", id="floatingEncargado", placeholder="Nombre del Encargado") }}
+                                {# Campo con sugerencias de trabajadores existentes #}
+                                {{ form.nombreEncargado(class="form-control login-input", id="floatingEncargado", placeholder="Nombre del Encargado", list="listaEncargados") }}
                                 {{ form.nombreEncargado.label(for="floatingEncargado") }}
+                                <datalist id="listaEncargados">
+                                    {% if trabajadores_existentes %}
+                                        {% for t in trabajadores_existentes %}
+                                            <option value="{{ t.nik_name }}">{{ t.nik_name }}</option>
+                                        {% endfor %}
+                                    {% endif %}
+                                </datalist>
                             </div>
                             
                             <div class="row mb-3">
@@ -92,19 +100,19 @@
                             <div class="d-grid gap-2 mt-4">
                                 {{ form.submit(class="btn btn-success login-btn", value="Actualizar Finca") }}
                             </div>
-                            
-                            <div class="d-flex justify-content-center gap-3 mt-3">
-                                <a href="{{ url_for('mis_fincas') }}" class="btn btn-outline-secondary">
-                                    <i class="fas fa-arrow-left me-1"></i> Cancelar
-                                </a>
-                                <form action="{{ url_for('eliminar_finca_route', finca_id=finca.id_finca) }}" method="POST" onsubmit="return confirm('¿Estás seguro de eliminar esta finca? Se eliminarán todos los datos relacionados con ella. Esta acción no se puede deshacer.')">
-                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                                    <button type="submit" class="btn btn-danger">
-                                        <i class="fas fa-trash-alt me-1"></i> Eliminar
-                                    </button>
-                                </form>
-                            </div>
                         </form>
+
+                        <div class="d-flex justify-content-center gap-3 mt-3">
+                            <a href="{{ url_for('mis_fincas') }}" class="btn btn-outline-secondary">
+                                <i class="fas fa-arrow-left me-1"></i> Cancelar
+                            </a>
+                            <form action="{{ url_for('eliminar_finca_route', finca_id=finca.id_finca) }}" method="POST" onsubmit="return confirm('¿Estás seguro de eliminar esta finca? Se eliminarán todos los datos relacionados con ella. Esta acción no se puede deshacer.')">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fas fa-trash-alt me-1"></i> Eliminar
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
                 <div class="text-center mt-4 text-muted">

@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-from modelo.models import Finca, UsuarioFinca, Potrero, RotacionPotrero, GrupoAnimal, Animal, AnimalGrupo
+from modelo.models import Finca, UsuarioFinca, Potrero, RotacionPotrero, GrupoAnimal, Animal, AnimalGrupo, Usuario, Trabajador
 from sqlalchemy.orm import joinedload
 from forms.finca_form import FincaForm
 from forms.potrero_form import PotreroForm
@@ -16,6 +16,16 @@ from controlador.controlador_actividad import registrar_actividad
 def crear_finca():
     """Crear una nueva finca"""
     form = FincaForm()
+    # Lista de trabajadores existentes para sugerencias (solo los ligados al dueño actual)
+    try:
+        registros = Trabajador.query.filter_by(id_jefe=current_user.id).all()
+        nik_names = [t.usuario for t in registros if t.usuario]
+        trabajadores_existentes = Usuario.query.filter(
+            Usuario.tipo_usuario == 1,
+            Usuario.nik_name.in_(nik_names)
+        ).all() if nik_names else []
+    except Exception:
+        trabajadores_existentes = []
     
     if form.validate_on_submit():
         # Crear una nueva finca
@@ -35,12 +45,24 @@ def crear_finca():
             db.session.add(nueva_finca)
             db.session.flush()  # Para obtener el ID de la finca
             
-            # Crear la relación usuario-finca explícitamente
+            # Crear la relación usuario-finca (dueño actual)
             relacion_usuario_finca = UsuarioFinca(
                 usuario_id=current_user.id,
                 finca_id=nueva_finca.id_finca
             )
             db.session.add(relacion_usuario_finca)
+
+            # Asignar encargado si coincide con un trabajador existente
+            nombre_encargado = (form.nombreEncargado.data or '').strip()
+            if nombre_encargado:
+                encargado = Usuario.query.filter(Usuario.nik_name == nombre_encargado, Usuario.tipo_usuario == 1).first()
+                if encargado and encargado.id != current_user.id:
+                    relacion_encargado = UsuarioFinca.query.filter_by(usuario_id=encargado.id, finca_id=nueva_finca.id_finca).first()
+                    if not relacion_encargado:
+                        relacion_encargado = UsuarioFinca(usuario_id=encargado.id, finca_id=nueva_finca.id_finca)
+                        db.session.add(relacion_encargado)
+                    relacion_encargado.rol_en_finca = 3  # Administrador/Encargado
+                    relacion_encargado.puede_editar = True
             
             # Registrar actividad
             registrar_actividad(
@@ -55,7 +77,7 @@ def crear_finca():
             db.session.rollback()
             flash(f'Error al crear la finca: {str(e)}', 'danger')
     
-    return render_template('dueño/crear_finca.html', form=form)
+    return render_template('dueño/crear_finca.html', form=form, trabajadores_existentes=trabajadores_existentes)
 
 @login_required
 def editar_finca(finca_id):
@@ -69,13 +91,35 @@ def editar_finca(finca_id):
         flash('No tienes permisos para editar esta finca', 'danger')
         return redirect(url_for('mis_fincas'))
     
-    # Crear formulario con datos existentes
-    form = FincaForm(obj=finca)
+    # Crear formulario con datos existentes y pasar el id para validación correcta
+    form = FincaForm(obj=finca, finca_id=finca.id_finca)
+    # Sugerir solo trabajadores ligados al dueño actual
+    try:
+        registros = Trabajador.query.filter_by(id_jefe=current_user.id).all()
+        nik_names = [t.usuario for t in registros if t.usuario]
+        trabajadores_existentes = Usuario.query.filter(
+            Usuario.tipo_usuario == 1,
+            Usuario.nik_name.in_(nik_names)
+        ).all() if nik_names else []
+    except Exception:
+        trabajadores_existentes = []
     
     if form.validate_on_submit():
         try:
             # Actualizar los datos de la finca
             form.populate_obj(finca)
+
+            # Asignar/actualizar encargado si coincide con un trabajador existente
+            nombre_encargado = (form.nombreEncargado.data or '').strip()
+            if nombre_encargado:
+                encargado = Usuario.query.filter(Usuario.nik_name == nombre_encargado, Usuario.tipo_usuario == 1).first()
+                if encargado and encargado.id != current_user.id:
+                    relacion_encargado = UsuarioFinca.query.filter_by(usuario_id=encargado.id, finca_id=finca.id_finca).first()
+                    if not relacion_encargado:
+                        relacion_encargado = UsuarioFinca(usuario_id=encargado.id, finca_id=finca.id_finca)
+                        db.session.add(relacion_encargado)
+                    relacion_encargado.rol_en_finca = 3  # Administrador/Encargado
+                    relacion_encargado.puede_editar = True
             
             # Registrar actividad
             registrar_actividad(
@@ -90,7 +134,7 @@ def editar_finca(finca_id):
             db.session.rollback()
             flash(f'Error al actualizar la finca: {str(e)}', 'danger')
     
-    return render_template('dueño/editar_finca.html', form=form, finca=finca)
+    return render_template('dueño/editar_finca.html', form=form, finca=finca, trabajadores_existentes=trabajadores_existentes)
 
 @login_required
 def eliminar_finca(finca_id):
@@ -166,7 +210,44 @@ def gestionar_finca(finca_id):
     else:
         rotaciones = []
     
-    return render_template('dueño/gestionarfinca.html', finca=finca, potreros=potreros, rotaciones=rotaciones)
+    # Trabajadores asignados a esta finca (excluyendo al dueño)
+    relaciones_trabajadores = UsuarioFinca.query.filter(
+        UsuarioFinca.finca_id == finca_id,
+        UsuarioFinca.usuario_id != current_user.id
+    ).all()
+
+    asignados_ids = {rel.usuario_id for rel in relaciones_trabajadores}
+
+    # Trabajadores del dueño (tabla legacy Trabajador vincula por nik_name)
+    try:
+        registros = Trabajador.query.filter_by(id_jefe=current_user.id).all()
+        nik_names = [t.usuario for t in registros if t.usuario]
+        trabajadores_dueno = Usuario.query.filter(
+            Usuario.tipo_usuario == 1,
+            Usuario.nik_name.in_(nik_names)
+        ).all() if nik_names else []
+    except Exception:
+        trabajadores_dueno = []
+
+    # Mapear documento desde tabla legacy para mostrar en UI
+    documentos_map = {}
+    try:
+        doc_por_nik = {t.usuario: t.documento for t in registros}
+        for u in trabajadores_dueno:
+            documentos_map[u.id] = doc_por_nik.get(u.nik_name)
+    except Exception:
+        documentos_map = {}
+
+    return render_template(
+        'dueño/gestionarfinca.html',
+        finca=finca,
+        potreros=potreros,
+        rotaciones=rotaciones,
+        relaciones_trabajadores=relaciones_trabajadores,
+        trabajadores_dueno=trabajadores_dueno,
+        asignados_ids=asignados_ids,
+        documentos_map=documentos_map
+    )
 
 @login_required
 def obtener_fincas_usuario():
@@ -281,10 +362,11 @@ def guardar_rotacion():
             for rot_activa in rotaciones_origen_activas:
                 rot_activa.fecha_fin = fecha_inicio
 
-            # Mover animales del grupo que están en el potrero de origen al destino
-            animales_a_mover = db.session.query(Animal).\
-                join(AnimalGrupo, Animal.id_animal == AnimalGrupo.id_animal).\
-                filter(AnimalGrupo.id_grupo == grupo.id_grupo, Animal.id_potrero == potrero_origen_id).all()
+            # Mover todos los animales del grupo al potrero destino
+            animales_a_mover = (db.session.query(Animal)
+                .join(AnimalGrupo, Animal.id_animal == AnimalGrupo.id_animal)
+                .filter(AnimalGrupo.id_grupo == grupo.id_grupo)
+                .all())
             for animal in animales_a_mover:
                 animal.id_potrero = potrero.id_potrero
 
@@ -334,12 +416,18 @@ def guardar_rotacion():
 
         db.session.commit()
 
+        # Calcular ocupación actual del potrero y si excede capacidad
+        ocupacion_total = db.session.query(db.func.count(Animal.id_animal)).\
+            filter(Animal.id_potrero == potrero.id_potrero).scalar() or 0
+        capacidad = potrero.capacidad_animal or 0
+        excede_capacidad = bool(capacidad and ocupacion_total > capacidad)
+
         if es_rotacion:
             registrar_actividad('Rotó', f'Grupo {grupo.nombre_grupo} desde {potrero_origen.nombre_potrero} hacia {potrero.nombre_potrero} ({tipo_uso})')
         else:
             registrar_actividad('Registró', f'Rotación en {potrero.nombre_potrero} ({tipo_uso}) - Grupo {grupo.nombre_grupo}')
 
-        return jsonify({'success': True, 'message': 'Rotación guardada correctamente'})
+        return jsonify({'success': True, 'message': 'Rotación guardada correctamente', 'excede_capacidad': excede_capacidad, 'ocupacion_total': ocupacion_total, 'capacidad': capacidad})
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': f'Error al guardar la rotación: {str(e)}'}), 500
@@ -519,13 +607,21 @@ def ver_potrero(potrero_id):
         if grupo.id_grupo in grupos_con_rotacion and grupo.id_grupo not in conteo_animales_potrero:
             conteo_animales_potrero[grupo.id_grupo] = len(grupo.animales)
 
+    # Ocupación total y bandera de capacidad excedida
+    ocupacion_total = db.session.query(db.func.count(Animal.id_animal)).\
+        filter(Animal.id_potrero == potrero_id).scalar() or 0
+    capacidad = potrero.capacidad_animal or 0
+    capacidad_excedida = bool(capacidad and ocupacion_total > capacidad)
+
     return render_template(
         'dueño/ver_potrero.html',
         potrero=potrero,
         grupos=grupos_activos,
         rotaciones=rotaciones_activas_filtradas,
         finca=potrero.finca,
-        conteo_animales_potrero=conteo_animales_potrero
+        conteo_animales_potrero=conteo_animales_potrero,
+        ocupacion_total=ocupacion_total,
+        capacidad_excedida=capacidad_excedida
     )
 
 @login_required
@@ -633,6 +729,15 @@ def listar_grupos_finca(finca_id):
             flash('El nombre del grupo es requerido', 'danger')
         else:
             try:
+                # Validar duplicado de nombre dentro de la misma finca (case-insensitive)
+                existente = GrupoAnimal.query.filter(
+                    GrupoAnimal.id_finca == finca_id,
+                    db.func.lower(GrupoAnimal.nombre_grupo) == nombre.lower()
+                ).first()
+                if existente:
+                    flash('Ya existe un grupo con ese nombre en esta finca', 'warning')
+                    return redirect(url_for('listar_grupos_finca_route', finca_id=finca_id))
+
                 nuevo = GrupoAnimal(nombre_grupo=nombre, id_finca=finca_id, descripcion=descripcion)
                 db.session.add(nuevo)
                 db.session.commit()
@@ -660,15 +765,25 @@ def gestionar_grupo(grupo_id):
     # Animales del grupo
     animales_grupo = grupo.animales
 
-    # Animales disponibles de la misma finca, no presentes en el grupo
-    animales_disponibles = (Animal.query
-                            .options(joinedload(Animal.raza))
-                            .filter(
-                                Animal.id_finca == grupo.id_finca,
-                                Animal.ubicacion_animal.in_(['en finca', 'en_finca'])
-                            ).all())
-    ids_en_grupo = {a.id_animal for a in animales_grupo}
-    animales_disponibles = [a for a in animales_disponibles if a.id_animal not in ids_en_grupo]
+    # Animales disponibles de la misma finca: excluir cualquier animal ya asignado a algún grupo
+    animales_disponibles_query = (Animal.query
+                                  .options(joinedload(Animal.raza))
+                                  .filter(
+                                      Animal.id_finca == grupo.id_finca,
+                                      Animal.ubicacion_animal.in_(['en finca', 'en_finca'])
+                                  ))
+
+    # IDs de animales que ya pertenecen a algún grupo dentro de la finca
+    ids_en_alguna_relacion = {
+        rel.id_animal for rel in (
+            db.session.query(AnimalGrupo)
+            .join(GrupoAnimal, AnimalGrupo.id_grupo == GrupoAnimal.id_grupo)
+            .filter(GrupoAnimal.id_finca == grupo.id_finca)
+            .all()
+        )
+    }
+
+    animales_disponibles = [a for a in animales_disponibles_query.all() if a.id_animal not in ids_en_alguna_relacion]
 
     # Potrero de retorno opcional para el botón "Volver"
     potrero_id = request.args.get('potrero_id', type=int)
@@ -694,9 +809,19 @@ def api_agregar_animal_a_grupo(grupo_id):
         return jsonify({'success': False, 'message': 'Animal no válido para este grupo'}), 400
 
     try:
+        # Bloquear duplicidad: si el animal ya pertenece a cualquier grupo, no permitir asignarlo de nuevo
+        relacion_existente = (db.session.query(AnimalGrupo)
+                              .join(GrupoAnimal, AnimalGrupo.id_grupo == GrupoAnimal.id_grupo)
+                              .filter(AnimalGrupo.id_animal == animal_id)
+                              .first())
+        if relacion_existente:
+            return jsonify({'success': False, 'message': 'El animal ya pertenece a un grupo'}), 400
+
+        # Asegurar también que no esté ya en este grupo (protección adicional)
         relacion_actual = AnimalGrupo.query.filter_by(id_animal=animal_id, id_grupo=grupo_id).first()
         if relacion_actual:
             return jsonify({'success': False, 'message': 'El animal ya está en el grupo'}), 400
+
         nueva = AnimalGrupo(id_animal=animal_id, id_grupo=grupo_id, fecha_asignacion=datetime.utcnow().date())
         db.session.add(nueva)
         db.session.commit()
