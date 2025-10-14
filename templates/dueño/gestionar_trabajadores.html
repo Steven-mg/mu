@@ -12,9 +12,7 @@
     <main class="px-md-4 py-4">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h2 class="h4 mb-0">Trabajadores y Veterinarios</h2>
-        <a href="{{ url_for('crear_trabajador_dueno_route') }}" class="btn btn-success">
-          <i class="fas fa-user-plus me-1"></i> Crear y asignar
-        </a>
+        <!-- Botón "Crear y asignar" removido para simplificar la UI -->
       </div>
 
       <!-- Tabs: Crear vs Asignar/Permisos -->
@@ -157,7 +155,7 @@
                   </td>
                   <td>
                     <a href="{{ url_for('administrar_trabajador_route', usuario_id=u.id) }}" class="btn btn-outline-primary btn-sm me-2">Administrar</a>
-                    <a href="{{ url_for('crear_trabajador_dueno_route') }}" class="btn btn-outline-success btn-sm">Asignar a finca</a>
+                    <!-- Acción de "Asignar a finca" redirigía a crear; se remueve para evitar confusión -->
                   </td>
                 </tr>
                 {% endfor %}
@@ -167,7 +165,7 @@
                 <tr>
                   <td colspan="7" class="text-center text-muted py-4">
                     No hay trabajadores registrados todavía.
-                    <a href="{{ url_for('crear_trabajador_dueno_route') }}" class="ms-2">Crear y asignar</a>
+                    <!-- Enlace de "Crear y asignar" removido -->
                   </td>
                 </tr>
                 {% endif %}

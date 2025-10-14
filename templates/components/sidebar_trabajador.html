@@ -1,0 +1,38 @@
+<nav id="sidebar" class="sidebar bg-light">
+  <div class="sidebar-header px-3 py-3">
+    <h5 class="mb-0">GanaControl</h5>
+    <small>Trabajador</small>
+  </div>
+  <ul class="list-unstyled components px-2">
+    <li class="mb-2">
+      <a href="{{ url_for('dashboard_trabajador') }}" class="d-flex align-items-center">
+        <i class="fas fa-home me-2"></i> Inicio
+      </a>
+    </li>
+    <li class="mb-2">
+      <a href="#" class="d-flex align-items-center">
+        <i class="fas fa-list me-2"></i> Actividad
+      </a>
+    </li>
+    <li class="mb-2">
+      <a href="#" class="d-flex align-items-center">
+        <i class="fas fa-notes-medical me-2"></i> Salud animal
+      </a>
+    </li>
+    <li class="mb-2">
+      <a href="#" class="d-flex align-items-center">
+        <i class="fas fa-chart-line me-2"></i> Producción
+      </a>
+    </li>
+    <li class="mb-2">
+      <a href="{{ url_for('cambiar_password_route') }}" class="d-flex align-items-center">
+        <i class="fas fa-key me-2"></i> Cambiar contraseña
+      </a>
+    </li>
+    <li class="mb-2">
+      <a href="{{ url_for('logout') }}" class="d-flex align-items-center">
+        <i class="fas fa-sign-out-alt me-2"></i> Salir
+      </a>
+    </li>
+  </ul>
+</nav>

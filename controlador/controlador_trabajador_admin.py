@@ -100,6 +100,11 @@ def eliminar_trabajador(usuario_id: int):
     try:
         # Eliminar relaciones con fincas (cascade por FK, pero asegurar explícito)
         UsuarioFinca.query.filter_by(usuario_id=user.id).delete()
+        # Eliminar registro legacy en la tabla `trabajador` asociado al dueño
+        try:
+            Trabajador.query.filter_by(usuario=user.nik_name).delete()
+        except Exception:
+            pass
         db.session.delete(user)
         db.session.commit()
         flash(f'Trabajador {user.nik_name} eliminado correctamente', 'success')

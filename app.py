@@ -5,10 +5,11 @@ from flask import render_template, request, session, flash, redirect, url_for, j
 from werkzeug.security import generate_password_hash, check_password_hash
 from forms.login_form import LoginForm
 from flask_login import login_required, current_user, logout_user  # Añadir logout_user
-from config import app, db
+from config import app, db, add_server_timing, cache_get, cache_set
 from modelo.models import Usuario, Finca, Animal, Reporte, ActividadReciente, UsuarioFinca, Potrero, RotacionPotrero, GrupoAnimal, Trabajador  # Agregar RotacionPotrero y GrupoAnimal
 from controlador.controlador_actividad import obtener_actividades_recientes  # Importar la función
 from datetime import datetime  # Añadir esta importación
+import time
 from sqlalchemy import text
 
 # Migración segura: asegurar columnas aplica_a_sexo en tablas de tipos de servicio
@@ -457,50 +458,112 @@ def dashboard_dueno():
     # Obtener el usuario actual
     usuario_actual = Usuario.query.get(current_user.id)
     
-    # Contar las fincas del usuario actual de forma eficiente (evita subconsulta pesada en MySQL)
-    from sqlalchemy import func
-    # Optimizado: usar subconsulta de las fincas del dueño con DISTINCT y COUNT
-    fincas_dueno_subq = db.session.query(UsuarioFinca.finca_id).\
-        filter(UsuarioFinca.usuario_id == current_user.id).distinct()
-    total_fincas = db.session.query(func.count()).select_from(fincas_dueno_subq).scalar() or 0
-    
-    # Contar los animales en las fincas del usuario sin seleccionar todas las columnas
-    # Optimizado: filtrar por fincas del dueño usando subconsulta y contar ids
-    total_animales = db.session.query(func.count(Animal.id_animal)).\
-        filter(Animal.id_finca.in_(fincas_dueno_subq)).scalar() or 0
-    
+    # Cache de conteos por usuario para reducir TTFB
+    counts_key = f"counts_user:{current_user.id}"
+    _tc = time.perf_counter()
+    cached_counts = cache_get(counts_key)
+    if cached_counts:
+        total_fincas = cached_counts.get('total_fincas', 0)
+        total_animales = cached_counts.get('total_animales', 0)
+        total_trabajadores = cached_counts.get('total_trabajadores', 0)
+        add_server_timing('cache_counts_hit', (time.perf_counter() - _tc) * 1000.0)
+    else:
+        add_server_timing('cache_counts_miss', (time.perf_counter() - _tc) * 1000.0)
+        from sqlalchemy import func
+        # Optimizado: usar subconsulta de las fincas del dueño con DISTINCT y COUNT
+        _t0 = time.perf_counter()
+        fincas_dueno_subq = db.session.query(UsuarioFinca.finca_id).\
+            filter(UsuarioFinca.usuario_id == current_user.id).distinct()
+        total_fincas = db.session.query(func.count()).select_from(fincas_dueno_subq).scalar() or 0
+        add_server_timing('q_fincas_count', (time.perf_counter() - _t0) * 1000.0)
+        
+        # Contar los animales en las fincas del usuario sin seleccionar todas las columnas
+        _t1 = time.perf_counter()
+        total_animales = db.session.query(func.count(Animal.id_animal)).\
+            filter(Animal.id_finca.in_(fincas_dueno_subq)).scalar() or 0
+        add_server_timing('q_animales_count', (time.perf_counter() - _t1) * 1000.0)
+        
+        # Contar trabajadores: preferir Trabajador con estado 'activo', fallback seguro a UsuarioFinca
+        try:
+            _t2 = time.perf_counter()
+            total_trabajadores = db.session.query(func.count(Trabajador.id_trabajador)).\
+                filter(Trabajador.id_jefe == current_user.id, Trabajador.estado == 'activo').scalar() or 0
+            add_server_timing('q_trabajadores_count', (time.perf_counter() - _t2) * 1000.0)
+        except Exception:
+            # Fallback: contar usuarios relacionados a fincas del dueño que no sean el dueño mismo
+            _t2b = time.perf_counter()
+            total_trabajadores = db.session.query(func.count(UsuarioFinca.usuario_id)).\
+                filter(
+                    UsuarioFinca.finca_id.in_(fincas_dueno_subq),
+                    UsuarioFinca.usuario_id != current_user.id
+                ).scalar() or 0
+            add_server_timing('q_relaciones_count', (time.perf_counter() - _t2b) * 1000.0)
+
+        # Guardar conteos en caché por 60s
+        cache_set(counts_key, {
+            'total_fincas': total_fincas,
+            'total_animales': total_animales,
+            'total_trabajadores': total_trabajadores,
+        }, timeout=60)
+
     # Definir total_produccion (ajusta esto según tu modelo de datos)
     total_produccion = 0  # Inicializar con un valor predeterminado o calcular según tus necesidades
-    
-    # Contar trabajadores: preferir Trabajador con estado 'activo', fallback seguro a UsuarioFinca
-    from sqlalchemy import func
-    try:
-        total_trabajadores = db.session.query(func.count(Trabajador.id_trabajador)).\
-            filter(Trabajador.id_jefe == current_user.id, Trabajador.estado == 'activo').scalar() or 0
-    except Exception:
-        # Fallback: contar usuarios relacionados a fincas del dueño que no sean el dueño mismo
-        total_trabajadores = db.session.query(func.count(UsuarioFinca.usuario_id)).\
-            filter(
-                UsuarioFinca.finca_id.in_(fincas_dueno_subq),
-                UsuarioFinca.usuario_id != current_user.id
-            ).scalar() or 0
-    
-    # Obtener actividades recientes del usuario
-    actividades_recientes = ActividadReciente.query.filter_by(usuario_id=current_user.id).order_by(ActividadReciente.fecha.desc()).limit(5).all()
+
+    # Obtener actividades recientes del usuario (cache 30s)
+    acts_key = f"acts_user:{current_user.id}"
+    _t3 = time.perf_counter()
+    actividades_recientes = cache_get(acts_key)
+    if actividades_recientes is None:
+        actividades_recientes = ActividadReciente.query.filter_by(usuario_id=current_user.id).order_by(ActividadReciente.fecha.desc()).limit(5).all()
+        cache_set(acts_key, actividades_recientes, timeout=30)
+        add_server_timing('q_actividades_recientes', (time.perf_counter() - _t3) * 1000.0)
+    else:
+        add_server_timing('cache_acts_hit', (time.perf_counter() - _t3) * 1000.0)
     
     # Añadir la fecha y hora actual
     now = datetime.now()
     
-    return render_template('dueño/dashboard_dueno.html', 
+    _t_render = time.perf_counter()
+    html = render_template('dueño/dashboard_dueno.html', 
                            total_fincas=total_fincas,
                            total_animales=total_animales,
                            total_produccion=total_produccion,
                            total_trabajadores=total_trabajadores,
                            now=now)
+    add_server_timing('render_template', (time.perf_counter() - _t_render) * 1000.0)
+    return html
 
 @app.route('/dashboard/trabajador')
 def dashboard_trabajador():
-    return render_template('trabajador-veternario/dashboard_trabajador.html')
+    # Obtener métricas visibles para el trabajador basadas en sus fincas asignadas
+    from sqlalchemy import func
+    usuario_actual = Usuario.query.get(current_user.id) if 'usuario_id' in session else None
+
+    # Subconsulta de fincas asignadas al trabajador
+    fincas_asignadas_subq = db.session.query(UsuarioFinca.finca_id).\
+        filter(UsuarioFinca.usuario_id == current_user.id).distinct()
+
+    total_fincas = db.session.query(func.count()).select_from(fincas_asignadas_subq).scalar() or 0
+    total_animales = db.session.query(func.count(Animal.id_animal)).\
+        filter(Animal.id_finca.in_(fincas_asignadas_subq)).scalar() or 0
+    total_produccion = 0
+    # Placeholder: contar tareas si existe modelo, si no, usar 0
+    total_tareas = 0
+
+    # Actividad reciente del trabajador
+    actividades_recientes = ActividadReciente.query.filter_by(usuario_id=current_user.id).\
+        order_by(ActividadReciente.fecha.desc()).limit(5).all()
+
+    from datetime import datetime
+    now = datetime.now()
+
+    return render_template('trabajador-veternario/dashboard_trabajador.html',
+                           total_fincas=total_fincas,
+                           total_animales=total_animales,
+                           total_produccion=total_produccion,
+                           total_tareas=total_tareas,
+                           actividades_recientes=actividades_recientes,
+                           now=now)
 
 # Ahora importar las funciones de autenticación
 # Agregar después de la importación de controlador_autenticacion
@@ -558,6 +621,7 @@ from controlador.controlador_trabajador_admin import ver_trabajador_admin, actua
 # Aplicar los decoradores de rol a las rutas ya definidas
 dashboard_root = requiere_rol(3)(dashboard_root)  # Solo accesible para rol 3 (root)
 dashboard_dueno = requiere_rol(2)(dashboard_dueno)  # Accesible para roles 2 y 3
+dashboard_trabajador = requiere_rol(1)(dashboard_trabajador)  # Accesible para roles 1, 2 y 3
 dashboard_trabajador = requiere_rol(1)(dashboard_trabajador)  # Accesible para roles 1, 2 y 3
 
 # Rutas de gestión de usuarios (solo para admin)

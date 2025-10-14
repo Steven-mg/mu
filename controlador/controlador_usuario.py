@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
-from modelo.models import Usuario
+from modelo.models import Usuario, Trabajador
 from config import db
 from werkzeug.security import generate_password_hash
 from controlador.controlador_actividad import registrar_actividad
@@ -180,6 +180,12 @@ def eliminar_usuario_controlador(usuario_id):
     nombre_usuario = usuario.nik_name
     
     try:
+        # Si es un trabajador/veterinario, limpiar tabla legacy 'trabajador' basada en nickname
+        if usuario.tipo_usuario == 1:
+            try:
+                Trabajador.query.filter_by(usuario=usuario.nik_name).delete()
+            except Exception:
+                pass
         db.session.delete(usuario)
         db.session.commit()
         

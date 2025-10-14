@@ -1,5 +1,5 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, SelectField, BooleanField, FileField
+from wtforms import StringField, SubmitField, SelectField, BooleanField, FileField, EmailField
 from wtforms.validators import DataRequired, Length, Email, Optional
 from modelo.models import Finca
 
@@ -8,7 +8,7 @@ class TrabajadorForm(FlaskForm):
     nombres = StringField('Nombres', validators=[Optional(), Length(max=50)])
     apellidos = StringField('Apellidos', validators=[Optional(), Length(max=50)])
     documento = StringField('Documento', validators=[DataRequired(), Length(max=20)])
-    correo = StringField('Correo', validators=[Optional(), Email()])
+    correo = EmailField('Correo', validators=[Optional(), Email(message='Correo electrónico inválido')])
     telefono = StringField('Teléfono', validators=[Optional(), Length(max=15)])
     foto = FileField('Foto', validators=[Optional()])
     # Rol global del trabajador (según tabla legacy `trabajador`)

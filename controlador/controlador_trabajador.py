@@ -126,6 +126,19 @@ def crear_trabajador_dueno():
             # Asegurar que sea tipo trabajador/veterinario
             if usuario.tipo_usuario != 1:
                 usuario.tipo_usuario = 1
+            # Actualizar correo si el formulario lo trae y es diferente al actual
+            try:
+                nuevo_correo = (form.correo.data or '').strip()
+                if nuevo_correo and nuevo_correo.lower() != (usuario.correo or '').lower():
+                    # Validar unicidad del correo en usuarios
+                    conflicto = Usuario.query.filter(Usuario.correo == nuevo_correo, Usuario.id != usuario.id).first()
+                    if conflicto:
+                        flash('El correo proporcionado ya está en uso por otro usuario.', 'danger')
+                        return redirect(url_for('gestionar_trabajadores_route'))
+                    usuario.correo = nuevo_correo
+            except Exception:
+                # Si algo falla en la validación, no bloquear el flujo de creación
+                pass
 
         # Foto opcional del usuario
         try:

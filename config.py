@@ -1,10 +1,13 @@
 from flask import Flask
+from flask import g
+import time
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager
 from flask_wtf.csrf import CSRFProtect  # Añadir esta importación
 import os
 from dotenv import load_dotenv
 from sqlalchemy.engine.url import make_url
+from cachelib import SimpleCache
 
 # Cargar variables de entorno
 load_dotenv()
@@ -22,6 +25,10 @@ csrf = CSRFProtect(app)  # Añadir esta línea
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['PERMANENT_SESSION_LIFETIME'] = 1800  # 30 minutos de inactividad (opcional)
+
+# Cacheo básico de estáticos (ajustable por entorno)
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = int(os.getenv('STATIC_MAX_AGE', '86400'))  # 1 día
+app.config['USE_X_SENDFILE'] = False
 
 """
 Configuración de la base de datos (MySQL)
@@ -65,6 +72,29 @@ app.config['GOOGLE_CLIENT_SECRET'] = os.getenv('GOOGLE_CLIENT_SECRET')
 # Inicializar SQLAlchemy
 db = SQLAlchemy(app)
 
+# Caché en memoria para respuestas rápidas de consultas frecuentes
+cache = SimpleCache(default_timeout=60)
+
+def cache_get(key):
+    try:
+        return cache.get(key)
+    except Exception:
+        return None
+
+def cache_set(key, value, timeout=None):
+    try:
+        cache.set(key, value, timeout or 60)
+    except Exception:
+        pass
+
+def cache_cached(key, producer, timeout=None):
+    val = cache_get(key)
+    if val is not None:
+        return val
+    val = producer()
+    cache_set(key, val, timeout or 60)
+    return val
+
 # Configuración de Flask-Login
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
@@ -89,6 +119,49 @@ def registrar_actividad(usuario_id, accion, elemento):
     
     db.session.add(nueva_actividad)
     db.session.commit()
+
+# Añadir encabezados de caché seguros para respuestas HTML y estáticos
+def add_server_timing_header(response):
+    try:
+        total_ms = (time.perf_counter() - getattr(g, 'request_start', time.perf_counter())) * 1000.0
+        parts = getattr(g, 'server_timing', [])[:]
+        parts.insert(0, f"app;dur={total_ms:.1f}")
+        response.headers['Server-Timing'] = ', '.join(parts)
+    except Exception:
+        pass
+    return response
+
+def add_cache_headers(response):
+    ctype = response.headers.get('Content-Type', '')
+    # No cachear páginas HTML autenticadas; cachear estáticos y JSON ligeros
+    if 'text/html' in ctype:
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, private'
+    elif any(x in ctype for x in ['text/css', 'application/javascript', 'image/', 'font/', 'application/font']):
+        # permitir cache del navegador para assets
+        response.headers.setdefault('Cache-Control', f'public, max-age={app.config.get("SEND_FILE_MAX_AGE_DEFAULT", 86400)}')
+    return response
+
+@app.before_request
+def _server_timing_begin():
+    try:
+        g.request_start = time.perf_counter()
+        g.server_timing = []
+    except Exception:
+        pass
+
+@app.after_request
+def _apply_headers(response):
+    response = add_server_timing_header(response)
+    response = add_cache_headers(response)
+    return response
+
+def add_server_timing(name: str, dur_ms: float):
+    try:
+        if not hasattr(g, 'server_timing'):
+            g.server_timing = []
+        g.server_timing.append(f"{name};dur={dur_ms:.1f}")
+    except Exception:
+        pass
 
 """
 Soporte de archivos

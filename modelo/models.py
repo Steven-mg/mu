@@ -95,6 +95,11 @@ class EstadoReproductivo(db.Model):
 
 class Animal(db.Model):
     __tablename__ = 'animal'
+    __table_args__ = (
+        db.Index('ix_animal_id_finca', 'id_finca'),
+        db.Index('ix_animal_sexo', 'sexo'),
+        db.Index('ix_animal_ubicacion', 'ubicacion_animal'),
+    )
     id_animal = db.Column(db.SmallInteger, primary_key=True)
     nombre_animal = db.Column(db.String(15), nullable=False)
     id_raza = db.Column(db.SmallInteger, db.ForeignKey('raza.id_raza'), nullable=False)

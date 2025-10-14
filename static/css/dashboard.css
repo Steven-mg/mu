@@ -99,7 +99,8 @@
     border-radius: 15px;
     margin-bottom: 25px;
     margin-top: 20px;
-    box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+    /* Box-shadow más ligero para reducir coste de pintura */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
     position: relative;
     overflow: hidden;
 }
@@ -119,10 +120,12 @@
 }
 
 .owner-header h1 {
-    font-weight: 700;
+    /* Usar fuentes de sistema y reducir peso para acelerar LCP */
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-weight: 600;
     font-size: 1.8rem;
     margin-bottom: 5px;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+    /* Evitar text-shadow para acelerar el pintado del título */
     color: white;
 }
 
@@ -130,7 +133,12 @@
     font-size: 1rem;
     opacity: 0.9;
     color: white;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+    /* Sin text-shadow para reducir coste de pintura */
+}
+
+/* Refuerzo para headings y subtítulos del dashboard: sin sombras pesadas */
+h1, h2 {
+    text-shadow: none;
 }
 
 /* Ajustes al widget de resumen */

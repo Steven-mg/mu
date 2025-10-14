@@ -2,15 +2,18 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from flask import render_template, redirect, url_for, flash, request, jsonify
+from flask import render_template, redirect, url_for, flash, request, jsonify, make_response
 from flask_login import login_required, current_user
 from modelo.models import Finca, UsuarioFinca, Potrero, RotacionPotrero, GrupoAnimal, Animal, AnimalGrupo, Usuario, Trabajador
 from sqlalchemy.orm import joinedload
 from forms.finca_form import FincaForm
 from forms.potrero_form import PotreroForm
-from config import db
+from config import db, add_server_timing, cache_get, cache_set
+import time
 from datetime import datetime
 from controlador.controlador_actividad import registrar_actividad
+import json
+import hashlib
 
 @login_required
 def crear_finca():
@@ -200,16 +203,17 @@ def gestionar_finca(finca_id):
     
     # Obtener los potreros de la finca (si existen)
     potreros = Potrero.query.filter_by(id_finca=finca_id).all()
-    
-    # Obtener las rotaciones de potreros de la finca
-    # Obtener IDs de los potreros de esta finca
+
+    # IDs de los potreros de esta finca
     potrero_ids = [p.id_potrero for p in potreros]
-    
+
+    # Rotaciones (todas) para mostrar en UI según sea necesario
+    rotaciones = []
     if potrero_ids:
-        rotaciones = RotacionPotrero.query.filter(RotacionPotrero.id_potrero.in_(potrero_ids)).all()
-    else:
-        rotaciones = []
-    
+        rotaciones = (db.session.query(RotacionPotrero)
+            .filter(RotacionPotrero.id_potrero.in_(potrero_ids))
+            .all())
+
     # Trabajadores asignados a esta finca (excluyendo al dueño)
     relaciones_trabajadores = UsuarioFinca.query.filter(
         UsuarioFinca.finca_id == finca_id,
@@ -238,85 +242,132 @@ def gestionar_finca(finca_id):
     except Exception:
         documentos_map = {}
 
-    # Calcular sobrecupo por potrero (basado en suma de animales por grupos)
+    # Calcular sobrecupo por potrero y "Último uso" utilizando consultas agregadas
     sobrecupo_map = {}
-    for p in potreros:
-        # Rotaciones activas en este potrero
-        rotaciones_activas = RotacionPotrero.query.filter_by(id_potrero=p.id_potrero, fecha_fin=None).all()
+    ultimo_uso_map = {}
 
-        # Filtrar: solo considerar la última rotación abierta del grupo en todo el sistema
-        rotaciones_filtradas = []
-        grupos_activos = []
-        for rot in rotaciones_activas:
-            grupo_id = rot.id_grupo_animal or rot.id_grupo
-            ultima_abierta = (RotacionPotrero.query
-                .filter(
-                    RotacionPotrero.fecha_fin.is_(None),
-                    ((RotacionPotrero.id_grupo_animal == grupo_id) | (RotacionPotrero.id_grupo == grupo_id))
-                )
-                .order_by(RotacionPotrero.fecha_inicio.desc(), RotacionPotrero.id_rotacion.desc())
-                .first())
-
-            if ultima_abierta and ultima_abierta.id_potrero != p.id_potrero:
-                continue
-
-            rotaciones_filtradas.append(rot)
-
-            grupo_obj = rot.grupo_animal or GrupoAnimal.query.get(grupo_id)
-            if grupo_obj and grupo_obj not in grupos_activos:
-                grupos_activos.append(grupo_obj)
-
-        # Incluir grupos cuyos animales están físicamente en el potrero
-        grupos_por_animales = (db.session.query(GrupoAnimal)
-            .join(AnimalGrupo, GrupoAnimal.id_grupo == AnimalGrupo.id_grupo)
-            .join(Animal, AnimalGrupo.id_animal == Animal.id_animal)
-            .filter(Animal.id_potrero == p.id_potrero)
+    if potrero_ids:
+        # Rotaciones abiertas en todos los potreros de la finca
+        rotaciones_abiertas = (db.session.query(RotacionPotrero)
+            .filter(
+                RotacionPotrero.id_potrero.in_(potrero_ids),
+                RotacionPotrero.fecha_fin.is_(None)
+            )
             .all())
 
-        for g in grupos_por_animales:
-            if g not in grupos_activos:
-                grupos_activos.append(g)
-
-        # Conteos presentes (evitar duplicados) y totales por grupo
-        conteos_presentes = (
-            db.session.query(
-                AnimalGrupo.id_grupo,
-                db.func.count(db.func.distinct(AnimalGrupo.id_animal))
-            )
-            .join(Animal, Animal.id_animal == AnimalGrupo.id_animal)
-            .filter(Animal.id_potrero == p.id_potrero)
-            .group_by(AnimalGrupo.id_grupo)
-            .all()
-        )
-        presentes_dict = {gid: cnt for gid, cnt in conteos_presentes}
-
-        conteos_totales = (
-            db.session.query(
-                AnimalGrupo.id_grupo,
-                db.func.count(db.func.distinct(AnimalGrupo.id_animal))
-            )
-            .group_by(AnimalGrupo.id_grupo)
-            .all()
-        )
-        totales_dict = {gid: cnt for gid, cnt in conteos_totales}
-
-        grupos_con_rotacion = set()
-        for rot in rotaciones_filtradas:
+        # Seleccionar la última rotación abierta por grupo (global)
+        last_open_by_group = {}
+        for rot in rotaciones_abiertas:
             gid = rot.id_grupo_animal or rot.id_grupo
-            if gid:
-                grupos_con_rotacion.add(gid)
+            if not gid:
+                continue
+            cur = last_open_by_group.get(gid)
+            if (
+                cur is None
+                or (rot.fecha_inicio or datetime.min) > (cur.fecha_inicio or datetime.min)
+                or ((rot.fecha_inicio or datetime.min) == (cur.fecha_inicio or datetime.min) and rot.id_rotacion > cur.id_rotacion)
+            ):
+                last_open_by_group[gid] = rot
 
-        # Sumar ocupación por grupos con la regla de rotación
-        ocupacion_por_grupos = 0
-        for grupo in grupos_activos:
-            gid = grupo.id_grupo
-            if gid in grupos_con_rotacion:
-                ocupacion_por_grupos += totales_dict.get(gid, 0)
+        # Mapear rotaciones filtradas y grupos activos por potrero
+        rotaciones_filtradas_por_potrero = {pid: [] for pid in potrero_ids}
+        grupos_activos_por_potrero = {pid: set() for pid in potrero_ids}
+        for rot in rotaciones_abiertas:
+            gid = rot.id_grupo_animal or rot.id_grupo
+            if gid and last_open_by_group.get(gid) is rot:
+                rotaciones_filtradas_por_potrero[rot.id_potrero].append(rot)
+                grupos_activos_por_potrero[rot.id_potrero].add(gid)
+
+        # Incluir grupos cuyos animales están presentes en cada potrero
+        grupos_por_animales_all = (db.session.query(Animal.id_potrero, AnimalGrupo.id_grupo)
+            .join(AnimalGrupo, Animal.id_animal == AnimalGrupo.id_animal)
+            .filter(Animal.id_potrero.in_(potrero_ids))
+            .all())
+        for pid, gid in grupos_por_animales_all:
+            grupos_activos_por_potrero.setdefault(pid, set()).add(gid)
+
+        # Conteos presentes por potrero y grupo
+        presentes_por_potrero = {}
+        conteos_presentes_all = (db.session.query(
+                Animal.id_potrero,
+                AnimalGrupo.id_grupo,
+                db.func.count(db.func.distinct(AnimalGrupo.id_animal))
+            )
+            .join(AnimalGrupo, Animal.id_animal == AnimalGrupo.id_animal)
+            .filter(Animal.id_potrero.in_(potrero_ids))
+            .group_by(Animal.id_potrero, AnimalGrupo.id_grupo)
+            .all())
+        for pid, gid, cnt in conteos_presentes_all:
+            presentes_por_potrero.setdefault(pid, {})[gid] = cnt
+
+        # Conteos totales por grupo (una vez)
+        totales_dict = {
+            gid: cnt for gid, cnt in (
+                db.session.query(
+                    AnimalGrupo.id_grupo,
+                    db.func.count(db.func.distinct(AnimalGrupo.id_animal))
+                )
+                .group_by(AnimalGrupo.id_grupo)
+                .all()
+            )
+        }
+
+        # Animales presentes por potrero (conteo total)
+        animales_presentes_dict = {
+            pid: cnt for pid, cnt in (
+                db.session.query(Animal.id_potrero, db.func.count(Animal.id_animal))
+                .filter(Animal.id_potrero.in_(potrero_ids))
+                .group_by(Animal.id_potrero)
+                .all()
+            )
+        }
+
+        # Última rotación cerrada por potrero (si no hay animales presentes)
+        rotaciones_cerradas = (db.session.query(RotacionPotrero)
+            .filter(
+                RotacionPotrero.id_potrero.in_(potrero_ids),
+                RotacionPotrero.fecha_fin.isnot(None)
+            )
+            .order_by(RotacionPotrero.fecha_fin.desc(), RotacionPotrero.fecha_inicio.desc())
+            .all())
+        ultima_cerrada_por_potrero = {}
+        for rot in rotaciones_cerradas:
+            pid = rot.id_potrero
+            if pid not in ultima_cerrada_por_potrero:
+                ultima_cerrada_por_potrero[pid] = rot
+
+        # Calcular sobrecupo y último uso para cada potrero
+        for p in potreros:
+            pid = p.id_potrero
+            grupos_activos = grupos_activos_por_potrero.get(pid, set())
+            grupos_con_rotacion = { (r.id_grupo_animal or r.id_grupo) for r in rotaciones_filtradas_por_potrero.get(pid, []) }
+
+            ocupacion_por_grupos = 0
+            presentes_dict_pid = presentes_por_potrero.get(pid, {})
+            for gid in grupos_activos:
+                if gid in grupos_con_rotacion:
+                    ocupacion_por_grupos += totales_dict.get(gid, 0)
+                else:
+                    ocupacion_por_grupos += presentes_dict_pid.get(gid, 0)
+
+            capacidad = p.capacidad_animal or 0
+            sobrecupo_map[pid] = bool(capacidad and ocupacion_por_grupos > capacidad)
+
+            animales_presentes = animales_presentes_dict.get(pid, 0) or 0
+            if animales_presentes > 0:
+                ultimo_uso_map[pid] = 'En uso'
             else:
-                ocupacion_por_grupos += presentes_dict.get(gid, 0)
-
-        capacidad = p.capacidad_animal or 0
-        sobrecupo_map[p.id_potrero] = bool(capacidad and ocupacion_por_grupos > capacidad)
+                ultima_cerrada = ultima_cerrada_por_potrero.get(pid)
+                if not ultima_cerrada:
+                    ultimo_uso_map[pid] = 'No hay uso registrado'
+                else:
+                    inicio_str = ultima_cerrada.fecha_inicio.strftime('%d/%m/%Y')
+                    fin_str = ultima_cerrada.fecha_fin.strftime('%d/%m/%Y')
+                    ultimo_uso_map[pid] = f"{inicio_str} - {fin_str}"
+    else:
+        # Sin potreros: mapas vacíos
+        sobrecupo_map = {}
+        ultimo_uso_map = {}
 
     return render_template(
         'dueño/gestionarfinca.html',
@@ -327,22 +378,58 @@ def gestionar_finca(finca_id):
         trabajadores_dueno=trabajadores_dueno,
         asignados_ids=asignados_ids,
         documentos_map=documentos_map,
-        sobrecupo_map=sobrecupo_map
+        sobrecupo_map=sobrecupo_map,
+        ultimo_uso_map=ultimo_uso_map
     )
 
 @login_required
 def obtener_fincas_usuario():
     """API endpoint para obtener las fincas del usuario actual"""
     # Consulta directa para obtener las fincas del usuario actual
-    fincas = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()
+    cache_key = f"fincas_usuario:{current_user.id}"
+    _tq = time.perf_counter()
+    fincas = cache_get(cache_key)
+    if fincas is None:
+        fincas = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()
+        cache_set(cache_key, fincas, timeout=60)
+        add_server_timing('q_fincas_usuario', (time.perf_counter() - _tq) * 1000.0)
+    else:
+        add_server_timing('cache_fincas_hit', (time.perf_counter() - _tq) * 1000.0)
     
     # Convertir a JSON
     fincas_json = [{
         'id': finca.id_finca,
         'nombre': finca.nombre_finca
     } for finca in fincas]
-    
-    return jsonify(fincas_json)
+
+    # Compactar payload JSON para reducir tamaño de respuesta
+    _tj = time.perf_counter()
+    payload = json.dumps(fincas_json, separators=(",", ":"), ensure_ascii=False)
+    add_server_timing('json_encode', (time.perf_counter() - _tj) * 1000.0)
+
+    # Calcular ETag débil basado en el contenido
+    etag_value = 'W/"' + hashlib.sha256(payload.encode('utf-8')).hexdigest() + '"'
+
+    # Caching: respuesta privada, corta duración
+    cache_control = 'private, max-age=60'
+
+    # Responder 304 si el ETag coincide
+    if request.headers.get('If-None-Match') == etag_value:
+        resp = make_response('', 304)
+        resp.headers['ETag'] = etag_value
+        resp.headers['Cache-Control'] = cache_control
+        resp.headers['Vary'] = 'Cookie'
+        return resp
+
+    # Respuesta normal con encabezados de caché
+    _tr = time.perf_counter()
+    resp = make_response(payload)
+    resp.headers['Content-Type'] = 'application/json; charset=utf-8'
+    resp.headers['ETag'] = etag_value
+    resp.headers['Cache-Control'] = cache_control
+    resp.headers['Vary'] = 'Cookie'
+    add_server_timing('build_response', (time.perf_counter() - _tr) * 1000.0)
+    return resp
 
 @login_required
 def ver_finca(finca_id):
@@ -716,6 +803,25 @@ def ver_potrero(potrero_id):
     capacidad = potrero.capacidad_animal or 0
     capacidad_excedida = bool(capacidad and ocupacion_grupos_total > capacidad)
 
+    # Calcular último uso para este potrero
+    animales_presentes = (db.session.query(db.func.count(Animal.id_animal))
+        .filter(Animal.id_potrero == potrero.id_potrero)
+        .scalar()) or 0
+    if animales_presentes > 0:
+        ultimo_uso_text = 'En uso'
+    else:
+        ultima_cerrada = (db.session.query(RotacionPotrero)
+            .filter(
+                RotacionPotrero.id_potrero == potrero.id_potrero,
+                RotacionPotrero.fecha_fin.isnot(None)
+            )
+            .order_by(RotacionPotrero.fecha_fin.desc(), RotacionPotrero.fecha_inicio.desc())
+            .first())
+        if not ultima_cerrada:
+            ultimo_uso_text = 'No hay uso registrado'
+        else:
+            ultimo_uso_text = f"{ultima_cerrada.fecha_inicio.strftime('%d/%m/%Y')} - {ultima_cerrada.fecha_fin.strftime('%d/%m/%Y')}"
+
     return render_template(
         'dueño/ver_potrero.html',
         potrero=potrero,
@@ -724,7 +830,8 @@ def ver_potrero(potrero_id):
         finca=potrero.finca,
         conteo_animales_potrero=conteo_animales_potrero,
         ocupacion_total=ocupacion_total,
-        capacidad_excedida=capacidad_excedida
+        capacidad_excedida=capacidad_excedida,
+        ultimo_uso_text=ultimo_uso_text
     )
 
 @login_required
