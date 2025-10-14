@@ -35,7 +35,7 @@
             Datos de Compra
         </div>
         <div class="card-body">
-            <form method="POST" action="{{ url_for('editar_compra', id_animal=animal.id_animal) }}">
+            <form method="POST" action="{{ url_for('editar_compra', id_animal=animal.id_animal) }}" enctype="multipart/form-data">
                 {{ form.hidden_tag() }}
                 
                 <div class="row">
@@ -63,7 +63,15 @@
                 <div class="row">
                     <div class="col-md-4 mb-3">
                         {{ form.documento_compra.label(class="form-label") }}
-                        {{ form.documento_compra(class="form-control") }}
+                        {{ form.documento_compra(class="form-control", accept='image/*,.pdf') }}
+                        {% if compra and compra.documento_compra %}
+                            <div class="form-text mt-1">
+                                Documento actual: 
+                                <a href="{{ url_for('static', filename=compra.documento_compra) }}" target="_blank">
+                                    Ver archivo
+                                </a>
+                            </div>
+                        {% endif %}
                     </div>
                     <div class="col-md-4 mb-3">
                         {{ form.peso_compra.label(class="form-label") }}
@@ -92,4 +100,53 @@
         </div>
     </div>
 </div>
+<script>
+// Formateo de COP con miles (.) y decimales (,)
+(function () {
+  const input = document.getElementById('precio_compra');
+  if (!input) return;
+
+  const formatter = new Intl.NumberFormat('es-CO', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2
+  });
+
+  function parseValue(str) {
+    if (!str) return null;
+    // Eliminar separadores de miles y convertir coma decimal a punto
+    const normalized = str.toString()
+      .replace(/\./g, '')
+      .replace(/,/g, '.')
+      .replace(/[^\d.-]/g, '');
+    const num = parseFloat(normalized);
+    return isNaN(num) ? null : num;
+  }
+
+  function formatField() {
+    const num = parseValue(input.value);
+    if (num !== null) input.value = formatter.format(num);
+  }
+
+  function unformatField() {
+    const num = parseValue(input.value);
+    if (num !== null) input.value = String(num);
+  }
+
+  // Formatear al cargar
+  formatField();
+
+  // Mostrar sin formato para editar y volver a formatear al salir
+  input.addEventListener('focus', unformatField);
+  input.addEventListener('blur', formatField);
+
+  // Normalizar a número antes de enviar el formulario
+  const form = input.closest('form');
+  if (form) {
+    form.addEventListener('submit', function () {
+      const num = parseValue(input.value);
+      if (num !== null) input.value = String(num);
+    });
+  }
+})();
+</script>
 {% endblock %}

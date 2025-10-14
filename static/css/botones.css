@@ -68,3 +68,16 @@
     transform: translateY(-3px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
+
+/* Botón personalizado: Genealogía */
+.btn-genealogia {
+    background-color: #6f42c1 !important; /* Purple */
+    color: #fff !important;
+    border-color: #6f42c1 !important;
+}
+.btn-genealogia:hover {
+    background-color: #59339d !important;
+    color: #fff !important;
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(111, 66, 193, 0.3);
+}

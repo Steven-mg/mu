@@ -600,7 +600,7 @@ def cambiar_password_route():
 from controlador.controlador_usuario import listar_usuarios, crear_usuario, editar_usuario, eliminar_usuario_controlador
 
 # Importar las funciones de gestión de animales
-from controlador.controlador_animal import listar_animales, crear_animal, editar_animal, eliminar_animal, ver_animal, obtener_animales_por_finca, obtener_animales_por_sexo, get_potreros_por_finca, get_animales_disponibles, get_animales_potrero, asignar_animales_potrero, ver_foto_animal, ver_animales_finca, ver_animales_fuera, ver_animales_fuera_global, api_madurez_sexual_por_raza, documentos_geneticos, agregar_documento_genetico, ver_documento_genetico, descargar_documento_genetico, eliminar_documento_genetico, procedimientos_animal, eliminar_servicio_salud, eliminar_servicio_sexual
+from controlador.controlador_animal import listar_animales, crear_animal, editar_animal, eliminar_animal, ver_animal, obtener_animales_por_finca, obtener_animales_por_sexo, get_potreros_por_finca, get_animales_disponibles, get_animales_potrero, asignar_animales_potrero, ver_foto_animal, ver_animales_finca, ver_animales_fuera, ver_animales_fuera_global, api_madurez_sexual_por_raza, documentos_geneticos, agregar_documento_genetico, ver_documento_genetico, descargar_documento_genetico, eliminar_documento_genetico, procedimientos_animal, eliminar_servicio_salud, eliminar_servicio_sexual, genealogia_animal
 from controlador.controlador_animal import editar_documento_genetico
 
 # Importar las funciones de gestión de fincas
@@ -727,6 +727,12 @@ def eliminar_animal_route(animal_id):
 @login_required
 def ver_animal_route(animal_id):
     return ver_animal(animal_id)
+
+# Genealogía del animal
+@app.route('/animal/<int:animal_id>/genealogia', endpoint='genealogia_animal_route')
+@login_required
+def genealogia_animal_route(animal_id):
+    return genealogia_animal(animal_id)
 
 # Procedimientos del animal (salud y sexuales)
 @app.route('/animal/<int:animal_id>/procedimientos', endpoint='procedimientos_animal_route')
@@ -975,6 +981,7 @@ crear_animal_route = requiere_rol(2)(crear_animal_route)
 editar_animal_route = requiere_rol(2)(editar_animal_route)
 eliminar_animal_route = requiere_rol(2)(eliminar_animal_route)
 ver_animal_route = requiere_rol(2)(ver_animal_route)
+genealogia_animal_route = requiere_rol(2)(genealogia_animal_route)
 procedimientos_animal_route = requiere_rol(2)(procedimientos_animal_route)
 ver_foto_animal_route = requiere_rol(2)(ver_foto_animal_route)
 documentos_geneticos_route = requiere_rol(2)(documentos_geneticos_route)

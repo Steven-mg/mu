@@ -46,12 +46,12 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
     'pool_pre_ping': True,     # verifica conexiones antes de usarlas
     'pool_recycle': 280,       # recicla conexiones para evitar cierre por servidor
-    'pool_timeout': 30,        # tiempo de espera al obtener conexión del pool
+    'pool_timeout': 60,        # tiempo de espera al obtener conexión del pool
     'connect_args': {
         'charset': 'utf8mb4',
-        'connect_timeout': 10,
-        'read_timeout': 10,
-        'write_timeout': 10,
+        'connect_timeout': 20,
+        'read_timeout': 60,
+        'write_timeout': 60,
     },
 }
 

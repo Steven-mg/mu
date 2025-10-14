@@ -20,13 +20,17 @@
     <div class="row">
         <div class="col-md-6">
             <div class="card mb-4">
-                <div class="card-header bg-primary text-white">Agregar Servicio de Salud</div>
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <span>Agregar Servicio de Salud</span>
+                    <small class="text-white-50">Filtrado por sexo: {{ sexo_animal }}</small>
+                </div>
                 <div class="card-body">
                     <form method="POST">
                         {{ form_salud.hidden_tag() }}
                         <div class="mb-3">
                             {{ form_salud.id_tipo_salud.label(class='form-label') }}
                             {{ form_salud.id_tipo_salud(class='form-select') }}
+                            <small class="form-text text-muted">Mostrando servicios aplicables a {{ sexo_animal|lower }} y 'ambos'. Disponibles: {{ tipos_salud_count }}</small>
                         </div>
                         <div class="mb-3">
                             {{ form_salud.id_veterinario.label(class='form-label') }}
@@ -58,14 +62,19 @@
             </div>
         </div>
         <div class="col-md-6">
+            {% if tipos_sexual_count > 0 %}
             <div class="card mb-4">
-                <div class="card-header bg-warning">Agregar Servicio Sexual</div>
+                <div class="card-header bg-warning d-flex justify-content-between align-items-center">
+                    <span>Agregar Servicio Sexual</span>
+                    <small class="text-dark-50">Filtrado por sexo: {{ sexo_animal }}</small>
+                </div>
                 <div class="card-body">
                     <form method="POST">
                         {{ form_sexual.hidden_tag() }}
                         <div class="mb-3">
                             {{ form_sexual.id_servicioanimal.label(class='form-label') }}
                             {{ form_sexual.id_servicioanimal(class='form-select') }}
+                            <small class="form-text text-muted">Mostrando servicios aplicables a {{ sexo_animal|lower }} y 'ambos'. Disponibles: {{ tipos_sexual_count }}</small>
                         </div>
                         <div class="mb-3">
                             {{ form_sexual.id_veterinario.label(class='form-label') }}
@@ -87,6 +96,14 @@
                     </form>
                 </div>
             </div>
+            {% else %}
+            <div class="card mb-4">
+                <div class="card-header bg-warning">Agregar Servicio Sexual</div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-0">No hay servicios sexuales aplicables para {{ sexo_animal|lower }}.</div>
+                </div>
+            </div>
+            {% endif %}
         </div>
     </div>
 

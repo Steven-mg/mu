@@ -107,14 +107,67 @@ def procedimientos_animal(animal_id):
 
     # Choices dinámicos filtrados por la regla explícita aplica_a_sexo
     sexo_animal = (animal.sexo or '').lower()
+    salud_macho_only = {
+        'Castración'
+    }
+    salud_hembra_only = {
+        'Cesárea',
+        'Diagnóstico de Preñez',
+        'Control de Mastitis'
+    }
+    sexual_macho_only = {
+        'Evaluación de Fertilidad Toros',
+        'Banco de Semen Propio'
+    }
+    sexual_hembra_only = {
+        'Inseminación Artificial Convencional',
+        'Transferencia de Embriones Fresh',
+        'Sincronización de Celos Hormonal',
+        'Diagnóstico de Preñez Temprano',
+        'Asistencia en Partos Distócicos',
+        'Revisión Postparto Completa',
+        'Programa IATF'
+    }
+
+    def filtrar_por_nombre_y_sexo(tipos, sexo, macho_only, hembra_only):
+        s = (sexo or '').lower()
+        mset = {n.lower() for n in macho_only}
+        hset = {n.lower() for n in hembra_only}
+        r = []
+        for t in tipos:
+            aplica = (getattr(t, 'aplica_a_sexo', 'ambos') or 'ambos').lower()
+            nombre = (getattr(t, 'nombre_servicio', '') or '').lower()
+            if aplica == 'ambos':
+                if s == 'macho' and nombre in hset:
+                    continue
+                if s == 'hembra' and nombre in mset:
+                    continue
+                r.append(t)
+            else:
+                if aplica in ['ambos', s]:
+                    r.append(t)
+        return r
+
+    def aplica_real_por_nombre(t, macho_only, hembra_only):
+        aplica = (getattr(t, 'aplica_a_sexo', 'ambos') or 'ambos').lower()
+        nombre = (getattr(t, 'nombre_servicio', '') or '').lower()
+        if aplica == 'ambos':
+            if nombre in {n.lower() for n in macho_only}:
+                return 'macho'
+            if nombre in {n.lower() for n in hembra_only}:
+                return 'hembra'
+        return aplica
     if sexo_animal == 'macho':
-        tipos_salud = TipoServicioSalud.query.filter(TipoServicioSalud.aplica_a_sexo.in_(['ambos', 'macho'])).all()
-        tipos_sexual = TipoServicioSexual.query.filter(TipoServicioSexual.aplica_a_sexo.in_(['ambos', 'macho'])).all()
+        tipos_salud_q = TipoServicioSalud.query.filter(TipoServicioSalud.aplica_a_sexo.in_(['ambos', 'macho'])).all()
+        tipos_sexual_q = TipoServicioSexual.query.filter(TipoServicioSexual.aplica_a_sexo.in_(['ambos', 'macho'])).all()
+        tipos_salud = filtrar_por_nombre_y_sexo(tipos_salud_q, sexo_animal, salud_macho_only, salud_hembra_only)
+        tipos_sexual = filtrar_por_nombre_y_sexo(tipos_sexual_q, sexo_animal, sexual_macho_only, sexual_hembra_only)
     elif sexo_animal == 'hembra':
-        tipos_salud = TipoServicioSalud.query.filter(TipoServicioSalud.aplica_a_sexo.in_(['ambos', 'hembra'])).all()
-        tipos_sexual = TipoServicioSexual.query.filter(TipoServicioSexual.aplica_a_sexo.in_(['ambos', 'hembra'])).all()
+        tipos_salud_q = TipoServicioSalud.query.filter(TipoServicioSalud.aplica_a_sexo.in_(['ambos', 'hembra'])).all()
+        tipos_sexual_q = TipoServicioSexual.query.filter(TipoServicioSexual.aplica_a_sexo.in_(['ambos', 'hembra'])).all()
+        tipos_salud = filtrar_por_nombre_y_sexo(tipos_salud_q, sexo_animal, salud_macho_only, salud_hembra_only)
+        tipos_sexual = filtrar_por_nombre_y_sexo(tipos_sexual_q, sexo_animal, sexual_macho_only, sexual_hembra_only)
     else:
-        # En caso de sexo desconocido, mostrar todos para no bloquear
         tipos_salud = TipoServicioSalud.query.all()
         tipos_sexual = TipoServicioSexual.query.all()
 
@@ -125,9 +178,8 @@ def procedimientos_animal(animal_id):
 
     # Procesamiento de altas
     if form_salud.submit.data and form_salud.validate_on_submit():
-        # Validación explícita según aplica_a_sexo
         tipo_salud_sel = TipoServicioSalud.query.get(form_salud.id_tipo_salud.data)
-        aplica_salud = (getattr(tipo_salud_sel, 'aplica_a_sexo', 'ambos') or 'ambos').lower() if tipo_salud_sel else 'ambos'
+        aplica_salud = aplica_real_por_nombre(tipo_salud_sel, salud_macho_only, salud_hembra_only) if tipo_salud_sel else 'ambos'
         if sexo_animal == 'macho' and aplica_salud == 'hembra':
             flash('Este servicio de salud aplica solo a hembras.', 'warning')
             return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
@@ -150,9 +202,8 @@ def procedimientos_animal(animal_id):
         return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
 
     if form_sexual.submit.data and form_sexual.validate_on_submit():
-        # Validación explícita según aplica_a_sexo
         tipo_sexual_sel = TipoServicioSexual.query.get(form_sexual.id_servicioanimal.data)
-        aplica_sexual = (getattr(tipo_sexual_sel, 'aplica_a_sexo', 'ambos') or 'ambos').lower() if tipo_sexual_sel else 'ambos'
+        aplica_sexual = aplica_real_por_nombre(tipo_sexual_sel, sexual_macho_only, sexual_hembra_only) if tipo_sexual_sel else 'ambos'
         if sexo_animal == 'macho' and aplica_sexual == 'hembra':
             flash('Este servicio sexual aplica solo a hembras.', 'warning')
             return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
@@ -175,7 +226,18 @@ def procedimientos_animal(animal_id):
     servicios_salud = ServiciosSalud.query.filter_by(id_animal=animal_id).order_by(ServiciosSalud.fecha_servicio.desc()).all()
     servicios_sexuales = ServiciosSexuales.query.filter_by(id_animal=animal_id).order_by(ServiciosSexuales.fecha_servicio.desc()).all()
 
-    return render_template('dueño/procedimientos_animal.html', animal=animal, form_salud=form_salud, form_sexual=form_sexual, servicios_salud=servicios_salud, servicios_sexuales=servicios_sexuales)
+    # Pasar información de filtrado por sexo a la plantilla para mensajes/condicionales
+    return render_template(
+        'dueño/procedimientos_animal.html',
+        animal=animal,
+        form_salud=form_salud,
+        form_sexual=form_sexual,
+        servicios_salud=servicios_salud,
+        servicios_sexuales=servicios_sexuales,
+        sexo_animal=animal.sexo,
+        tipos_salud_count=len(tipos_salud),
+        tipos_sexual_count=len(tipos_sexual)
+    )
 
 @login_required
 def eliminar_servicio_salud(animal_id, servicio_id):
@@ -360,7 +422,8 @@ def crear_animal():
             registrar_actividad("Creó", f"Animal: {nuevo_animal.nombre_animal}")
             
             flash('Animal creado exitosamente!', 'success')
-            return redirect(url_for('gestion_animales'))
+            # Redirigir a la tabla de animales de la finca correspondiente
+            return redirect(url_for('ver_animales_finca_route', finca_id=nuevo_animal.id_finca))
         except Exception as e:
             db.session.rollback()
             flash(f'Error al crear el animal: {str(e)}', 'danger')
@@ -557,6 +620,14 @@ def editar_animal(animal_id):
                 flash('Ya tienes un animal con este nombre en tus fincas.', 'danger')
                 return render_template('dueño/editar_animal.html', form=form, animal=animal)
 
+        # Validaciones defensivas adicionales
+        if form.id_padre.data and form.id_padre.data != 0 and form.id_padre.data == animal.id_animal:
+            flash('Un animal no puede ser su propio padre.', 'danger')
+            return render_template('dueño/editar_animal.html', form=form, animal=animal)
+        if form.id_madre.data and form.id_madre.data != 0 and form.id_madre.data == animal.id_animal:
+            flash('Un animal no puede ser su propia madre.', 'danger')
+            return render_template('dueño/editar_animal.html', form=form, animal=animal)
+
         # Actualizar datos del animal
         animal.nombre_animal = form.nombre_animal.data
         animal.id_raza = form.id_raza.data if form.id_raza.data != 0 else None
@@ -608,7 +679,8 @@ def editar_animal(animal_id):
             registrar_actividad("Editó", f"Animal: {animal.nombre_animal}")
             
             flash('Animal actualizado exitosamente!', 'success')
-            return redirect(url_for('gestion_animales'))
+            # Redirigir a la tabla de animales de la finca correspondiente
+            return redirect(url_for('ver_animales_finca_route', finca_id=animal.id_finca))
         except Exception as e:
             db.session.rollback()
             flash(f'Error al actualizar el animal: {str(e)}', 'danger')
@@ -667,6 +739,40 @@ def ver_animal(animal_id):
         return redirect(url_for('gestion_animales'))
     
     return render_template('dueño/ver_animal.html', animal=animal)
+
+
+# --- Genealogía ---
+@login_required
+def genealogia_animal(animal_id):
+    """Ver genealogía del animal: padres y descendencia."""
+    animal = Animal.query.options(joinedload(Animal.raza), joinedload(Animal.padre), joinedload(Animal.madre)).get_or_404(animal_id)
+
+    # Validar acceso del usuario a la finca del animal
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=animal.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para ver este animal', 'danger')
+        return redirect(url_for('gestion_animales'))
+
+    # Padres
+    padre = animal.padre
+    madre = animal.madre
+
+    # Hijos: combinar crias como padre y como madre, evitando duplicados
+    hijos_ids = set()
+    hijos = []
+    for h in getattr(animal, 'crias_padre', []):
+        if h.id_animal not in hijos_ids:
+            hijos_ids.add(h.id_animal)
+            hijos.append(h)
+    for h in getattr(animal, 'crias_madre', []):
+        if h.id_animal not in hijos_ids:
+            hijos_ids.add(h.id_animal)
+            hijos.append(h)
+
+    # Ordenar hijos por nombre para visualización estable
+    hijos = sorted(hijos, key=lambda x: (x.nombre_animal or '').lower())
+
+    return render_template('dueño/genealogia_animal.html', animal=animal, padre=padre, madre=madre, hijos=hijos)
 
 
 # --- Documentos Genéticos ---

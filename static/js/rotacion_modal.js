@@ -30,6 +30,48 @@ document.addEventListener('DOMContentLoaded', function() {
             if (alerta) alerta.remove();
         };
     }
+    // Snapshot de opciones originales del selector de grupos
+    const grupoSelectEl = document.getElementById('grupoAnimal');
+    const originalGrupoOptions = (() => {
+        const arr = [];
+        if (grupoSelectEl) {
+            Array.from(grupoSelectEl.options).forEach(opt => {
+                arr.push({ value: opt.value, text: opt.textContent });
+            });
+        }
+        return arr;
+    })();
+
+    // Reconstruir opciones del selector de grupos según acción
+    function rebuildGrupoOptions(action, gruposEnPotreroIds) {
+        const select = document.getElementById('grupoAnimal');
+        if (!select || !originalGrupoOptions.length) return;
+
+        const enPotreroSet = new Set((gruposEnPotreroIds || []).map(id => String(id)));
+
+        // Limpiar y añadir opción vacía por defecto
+        select.innerHTML = '';
+        const optDefault = document.createElement('option');
+        optDefault.value = '';
+        optDefault.textContent = 'Seleccione un grupo';
+        select.appendChild(optDefault);
+
+        // Agregar opciones filtradas
+        originalGrupoOptions.forEach(({ value, text }) => {
+            if (!value) return; // saltar opción vacía original
+            const estaEnPotrero = enPotreroSet.has(String(value));
+            // En 'agregar': mostrar solo los que NO están en el potrero
+            // En 'rotar': mostrar solo los que SÍ están en el potrero
+            const incluir = action === 'agregar' ? !estaEnPotrero : estaEnPotrero;
+            if (incluir) {
+                const opt = document.createElement('option');
+                opt.value = value;
+                opt.textContent = text;
+                select.appendChild(opt);
+            }
+        });
+    }
+
     // Capturar el ID del potrero cuando se abre el modal
     const rotarAnimalesModal = document.getElementById('rotarAnimales');
     if (rotarAnimalesModal) {
@@ -83,18 +125,46 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
 
-            // En modo 'agregar', filtrar grupos ya presentes en el potrero del contexto
-            if (action === 'agregar') {
-                const grupoSelect = document.getElementById('grupoAnimal');
-                if (grupoSelect && typeof gruposEnPotrero !== 'undefined' && Array.isArray(gruposEnPotrero)) {
-                    const enPotreroSet = new Set(gruposEnPotrero.map(id => String(id)));
-                    Array.from(grupoSelect.options).forEach(opt => {
-                        // Mantener la opción por defecto vacía
-                        if (!opt.value) return;
-                        if (enPotreroSet.has(String(opt.value))) {
-                            opt.remove();
+            // Filtrar/poblar grupos según acción
+            if (action === 'rotar') {
+                // Poblar con los grupos presentes en el potrero actual desde API
+                const select = document.getElementById('grupoAnimal');
+                if (select) {
+                    // Reset y default
+                    select.innerHTML = '';
+                    const def = document.createElement('option');
+                    def.value = '';
+                    def.textContent = 'Seleccione un grupo';
+                    select.appendChild(def);
+                }
+                fetch(`/api/grupos-activos-por-potrero?potrero_id=${potreroId}`)
+                    .then(r => r.json())
+                    .then(data => {
+                        if (data && data.success && Array.isArray(data.grupos)) {
+                            const selectEl = document.getElementById('grupoAnimal');
+                            // Construir solo los grupos presentes
+                            data.grupos.forEach(g => {
+                                const opt = document.createElement('option');
+                                opt.value = String(g.id);
+                                opt.textContent = g.nombre;
+                                selectEl.appendChild(opt);
+                            });
+                        } else {
+                            // Fallback al filtrado local si falla API
+                            if (typeof gruposEnPotrero !== 'undefined' && Array.isArray(gruposEnPotrero)) {
+                                rebuildGrupoOptions('rotar', gruposEnPotrero);
+                            }
+                        }
+                    })
+                    .catch(() => {
+                        if (typeof gruposEnPotrero !== 'undefined' && Array.isArray(gruposEnPotrero)) {
+                            rebuildGrupoOptions('rotar', gruposEnPotrero);
                         }
                     });
+            } else {
+                // 'agregar': mostrar todos menos los presentes
+                if (typeof gruposEnPotrero !== 'undefined' && Array.isArray(gruposEnPotrero)) {
+                    rebuildGrupoOptions('agregar', gruposEnPotrero);
                 }
             }
 
