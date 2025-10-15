@@ -4,7 +4,7 @@ from wtforms.validators import DataRequired, Optional
 
 class ServicioSexualForm(FlaskForm):
     id_servicioanimal = SelectField('Tipo de servicio sexual', coerce=int, validators=[DataRequired(message='Seleccione el tipo de servicio sexual')])
-    id_veterinario = SelectField('Veterinario', coerce=int, validators=[DataRequired(message='Seleccione el veterinario')])
+    id_veterinario = SelectField('Profesional', coerce=int, validators=[DataRequired(message='Seleccione el profesional')])
     fecha_servicio = DateField('Fecha del servicio', validators=[DataRequired(message='Ingrese la fecha')])
     notas_servicio = TextAreaField('Notas', validators=[Optional()])
     costo_total = FloatField('Costo', validators=[Optional()])

@@ -60,7 +60,7 @@
                             </td>
                             <td>
                                 {% if animal.compra %}
-                                    ${{ "{:,.2f}".format(animal.compra[0].precio_compra).replace(',', 'X').replace('.', ',').replace('X', '.') }}
+                                    ${{ animal.compra[0].precio_compra | currency_es }}
                                 {% else %}
                                     <span class="text-muted">—</span>
                                 {% endif %}

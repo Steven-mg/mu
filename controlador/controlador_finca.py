@@ -242,6 +242,24 @@ def gestionar_finca(finca_id):
     except Exception:
         documentos_map = {}
 
+    # Listados auxiliares para modales: sin asignación y con otras fincas
+    trabajadores_sin_asignacion = []
+    trabajadores_con_otras_fincas = []
+    try:
+        for u in trabajadores_dueno:
+            # Relaciones del usuario en cualquier finca
+            rels_usuario = UsuarioFinca.query.filter_by(usuario_id=u.id).all()
+            if not rels_usuario:
+                trabajadores_sin_asignacion.append(u)
+            else:
+                # Tiene relaciones, verificar si NO está asignado a esta finca
+                asignado_en_esta = any(r.finca_id == finca_id for r in rels_usuario)
+                if not asignado_en_esta:
+                    trabajadores_con_otras_fincas.append(u)
+    except Exception:
+        trabajadores_sin_asignacion = []
+        trabajadores_con_otras_fincas = []
+
     # Calcular sobrecupo por potrero y "Último uso" utilizando consultas agregadas
     sobrecupo_map = {}
     ultimo_uso_map = {}
@@ -376,6 +394,8 @@ def gestionar_finca(finca_id):
         rotaciones=rotaciones,
         relaciones_trabajadores=relaciones_trabajadores,
         trabajadores_dueno=trabajadores_dueno,
+        trabajadores_sin_asignacion=trabajadores_sin_asignacion,
+        trabajadores_con_otras_fincas=trabajadores_con_otras_fincas,
         asignados_ids=asignados_ids,
         documentos_map=documentos_map,
         sobrecupo_map=sobrecupo_map,

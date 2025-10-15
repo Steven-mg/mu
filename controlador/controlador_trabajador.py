@@ -2,10 +2,10 @@ import sys
 import os
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from flask import render_template, redirect, url_for, flash, request
+from flask import render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from config import db, allowed_image
-from modelo.models import Usuario, UsuarioFinca, Finca, Trabajador
+from modelo.models import Usuario, UsuarioFinca, Finca, Trabajador, PermisoFincaUsuario
 from forms.trabajador_form import TrabajadorForm
 from controlador.controlador_actividad import registrar_actividad
 from sqlalchemy import text
@@ -290,6 +290,155 @@ def asignar_trabajador_finca(finca_id: int, usuario_id: int):
     registrar_actividad('Asignó', f'Usuario {usuario.nik_name} a finca {finca_id}')
     flash('Trabajador asignado a la finca correctamente', 'success')
     return redirect(url_for('gestionar_finca_route', finca_id=finca_id))
+
+
+# === Página dedicada: Administrar trabajadores de una finca ===
+@login_required
+def gestionar_trabajadores_finca(finca_id: int):
+    """Página dedicada para administrar los trabajadores de una finca específica."""
+    # Validar acceso del dueño a la finca
+    dueno_rel = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=finca_id).first()
+    if not dueno_rel and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para administrar esta finca', 'danger')
+        return redirect(url_for('mis_fincas'))
+
+    finca = Finca.query.get_or_404(finca_id)
+
+    # Relaciones de trabajadores asignados a esta finca (excluye dueño)
+    relaciones_trabajadores = UsuarioFinca.query.filter(
+        UsuarioFinca.finca_id == finca_id,
+        UsuarioFinca.usuario_id != current_user.id
+    ).all()
+
+    usuario_ids = [rel.usuario_id for rel in relaciones_trabajadores]
+    usuarios_asignados = Usuario.query.filter(Usuario.id.in_(usuario_ids)).all() if usuario_ids else []
+
+    # Map de documentos desde tabla legacy Trabajador
+    documentos_map = {}
+    try:
+        registros = Trabajador.query.filter_by(id_jefe=current_user.id).all()
+        doc_por_nik = {t.usuario: t.documento for t in registros}
+        for u in usuarios_asignados:
+            documentos_map[u.id] = doc_por_nik.get(u.nik_name)
+    except Exception:
+        documentos_map = {}
+
+    # Listas auxiliares para agregar
+    trabajadores_sin_asignacion = []
+    trabajadores_con_otras_fincas = []
+    try:
+        nik_names = [t.usuario for t in registros if t.usuario] if 'registros' in locals() else []
+        trabajadores_dueno = Usuario.query.filter(
+            Usuario.tipo_usuario == 1,
+            Usuario.nik_name.in_(nik_names)
+        ).all() if nik_names else []
+
+        for u in trabajadores_dueno:
+            rels_usuario = UsuarioFinca.query.filter_by(usuario_id=u.id).all()
+            if not rels_usuario:
+                trabajadores_sin_asignacion.append(u)
+            else:
+                asignado_en_esta = any(r.finca_id == finca_id for r in rels_usuario)
+                if not asignado_en_esta:
+                    trabajadores_con_otras_fincas.append(u)
+            if u.id not in documentos_map:
+                documentos_map[u.id] = doc_por_nik.get(u.nik_name) if 'doc_por_nik' in locals() else None
+    except Exception:
+        trabajadores_sin_asignacion = []
+        trabajadores_con_otras_fincas = []
+
+    return render_template(
+        'dueño/trabajadores_finca.html',
+        finca=finca,
+        relaciones_trabajadores=relaciones_trabajadores,
+        usuarios_asignados=usuarios_asignados,
+        documentos_map=documentos_map,
+        trabajadores_sin_asignacion=trabajadores_sin_asignacion,
+        trabajadores_con_otras_fincas=trabajadores_con_otras_fincas
+    )
+
+
+# === Permisos por funcionalidad (por finca y trabajador) ===
+@login_required
+def obtener_permisos_finca_trabajador(finca_id: int, usuario_id: int):
+    # Validación de acceso del dueño a la finca
+    dueno_rel = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=finca_id).first()
+    if not dueno_rel and current_user.tipo_usuario != 3:
+        return jsonify({"ok": False, "message": "Sin permisos para esta finca"}), 403
+
+    rel = UsuarioFinca.query.filter_by(usuario_id=usuario_id, finca_id=finca_id).first()
+    if not rel:
+        return jsonify({"ok": False, "message": "Trabajador no asignado a esta finca"}), 404
+
+    # Mapear usuario -> trabajador del dueño actual
+    usuario = Usuario.query.get(usuario_id)
+    if not usuario:
+        return jsonify({"ok": False, "message": "Usuario no encontrado"}), 404
+    trab = Trabajador.query.filter_by(usuario=usuario.nik_name, id_jefe=current_user.id).first()
+    if not trab:
+        return jsonify({"ok": False, "message": "Trabajador no encontrado para este dueño"}), 404
+
+    permisos = PermisoFincaUsuario.query.filter_by(trabajador_id=trab.id_trabajador, finca_id=finca_id).first()
+    if not permisos:
+        permisos = PermisoFincaUsuario(trabajador_id=trab.id_trabajador, finca_id=finca_id)
+        db.session.add(permisos)
+        db.session.commit()
+
+    return jsonify({
+        "ok": True,
+        "crear_potreros": bool(permisos.crear_potreros),
+        "agregar_animales": bool(permisos.agregar_animales),
+        "eliminar_animales": bool(permisos.eliminar_animales),
+        "crear_usuarios_ligados": bool(permisos.crear_usuarios_ligados),
+        "actualizar_datos_usuario": bool(permisos.actualizar_datos_usuario),
+    })
+
+
+@login_required
+def actualizar_permiso_finca_trabajador():
+    data = request.get_json(force=True) or {}
+    usuario_id = int(data.get('usuario_id'))
+    finca_id = int(data.get('finca_id'))
+    permiso = str(data.get('permiso') or '')
+    habilitado = bool(data.get('habilitado'))
+
+    # Validación de acceso
+    dueno_rel = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=finca_id).first()
+    if not dueno_rel and current_user.tipo_usuario != 3:
+        return jsonify({"ok": False, "message": "Sin permisos para esta finca"}), 403
+
+    rel = UsuarioFinca.query.filter_by(usuario_id=usuario_id, finca_id=finca_id).first()
+    if not rel:
+        return jsonify({"ok": False, "message": "Trabajador no asignado a esta finca"}), 404
+
+    # Mapear usuario -> trabajador del dueño actual
+    usuario = Usuario.query.get(usuario_id)
+    if not usuario:
+        return jsonify({"ok": False, "message": "Usuario no encontrado"}), 404
+    trab = Trabajador.query.filter_by(usuario=usuario.nik_name, id_jefe=current_user.id).first()
+    if not trab:
+        return jsonify({"ok": False, "message": "Trabajador no encontrado para este dueño"}), 404
+
+    permisos = PermisoFincaUsuario.query.filter_by(trabajador_id=trab.id_trabajador, finca_id=finca_id).first()
+    if not permisos:
+        permisos = PermisoFincaUsuario(trabajador_id=trab.id_trabajador, finca_id=finca_id)
+        db.session.add(permisos)
+
+    # Actualizar campo dinámico si existe
+    campos_validos = {
+        'crear_potreros',
+        'agregar_animales',
+        'eliminar_animales',
+        'crear_usuarios_ligados',
+        'actualizar_datos_usuario'
+    }
+    if permiso not in campos_validos:
+        return jsonify({"ok": False, "message": "Permiso inválido"}), 400
+
+    setattr(permisos, permiso, habilitado)
+    db.session.commit()
+    registrar_actividad('Actualizó', f'Permiso {permiso} de trabajador {trab.id_trabajador} en finca {finca_id} -> {habilitado}')
+    return jsonify({"ok": True})
 
 @login_required
 def quitar_trabajador_finca(finca_id: int, usuario_id: int):

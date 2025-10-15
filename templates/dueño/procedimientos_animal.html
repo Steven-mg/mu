@@ -19,6 +19,7 @@
 
     <div class="row">
         <div class="col-md-6">
+            {% if tipos_salud_count > 0 %}
             <div class="card mb-4">
                 <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                     <span>Agregar Servicio de Salud</span>
@@ -60,6 +61,14 @@
                     </form>
                 </div>
             </div>
+            {% else %}
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">Agregar Servicio de Salud</div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-0">No hay servicios de salud aplicables para {{ sexo_animal|lower }}.</div>
+                </div>
+            </div>
+            {% endif %}
         </div>
         <div class="col-md-6">
             {% if tipos_sexual_count > 0 %}
@@ -118,7 +127,7 @@
                             <tr>
                                 <th>Fecha</th>
                                 <th>Tipo</th>
-                                <th>Veterinario</th>
+                                <th>Profesional</th>
                                 <th>Costo</th>
                                 <th></th>
                             </tr>
@@ -128,7 +137,7 @@
                             <tr>
                                 <td>{{ s.fecha_servicio }}</td>
                                 <td>{{ s.tipo_servicio.nombre_servicio if s.tipo_servicio else '' }}</td>
-                                <td>{{ s.veterinario.nombre_veterinario if s.veterinario else '' }}</td>
+                                <td>{{ (s.trabajador.nombre ~ ' ' ~ s.trabajador.apellido) if s.trabajador else '' }}</td>
                                 <td>{{ s.costo }}</td>
                                 <td>
                                     <form method="POST" action="{{ url_for('eliminar_servicio_salud_route', servicio_id=s.id_servicio_salud, animal_id=animal.id_animal) }}" class="d-inline" onsubmit="return confirm('¿Eliminar servicio de salud?');">
@@ -146,7 +155,7 @@
                             <tr>
                                 <th>Fecha</th>
                                 <th>Tipo</th>
-                                <th>Veterinario</th>
+                                <th>Profesional</th>
                                 <th>Costo</th>
                                 <th></th>
                             </tr>
@@ -156,7 +165,7 @@
                             <tr>
                                 <td>{{ x.fecha_servicio }}</td>
                                 <td>{{ x.tipo_servicio.nombre_servicio if x.tipo_servicio else '' }}</td>
-                                <td>{{ x.veterinario.nombre_veterinario if x.veterinario else '' }}</td>
+                                <td>{{ (x.trabajador.nombre ~ ' ' ~ x.trabajador.apellido) if x.trabajador else '' }}</td>
                                 <td>{{ x.costo_total }}</td>
                                 <td>
                                     <form method="POST" action="{{ url_for('eliminar_servicio_sexual_route', servicio_id=x.id_servicio, animal_id=animal.id_animal) }}" class="d-inline" onsubmit="return confirm('¿Eliminar servicio sexual?');">

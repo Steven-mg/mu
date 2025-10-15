@@ -4,7 +4,7 @@ from wtforms.validators import DataRequired, Optional
 
 class ServicioSaludForm(FlaskForm):
     id_tipo_salud = SelectField('Tipo de servicio', coerce=int, validators=[DataRequired(message='Seleccione el tipo de servicio')])
-    id_veterinario = SelectField('Veterinario', coerce=int, validators=[DataRequired(message='Seleccione el veterinario')])
+    id_veterinario = SelectField('Profesional', coerce=int, validators=[DataRequired(message='Seleccione el profesional')])
     fecha_servicio = DateField('Fecha del servicio', validators=[DataRequired(message='Ingrese la fecha')])
     fecha_proximo = DateField('Próxima fecha', validators=[Optional()])
     dosis = StringField('Dosis', validators=[Optional()])

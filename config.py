@@ -179,3 +179,18 @@ def allowed_image(filename: str) -> bool:
 def allowed_document(filename: str) -> bool:
     """Verifica si el nombre de archivo tiene una extensión de documento genético permitida."""
     return "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_DOC_EXTENSIONS
+
+# Filtro Jinja para formatear moneda en estilo es-CO (puntos miles, coma decimal)
+@app.template_filter('currency_es')
+def currency_es(value):
+    try:
+        from decimal import Decimal
+        if isinstance(value, Decimal):
+            value = float(value)
+        else:
+            value = float(value)
+    except Exception:
+        return value
+    s = f"{value:,.2f}"
+    # Cambiar separadores: ',' miles -> '.'; '.' decimales -> ','
+    return s.replace(',', '_').replace('.', ',').replace('_', '.')

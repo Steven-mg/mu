@@ -19,7 +19,7 @@ class Usuario(UserMixin, db.Model):
     apellidos = db.Column(db.String(50), nullable=True)  
     correo = db.Column(db.String(120), nullable=False)  
     contraseña = db.Column(db.String(255), nullable=True) 
-    tipo_usuario = db.Column(db.SmallInteger, nullable=False)  # 1: Veterinario, 2: Dueño, 3: Superusuario
+    tipo_usuario = db.Column(db.SmallInteger, nullable=False)  # 1: Trabajador/Veterinario, 2: Dueño, 3: Superusuario
     direccion = db.Column(db.String(30), nullable=True) 
     telefono = db.Column(db.String(15), nullable=True)
     pais = db.Column(db.String(50), nullable=True)
@@ -182,30 +182,29 @@ class TipoServicioSalud(db.Model):
     categoria = db.Column(db.Enum('Vacunación', 'Desparasitación', 'Tratamiento médico', 'Suplemento', 'Cirugía', 'Control preventivo'), nullable=False)
     frecuencia_recomendada = db.Column(db.String(30), nullable=True)
     aplica_a_sexo = db.Column(db.Enum('macho', 'hembra', 'ambos'), nullable=True, default='ambos')
+    # Campos adicionales presentes en la BD según el esquema SQL
+    duracion_efecto_dias = db.Column(db.Integer, nullable=True)
+    edad_minima_aplicacion = db.Column(db.Integer, nullable=True, default=0)
+    requiere_veterinario = db.Column(db.Boolean, nullable=True, default=True)
     
     servicios = db.relationship('ServiciosSalud', backref='tipo_servicio')
 
-class Veterinario(db.Model):
-    __tablename__ = 'veterinario'
-    id_veterinario = db.Column(db.SmallInteger, primary_key=True)
-    nombre_veterinario = db.Column(db.String(50), nullable=False)
-    telefono = db.Column(db.String(12), nullable=False)
-    correo = db.Column(db.String(40), nullable=False)
-    direccion = db.Column(db.String(50), nullable=False)
-    
-    servicios = db.relationship('ServiciosSalud', backref='veterinario')
+# Eliminado: tabla Veterinario. Ahora los servicios referencian a Trabajador con rol 'veterinario'.
 
 class ServiciosSalud(db.Model):
     __tablename__ = 'servicios_salud'
     id_servicio_salud = db.Column(db.Integer, primary_key=True)
     id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal', ondelete='CASCADE'), nullable=False)
     id_tipo_salud = db.Column(db.SmallInteger, db.ForeignKey('tipo_servicio_salud.id_tipo_salud'), nullable=False)
-    id_veterinario = db.Column(db.SmallInteger, db.ForeignKey('veterinario.id_veterinario'), nullable=False)
+    # La columna se mantiene como id_veterinario en la BD pero referencia a trabajador
+    id_veterinario = db.Column(db.SmallInteger, db.ForeignKey('trabajador.id_trabajador'), nullable=False)
     fecha_servicio = db.Column(db.Date, nullable=False)
     fecha_proximo = db.Column(db.Date, nullable=True)
     dosis = db.Column(db.String(50), nullable=True)
     observaciones = db.Column(Text, nullable=True)
     costo = db.Column(DECIMAL(8, 2), nullable=False)
+    # Relación hacia Trabajador (rol veterinario)
+    trabajador = db.relationship('Trabajador', backref='servicios_salud')
 
 class UsuarioFinca(db.Model):
     __tablename__ = 'usuario_finca'
@@ -223,6 +222,24 @@ class UsuarioFinca(db.Model):
     puede_editar = db.Column(db.Boolean, nullable=True, default=False)
     # Estado específico de la asignación trabajador-finca: 'asignado' o 'no_asignado'
     estado_asignacion = db.Column(db.Enum('asignado', 'no_asignado'), nullable=False, default='asignado')
+
+
+class PermisoFincaUsuario(db.Model):
+    __tablename__ = 'permiso_finca_usuario'
+    __table_args__ = (
+        db.UniqueConstraint('trabajador_id', 'finca_id', name='uq_permiso_finca_trabajador'),
+        db.Index('ix_permiso_trabajador', 'trabajador_id'),
+        db.Index('ix_permiso_finca', 'finca_id'),
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    trabajador_id = db.Column(db.Integer, db.ForeignKey('trabajador.id_trabajador', ondelete='CASCADE'), nullable=False)
+    finca_id = db.Column(db.SmallInteger, db.ForeignKey('finca.id_finca', ondelete='CASCADE'), nullable=False)
+    crear_potreros = db.Column(db.Boolean, nullable=False, default=False)
+    agregar_animales = db.Column(db.Boolean, nullable=False, default=False)
+    eliminar_animales = db.Column(db.Boolean, nullable=False, default=False)
+    crear_usuarios_ligados = db.Column(db.Boolean, nullable=False, default=False)
+    actualizar_datos_usuario = db.Column(db.Boolean, nullable=False, default=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
 class CicloReproductivo(db.Model):
     __tablename__ = 'ciclo_reproductivo'
@@ -349,13 +366,15 @@ class ServiciosSexuales(db.Model):
     id_servicio = db.Column(db.SmallInteger, primary_key=True)
     id_servicioanimal = db.Column(db.SmallInteger, db.ForeignKey('tipo_servicio_sexual.id_servicio'), nullable=False)
     id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal'), nullable=False)
-    id_veterinario = db.Column(db.SmallInteger, db.ForeignKey('veterinario.id_veterinario'), nullable=False)
+    # La columna se mantiene como id_veterinario en la BD pero referencia a trabajador
+    id_veterinario = db.Column(db.SmallInteger, db.ForeignKey('trabajador.id_trabajador'), nullable=False)
     fecha_servicio = db.Column(db.Date, nullable=False)
     notas_servicio = db.Column(db.String(200), nullable=True)
     costo_total = db.Column(db.Float, nullable=True)
     
     animal = db.relationship('Animal', backref='servicios_sexuales')
-    veterinario = db.relationship('Veterinario', backref='servicios_sexuales')
+    # Relación hacia Trabajador (rol veterinario)
+    trabajador = db.relationship('Trabajador', backref='servicios_sexuales')
 
 class EstadoGeneral(db.Model):
     __tablename__ = 'estado_general'

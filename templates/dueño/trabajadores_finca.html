@@ -1,0 +1,336 @@
+{% extends 'base.html' %}
+
+{% block title %}Trabajadores de {{ finca.nombre_finca }} - GanaControl{% endblock %}
+
+{% block sidebar %}
+{% include 'components/sidebar_dueno.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="row">
+    <main class="px-md-4 py-4">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="h4 mb-0">Trabajadores de la finca: {{ finca.nombre_finca }}</h2>
+        <div>
+          <a class="btn btn-outline-secondary" href="{{ url_for('gestionar_finca_route', finca_id=finca.id_finca) }}">Volver a la finca</a>
+        </div>
+      </div>
+
+      <!-- Asignados a esta finca -->
+      <div class="card mb-4">
+        <div class="card-header bg-light">
+          <strong>Asignados a esta finca</strong>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-striped align-middle">
+              <thead>
+                <tr>
+                  <th>Usuario</th>
+                  <th>Documento</th>
+                  <th>Rol en finca</th>
+                  <th>Permiso de edición</th>
+                  <th>Asignación</th>
+                  <th class="text-end">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% if relaciones_trabajadores and relaciones_trabajadores|length > 0 %}
+                {% for rel in relaciones_trabajadores %}
+                {% set u = usuarios_asignados|selectattr('id', 'equalto', rel.usuario_id)|list|first %}
+                <tr>
+                  <td><span class="text-body">{{ u.nik_name if u else rel.usuario_id }}</span></td>
+                  <td>{{ documentos_map.get(rel.usuario_id) or '—' }}</td>
+                  <td>
+                    {% if rel.rol_en_finca == 3 %}Administrador{% elif rel.rol_en_finca == 2 %}Veterinario{% else %}Trabajador{% endif %}
+                  </td>
+                  <td>
+                    <span class="badge {% if rel.puede_editar %}bg-success{% else %}bg-secondary{% endif %}" id="badge-edicion-{{ rel.usuario_id }}">
+                      {% if rel.puede_editar %}Habilitado{% else %}Deshabilitado{% endif %}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge {% if rel.estado_asignacion == 'asignado' %}bg-success{% else %}bg-warning{% endif %}">
+                      {{ rel.estado_asignacion or 'asignado' }}
+                    </span>
+                  </td>
+                  <td class="text-end">
+                    <div class="d-inline-flex gap-2">
+                      <button class="btn btn-outline-secondary btn-sm" data-action="toggle-permisos" data-usuario-id="{{ rel.usuario_id }}">Permisos</button>
+                      <form method="POST" action="{{ url_for('quitar_trabajador_finca_route', finca_id=finca.id_finca, usuario_id=rel.usuario_id) }}" class="d-inline">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-danger btn-sm">Quitar</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+                <tr class="table-light d-none" id="permisos-row-{{ rel.usuario_id }}">
+                  <td colspan="6">
+                    <!-- Controles de rol/edición/asignación reubicados al panel desplegable -->
+                    <form method="POST" action="{{ url_for('actualizar_permiso_trabajador_route') }}" class="d-flex flex-wrap align-items-center gap-3 mb-3">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <input type="hidden" name="usuario_id" value="{{ rel.usuario_id }}">
+                      <input type="hidden" name="finca_id" value="{{ finca.id_finca }}">
+                      <div class="d-flex align-items-center gap-2">
+                        <label class="form-label mb-0 small text-muted" for="rol-en-finca-{{ rel.usuario_id }}">Rol en finca</label>
+                        <select id="rol-en-finca-{{ rel.usuario_id }}" name="rol_en_finca" class="form-select form-select-sm" aria-label="Seleccionar rol en esta finca">
+                          <option value="1" {% if rel.rol_en_finca == 1 %}selected{% endif %}>Trabajador</option>
+                          <option value="2" {% if rel.rol_en_finca == 2 %}selected{% endif %}>Veterinario</option>
+                          <option value="3" {% if rel.rol_en_finca == 3 %}selected{% endif %}>Administrador</option>
+                        </select>
+                      </div>
+                      <div class="d-flex align-items-center gap-2" title="Permite editar datos de esta finca" aria-label="Permiso de edición para esta finca">
+                        <label class="form-label mb-0 small text-muted" for="toggle-editar-{{ rel.usuario_id }}">Edición</label>
+                        <div class="form-check form-switch">
+                          <input class="form-check-input" id="toggle-editar-{{ rel.usuario_id }}" type="checkbox" name="puede_editar" value="true" {% if rel.puede_editar %}checked{% endif %} data-bind-badge="badge-edicion-{{ rel.usuario_id }}">
+                        </div>
+                        <span class="small {% if rel.puede_editar %}text-success{% else %}text-secondary{% endif %}" id="text-editar-{{ rel.usuario_id }}">{% if rel.puede_editar %}Habilitado{% else %}Deshabilitado{% endif %}</span>
+                      </div>
+                      <div class="d-flex align-items-center gap-2">
+                        <label class="form-label mb-0 small text-muted" for="estado-asignacion-{{ rel.usuario_id }}">Asignación</label>
+                        <select id="estado-asignacion-{{ rel.usuario_id }}" name="estado_asignacion" class="form-select form-select-sm" aria-label="Estado de asignación en esta finca">
+                          <option value="asignado" {% if rel.estado_asignacion == 'asignado' %}selected{% endif %}>Asignado</option>
+                          <option value="no_asignado" {% if rel.estado_asignacion == 'no_asignado' %}selected{% endif %}>No asignado</option>
+                        </select>
+                      </div>
+                      <div class="small text-muted">
+                        Rol general (cuenta):
+                        <span class="badge {% if u and u.tipo_usuario == 2 %}bg-info{% elif u and u.tipo_usuario == 3 %}bg-dark{% else %}bg-secondary{% endif %}">
+                          {% if u and u.tipo_usuario == 2 %}Dueño{% elif u and u.tipo_usuario == 3 %}Superusuario{% else %}Trabajador/Veterinario{% endif %}
+                        </span>
+                      </div>
+                      <div class="d-flex gap-2 ms-auto">
+                        <button type="submit" class="btn btn-primary btn-sm">Guardar</button>
+                      </div>
+                    </form>
+                    <div class="row g-3" data-permisos-container data-usuario-id="{{ rel.usuario_id }}" data-finca-id="{{ finca.id_finca }}">
+                      <div class="col-md-2">
+                        <div class="form-check form-switch">
+                          <input class="form-check-input permiso-toggle" type="checkbox" data-permiso="crear_potreros" id="perm-crear_potreros-{{ rel.usuario_id }}">
+                          <label class="form-check-label" for="perm-crear_potreros-{{ rel.usuario_id }}">Crear potreros</label>
+                        </div>
+                      </div>
+                      <div class="col-md-2">
+                        <div class="form-check form-switch">
+                          <input class="form-check-input permiso-toggle" type="checkbox" data-permiso="agregar_animales" id="perm-agregar_animales-{{ rel.usuario_id }}">
+                          <label class="form-check-label" for="perm-agregar_animales-{{ rel.usuario_id }}">Agregar animales</label>
+                        </div>
+                      </div>
+                      <div class="col-md-2">
+                        <div class="form-check form-switch">
+                          <input class="form-check-input permiso-toggle" type="checkbox" data-permiso="eliminar_animales" id="perm-eliminar_animales-{{ rel.usuario_id }}">
+                          <label class="form-check-label" for="perm-eliminar_animales-{{ rel.usuario_id }}">Eliminar animales</label>
+                        </div>
+                      </div>
+                      <div class="col-md-3">
+                        <div class="form-check form-switch">
+                          <input class="form-check-input permiso-toggle" type="checkbox" data-permiso="crear_usuarios_ligados" id="perm-crear_usuarios_ligados-{{ rel.usuario_id }}">
+                          <label class="form-check-label" for="perm-crear_usuarios_ligados-{{ rel.usuario_id }}">Crear usuarios ligados</label>
+                        </div>
+                      </div>
+                      <div class="col-md-3">
+                        <div class="form-check form-switch">
+                          <input class="form-check-input permiso-toggle" type="checkbox" data-permiso="actualizar_datos_usuario" id="perm-actualizar_datos_usuario-{{ rel.usuario_id }}">
+                          <label class="form-check-label" for="perm-actualizar_datos_usuario-{{ rel.usuario_id }}">Actualizar datos usuario</label>
+                        </div>
+                      </div>
+                      <div class="col-12">
+                        <div class="text-muted small" id="permisos-msg-{{ rel.usuario_id }}"></div>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+                {% endfor %}
+                {% else %}
+                <tr>
+                  <td colspan="6" class="text-center text-muted py-4">No hay trabajadores asignados a esta finca.</td>
+                </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Agregar trabajadores -->
+      <div class="row">
+        <div class="col-lg-6">
+          <div class="card mb-4">
+            <div class="card-header bg-light"><strong>Agregar trabajadores sin finca asignada</strong></div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Documento</th>
+                      <th class="text-end">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% if trabajadores_sin_asignacion and trabajadores_sin_asignacion|length > 0 %}
+                    {% for t in trabajadores_sin_asignacion %}
+                    <tr>
+                      <td>{{ t.nik_name }}</td>
+                      <td>{{ documentos_map.get(t.id) or '—' }}</td>
+                      <td class="text-end">
+                        <form method="POST" action="{{ url_for('asignar_trabajador_finca_route', finca_id=finca.id_finca, usuario_id=t.id) }}" class="d-inline">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                          <button type="submit" class="btn btn-outline-success btn-sm">Asignar a finca</button>
+                        </form>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                      <td colspan="3" class="text-muted text-center py-3">No hay trabajadores sin finca.</td>
+                    </tr>
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-lg-6">
+          <div class="card mb-4">
+            <div class="card-header bg-light"><strong>Agregar trabajadores con otras fincas</strong></div>
+            <div class="card-body">
+              <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                  <thead>
+                    <tr>
+                      <th>Usuario</th>
+                      <th>Documento</th>
+                      <th class="text-end">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% if trabajadores_con_otras_fincas and trabajadores_con_otras_fincas|length > 0 %}
+                    {% for t in trabajadores_con_otras_fincas %}
+                    <tr>
+                      <td>{{ t.nik_name }}</td>
+                      <td>{{ documentos_map.get(t.id) or '—' }}</td>
+                      <td class="text-end">
+                        <form method="POST" action="{{ url_for('asignar_trabajador_finca_route', finca_id=finca.id_finca, usuario_id=t.id) }}" class="d-inline">
+                          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                          <button type="submit" class="btn btn-outline-success btn-sm">Asignar a finca</button>
+                        </form>
+                      </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                      <td colspan="3" class="text-muted text-center py-3">No hay candidatos con otras fincas.</td>
+                    </tr>
+                    {% endif %}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+  
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const fincaId = {{ finca.id_finca }};
+
+  function loadPermisos(usuarioId) {
+    const row = document.getElementById(`permisos-row-${usuarioId}`);
+    if (!row) return;
+    fetch(`/finca/${fincaId}/trabajador/${usuarioId}/permisos`)
+      .then(r => r.json())
+      .then(data => {
+        if (!data.ok) {
+          document.getElementById(`permisos-msg-${usuarioId}`).textContent = data.message || 'No se pudieron cargar los permisos';
+          return;
+        }
+        const container = row.querySelector('[data-permisos-container]');
+        container.querySelectorAll('.permiso-toggle').forEach(input => {
+          const key = input.getAttribute('data-permiso');
+          input.checked = !!data[key];
+        });
+      })
+      .catch(() => {
+        document.getElementById(`permisos-msg-${usuarioId}`).textContent = 'Error cargando permisos';
+      });
+  }
+
+  function updatePermiso(usuarioId, permiso, habilitado) {
+    fetch(`/finca/${fincaId}/trabajador/permisos/actualizar`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usuario_id: usuarioId, finca_id: fincaId, permiso, habilitado })
+    })
+    .then(r => r.json())
+    .then(data => {
+      const msg = document.getElementById(`permisos-msg-${usuarioId}`);
+      if (!data.ok) {
+        msg.textContent = data.message || 'No se pudo actualizar el permiso';
+        msg.classList.add('text-danger');
+      } else {
+        msg.textContent = 'Permiso actualizado';
+        msg.classList.remove('text-danger');
+      }
+    })
+    .catch(() => {
+      const msg = document.getElementById(`permisos-msg-${usuarioId}`);
+      msg.textContent = 'Error de red al actualizar';
+      msg.classList.add('text-danger');
+    });
+  }
+
+  // Toggle de permisos: mostrar/ocultar fila y cargar datos
+  document.querySelectorAll('[data-action="toggle-permisos"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const usuarioId = btn.getAttribute('data-usuario-id');
+      const row = document.getElementById(`permisos-row-${usuarioId}`);
+      if (!row) return;
+      const hidden = row.classList.contains('d-none');
+      row.classList.toggle('d-none');
+      if (hidden) {
+        loadPermisos(usuarioId);
+        // Vincular listeners una sola vez
+        row.querySelectorAll('.permiso-toggle').forEach(input => {
+          if (!input.dataset.bound) {
+            input.addEventListener('change', (e) => {
+              const permiso = input.getAttribute('data-permiso');
+              updatePermiso(usuarioId, permiso, input.checked);
+            });
+            input.dataset.bound = '1';
+          }
+        });
+      }
+    });
+  });
+  // Actualizar texto y badge del toggle "puede editar"
+  document.querySelectorAll('input[id^="toggle-editar-"]').forEach(input => {
+    input.addEventListener('change', () => {
+      const usuarioId = input.id.replace('toggle-editar-', '');
+      const textEl = document.getElementById(`text-editar-${usuarioId}`);
+      const badgeEl = document.getElementById(`badge-edicion-${usuarioId}`);
+      const on = input.checked;
+      if (textEl) {
+        textEl.textContent = on ? 'Habilitado' : 'Deshabilitado';
+        textEl.classList.toggle('text-success', on);
+        textEl.classList.toggle('text-secondary', !on);
+      }
+      if (badgeEl) {
+        badgeEl.textContent = on ? 'Habilitado' : 'Deshabilitado';
+        badgeEl.classList.toggle('bg-success', on);
+        badgeEl.classList.toggle('bg-secondary', !on);
+      }
+    });
+  });
+});
+</script>
+
+{% endblock %}

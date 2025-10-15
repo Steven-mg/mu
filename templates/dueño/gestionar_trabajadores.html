@@ -24,7 +24,7 @@
         </li>
         <li class="nav-item">
           <a class="nav-link {% if not form %}active{% endif %}" href="{{ url_for('gestionar_trabajadores_route') }}">
-            Asignar / Permisos
+            Trabajadores
           </a>
         </li>
       </ul>
@@ -71,7 +71,7 @@
       {% if not form %}
       <div class="card">
         <div class="card-header bg-light">
-          <strong>Asignar finca y gestionar permisos</strong>
+          <strong>Trabajadores</strong>
         </div>
         <div class="card-body">
           <div class="table-responsive">
@@ -112,29 +112,7 @@
                     </span>
                   </td>
                   <td>
-                    <form method="POST" action="{{ url_for('actualizar_permiso_trabajador_route') }}" class="d-flex align-items-center">
-                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                      <input type="hidden" name="usuario_id" value="{{ rel.usuario_id }}">
-                      <input type="hidden" name="finca_id" value="{{ rel.finca_id }}">
-                      <div class="me-2">
-                        <select name="rol_en_finca" class="form-select form-select-sm">
-                          <option value="1" {% if rel.rol_en_finca == 1 %}selected{% endif %}>Trabajador</option>
-                          <option value="2" {% if rel.rol_en_finca == 2 %}selected{% endif %}>Veterinario</option>
-                          <option value="3" {% if rel.rol_en_finca == 3 %}selected{% endif %}>Administrador</option>
-                        </select>
-                      </div>
-                      <div class="form-check form-switch me-2">
-                        <input class="form-check-input" type="checkbox" name="puede_editar" value="true" {% if rel.puede_editar %}checked{% endif %}>
-                      </div>
-                      <div class="me-2">
-                        <select name="estado_asignacion" class="form-select form-select-sm">
-                          <option value="asignado" {% if rel.estado_asignacion == 'asignado' %}selected{% endif %}>Asignado</option>
-                          <option value="no_asignado" {% if rel.estado_asignacion == 'no_asignado' %}selected{% endif %}>No asignado</option>
-                        </select>
-                      </div>
-                      <a href="{{ url_for('administrar_trabajador_route', usuario_id=rel.usuario_id) }}" class="btn btn-outline-primary btn-sm me-2">Administrar</a>
-                      <button type="submit" class="btn btn-outline-success btn-sm me-2">Guardar permisos</button>
-                    </form>
+                    <a href="{{ url_for('administrar_trabajador_route', usuario_id=rel.usuario_id) }}" class="btn btn-outline-primary btn-sm">Administrar</a>
                   </td>
                 </tr>
                 {% endfor %}

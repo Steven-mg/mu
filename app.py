@@ -411,6 +411,80 @@ def ensure_trabajador_table():
     except Exception as e:
         print('Error asegurando tabla trabajador:', e)
 
+# Migración segura: crear tabla permiso_finca_usuario si no existe
+def ensure_permiso_finca_usuario_table():
+    try:
+        dialect = db.engine.dialect.name
+        if dialect != 'mysql':
+            print('Salto migración permisos_finca: dialecto no MySQL ->', dialect)
+            return
+        with db.engine.connect() as conn:
+            exists_tbl = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.TABLES 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'permiso_finca_usuario'
+                """
+            )).first()
+            if not exists_tbl:
+                conn.execute(text(
+                    """
+                    CREATE TABLE permiso_finca_usuario (
+                      id INT AUTO_INCREMENT PRIMARY KEY,
+                      trabajador_id INT NOT NULL,
+                      finca_id SMALLINT NOT NULL,
+                      crear_potreros TINYINT(1) NOT NULL DEFAULT 0,
+                      agregar_animales TINYINT(1) NOT NULL DEFAULT 0,
+                      eliminar_animales TINYINT(1) NOT NULL DEFAULT 0,
+                      crear_usuarios_ligados TINYINT(1) NOT NULL DEFAULT 0,
+                      actualizar_datos_usuario TINYINT(1) NOT NULL DEFAULT 0,
+                      updated_at DATETIME NULL,
+                      CONSTRAINT fk_perm_trabajador FOREIGN KEY (trabajador_id) REFERENCES trabajador(id_trabajador) ON DELETE CASCADE,
+                      CONSTRAINT fk_perm_finca FOREIGN KEY (finca_id) REFERENCES finca(id_finca) ON DELETE CASCADE,
+                      CONSTRAINT uq_permiso_finca_trabajador UNIQUE (trabajador_id, finca_id)
+                    )
+                    """
+                ))
+                print('Tabla permiso_finca_usuario creada (FK trabajador)')
+            else:
+                # Si existe la tabla, asegurar columna trabajador_id y constraints/índices
+                has_trab_col = conn.execute(text(
+                    """
+                    SELECT 1 FROM information_schema.COLUMNS
+                    WHERE TABLE_SCHEMA = DATABASE()
+                      AND TABLE_NAME = 'permiso_finca_usuario'
+                      AND COLUMN_NAME = 'trabajador_id'
+                    """
+                )).first()
+                if not has_trab_col:
+                    try:
+                        conn.execute(text("ALTER TABLE permiso_finca_usuario ADD COLUMN trabajador_id INT NULL"))
+                        print('Columna trabajador_id agregada a permiso_finca_usuario')
+                    except Exception:
+                        pass
+                    # Agregar FK si falta
+                    try:
+                        conn.execute(text("ALTER TABLE permiso_finca_usuario ADD CONSTRAINT fk_perm_trabajador FOREIGN KEY (trabajador_id) REFERENCES trabajador(id_trabajador) ON DELETE CASCADE"))
+                    except Exception:
+                        pass
+                    # Agregar índice sobre trabajador_id
+                    try:
+                        conn.execute(text("CREATE INDEX ix_permiso_trabajador ON permiso_finca_usuario(trabajador_id)"))
+                    except Exception:
+                        pass
+                    # Agregar unique compuesto (no falla si ya existe otro)
+                    try:
+                        conn.execute(text("ALTER TABLE permiso_finca_usuario ADD UNIQUE KEY uq_permiso_finca_trabajador (trabajador_id, finca_id)"))
+                    except Exception:
+                        pass
+            # Asegurar índice de finca
+            try:
+                conn.execute(text("CREATE INDEX ix_permiso_finca ON permiso_finca_usuario(finca_id)"))
+            except Exception:
+                pass
+    except Exception as e:
+        print('Error asegurando tabla permiso_finca_usuario:', e)
+
 # Crear todas las tablas en la base de datos
 with app.app_context():
     db.create_all()
@@ -421,7 +495,9 @@ with app.app_context():
     ensure_usuario_finca_permission_columns()
     # Ejecutar migración segura de foto_usuario
     ensure_foto_usuario_column()
-    # Omitir migración de tabla trabajador para respetar esquema del dump
+    # Ejecutar migración segura de tabla trabajador (añade columna 'estado' si falta)
+    ensure_trabajador_table()
+    ensure_permiso_finca_usuario_table()
     
     # Importar e inicializar el usuario administrador
     from modelo.models import inicializar_usuario_admin
@@ -615,7 +691,7 @@ from controlador.controlador_finca import api_default_tipo_uso_potrero
 
 # Importar controlador de compras
 from controlador.controlador_compra import *
-from controlador.controlador_trabajador import listar_trabajadores_dueno, crear_trabajador_dueno, actualizar_permiso_trabajador, asignar_trabajador_finca, quitar_trabajador_finca
+from controlador.controlador_trabajador import listar_trabajadores_dueno, crear_trabajador_dueno, actualizar_permiso_trabajador, asignar_trabajador_finca, quitar_trabajador_finca, obtener_permisos_finca_trabajador, actualizar_permiso_finca_trabajador, gestionar_trabajadores_finca
 from controlador.controlador_trabajador_admin import ver_trabajador_admin, actualizar_trabajador_admin, ver_foto_usuario, eliminar_trabajador
 
 # Aplicar los decoradores de rol a las rutas ya definidas
@@ -1008,6 +1084,13 @@ def crear_trabajador_dueno_route():
 def actualizar_permiso_trabajador_route():
     return actualizar_permiso_trabajador()
 
+# Página dedicada de trabajadores por finca
+@app.route('/finca/<int:finca_id>/trabajadores')
+@login_required
+@requiere_rol(2)
+def gestionar_trabajadores_finca_route(finca_id):
+    return gestionar_trabajadores_finca(finca_id)
+
 # Ruta y vista de administración de trabajador
 @app.route('/trabajador/<int:usuario_id>/administrar', methods=['GET', 'POST'])
 @login_required
@@ -1040,6 +1123,19 @@ def asignar_trabajador_finca_route(finca_id, usuario_id):
 @requiere_rol(2)
 def quitar_trabajador_finca_route(finca_id, usuario_id):
     return quitar_trabajador_finca(finca_id, usuario_id)
+
+# Permisos por funcionalidad (por finca y trabajador)
+@app.route('/finca/<int:finca_id>/trabajador/<int:usuario_id>/permisos', methods=['GET'])
+@login_required
+@requiere_rol(2)
+def obtener_permisos_finca_trabajador_route(finca_id, usuario_id):
+    return obtener_permisos_finca_trabajador(finca_id, usuario_id)
+
+@app.route('/finca/<int:finca_id>/trabajador/permisos/actualizar', methods=['POST'])
+@login_required
+@requiere_rol(2)
+def actualizar_permiso_finca_trabajador_route(finca_id):
+    return actualizar_permiso_finca_trabajador()
 
 # Editar documento genético
 @app.route('/documento_genetico/<int:documento_id>/editar', methods=['GET', 'POST'], endpoint='editar_documento_genetico_route')

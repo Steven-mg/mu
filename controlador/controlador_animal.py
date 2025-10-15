@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-from modelo.models import db, Animal, Raza, Finca, EstadoReproductivo, UsuarioFinca, CompraAnimales, Potrero, AnimalGrupo, GrupoAnimal, DocumentoGenetico, ServiciosSalud, TipoServicioSalud, Veterinario, ServiciosSexuales, TipoServicioSexual
+from modelo.models import db, Animal, Raza, Finca, EstadoReproductivo, UsuarioFinca, CompraAnimales, Potrero, AnimalGrupo, GrupoAnimal, DocumentoGenetico, ServiciosSalud, TipoServicioSalud, Trabajador, ServiciosSexuales, TipoServicioSexual
 from sqlalchemy.orm import joinedload
 from forms.animal_form import AnimalForm, FiltroAnimalForm
 from controlador.controlador_actividad import registrar_actividad
@@ -129,6 +129,30 @@ def procedimientos_animal(animal_id):
         'Programa IATF'
     }
 
+    # Determinar si el animal es sexualmente inmaduro
+    def es_inmaduro_sexual(an):
+        try:
+            # Estado reproductivo explícito (ID 15 = Inmaduro)
+            if getattr(an, 'id_estado_reprod', None) == 15:
+                return True
+            if getattr(an, 'estado_reprod', None) and (getattr(an.estado_reprod, 'descripcion', '') or '').lower() == 'inmaduro':
+                return True
+
+            # Cálculo por edad y madurez de raza
+            raza = Raza.query.get(getattr(an, 'id_raza', None)) if getattr(an, 'id_raza', None) else None
+            fecha_nac = getattr(an, 'fecha_nacimiento', None)
+            if raza and fecha_nac:
+                hoy = datetime.now()
+                edad_meses = (hoy.year - fecha_nac.year) * 12 + (hoy.month - fecha_nac.month)
+                if sexo_animal == 'macho' and raza.madurez_sexual_machos_meses and edad_meses < raza.madurez_sexual_machos_meses:
+                    return True
+                if sexo_animal == 'hembra' and raza.madurez_sexual_hembras_meses and edad_meses < raza.madurez_sexual_hembras_meses:
+                    return True
+        except Exception:
+            # En caso de cualquier error, no bloquear por defecto
+            return False
+        return False
+
     def filtrar_por_nombre_y_sexo(tipos, sexo, macho_only, hembra_only):
         s = (sexo or '').lower()
         mset = {n.lower() for n in macho_only}
@@ -171,15 +195,45 @@ def procedimientos_animal(animal_id):
         tipos_salud = TipoServicioSalud.query.all()
         tipos_sexual = TipoServicioSexual.query.all()
 
+    # Filtro adicional por inmadurez sexual: SOLO afecta servicios sexuales
+    inmaduro = es_inmaduro_sexual(animal)
+    if inmaduro:
+        if sexo_animal == 'macho':
+            # Macho inmaduro: bloquear servicios sexuales
+            tipos_sexual = []
+        elif sexo_animal == 'hembra':
+            # Hembra inmadura: permitir únicamente "Capacitación en Detección de Celo" en sexual
+            tipos_sexual = [t for t in tipos_sexual if (getattr(t, 'nombre_servicio', '') or '').lower() in {'capacitación en detección de celo', 'capacitacion en deteccion de celo'}]
+
     form_salud.id_tipo_salud.choices = [(t.id_tipo_salud, t.nombre_servicio) for t in tipos_salud]
-    form_salud.id_veterinario.choices = [(v.id_veterinario, v.nombre_veterinario) for v in Veterinario.query.all()]
+    # Listar trabajadores del dueño actual con rol veterinario y estado activo
+    vets = Trabajador.query.filter(
+        Trabajador.id_jefe == current_user.id,
+        Trabajador.rol == 'veterinario',
+        Trabajador.estado == 'activo'
+    ).all()
+    form_salud.id_veterinario.choices = [(v.id_trabajador, f"{v.nombre} {v.apellido}") for v in vets]
     form_sexual.id_servicioanimal.choices = [(t.id_servicio, t.nombre_servicio) for t in tipos_sexual]
-    form_sexual.id_veterinario.choices = [(v.id_veterinario, v.nombre_veterinario) for v in Veterinario.query.all()]
+    form_sexual.id_veterinario.choices = [(v.id_trabajador, f"{v.nombre} {v.apellido}") for v in vets]
 
     # Procesamiento de altas
     if form_salud.submit.data and form_salud.validate_on_submit():
         tipo_salud_sel = TipoServicioSalud.query.get(form_salud.id_tipo_salud.data)
         aplica_salud = aplica_real_por_nombre(tipo_salud_sel, salud_macho_only, salud_hembra_only) if tipo_salud_sel else 'ambos'
+        # Bloqueo si el tipo de servicio requiere veterinario y el usuario no es veterinario
+        try:
+            requiere_vet = bool(getattr(tipo_salud_sel, 'requiere_veterinario', False))
+        except Exception:
+            requiere_vet = False
+        if requiere_vet and current_user.tipo_usuario != 1:
+            flash('Este procedimiento requiere profesional veterinario y debe ser registrado por un usuario veterinario.', 'danger')
+            return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+        # Validación adicional: el profesional seleccionado debe ser un trabajador con rol veterinario activo
+        vet = Trabajador.query.get(form_salud.id_veterinario.data)
+        if requiere_vet and (not vet or vet.rol != 'veterinario' or vet.estado != 'activo'):
+            flash('Debe seleccionar un profesional veterinario activo.', 'warning')
+            return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+        # Sin bloqueo por inmadurez para servicios de salud
         if sexo_animal == 'macho' and aplica_salud == 'hembra':
             flash('Este servicio de salud aplica solo a hembras.', 'warning')
             return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
@@ -204,6 +258,15 @@ def procedimientos_animal(animal_id):
     if form_sexual.submit.data and form_sexual.validate_on_submit():
         tipo_sexual_sel = TipoServicioSexual.query.get(form_sexual.id_servicioanimal.data)
         aplica_sexual = aplica_real_por_nombre(tipo_sexual_sel, sexual_macho_only, sexual_hembra_only) if tipo_sexual_sel else 'ambos'
+        # Bloqueo por inmadurez sexual
+        if inmaduro:
+            if sexo_animal == 'macho':
+                flash('Animal inmaduro: en machos no se permiten servicios sexuales.', 'warning')
+                return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+            elif sexo_animal == 'hembra':
+                if not tipo_sexual_sel or (tipo_sexual_sel.nombre_servicio or '').lower() not in {'capacitación en detección de celo', 'capacitacion en deteccion de celo'}:
+                    flash('Animal inmaduro: en hembras solo se permite Capacitación en Detección de Celo.', 'warning')
+                    return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
         if sexo_animal == 'macho' and aplica_sexual == 'hembra':
             flash('Este servicio sexual aplica solo a hembras.', 'warning')
             return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
