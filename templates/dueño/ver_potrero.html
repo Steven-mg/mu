@@ -33,7 +33,7 @@
                     <p class="mb-2"><strong>Finca:</strong> {{ potrero.finca.nombre_finca }}</p>
                     <p class="mb-2"><strong>Extensión:</strong> {{ potrero.extension }} ha</p>
                     <p class="mb-2"><strong>Capacidad:</strong> {{ potrero.capacidad_animal or 'No especificada' }} animales</p>
-                    <p class="mb-2"><strong>Ocupación actual:</strong> {{ ocupacion_total or 0 }} animales</p>
+                    <p class="mb-2"><strong>Ocupación actual:</strong> {{ ocupacion_grupos_total or ocupacion_total or 0 }} animales</p>
                     <p class="mb-2"><strong>Tipo de pasto:</strong> {{ potrero.tipo_pasto or 'No especificado' }}</p>
                     <p class="mb-2"><strong>Estado:</strong> {{ potrero.estado }}
                         {% if capacidad_excedida %}
@@ -44,7 +44,7 @@
                     {% if capacidad_excedida %}
                     <div class="alert alert-danger mt-3">
                         <i class="fas fa-exclamation-triangle me-2"></i>
-                        Capacidad excedida: {{ ocupacion_total }} / {{ potrero.capacidad_animal }} animales.
+                        Capacidad excedida: {{ ocupacion_grupos_total or ocupacion_total }} / {{ potrero.capacidad_animal }} animales.
                     </div>
                     {% endif %}
                 </div>

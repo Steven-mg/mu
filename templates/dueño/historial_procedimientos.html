@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+
+{% block sidebar %}
+{% include 'components/sidebar_dueno.html' %}
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="row mb-3">
+    <div class="col-12 d-flex justify-content-between align-items-center">
+      <h4 class="mb-0">Historial de Procedimientos: {{ animal.nombre_animal }}</h4>
+      <div>
+        <a href="{{ url_for('procedimientos_animal_route', animal_id=animal.id_animal) }}" class="btn btn-outline-primary me-2">
+          <i class="fas fa-tools me-2"></i>Ir a Procedimientos
+        </a>
+        <a href="{{ url_for('ver_animales_finca_route', finca_id=animal.id_finca) }}" class="btn btn-outline-secondary">
+          <i class="fas fa-arrow-left me-2"></i>Volver a Animales
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          {{ message }}
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+      {% endfor %}
+    {% endif %}
+  {% endwith %}
+
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header bg-success text-white">Listado de servicios de salud</div>
+        <div class="card-body">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Profesional</th>
+                <th>Costo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in servicios_salud %}
+              <tr>
+                <td>{{ s.fecha_servicio }}</td>
+                <td>{{ s.tipo_servicio.nombre_servicio if s.tipo_servicio else '' }}</td>
+                <td>{{ (s.trabajador.nombre ~ ' ' ~ s.trabajador.apellido) if s.trabajador else '' }}</td>
+                <td>{{ s.costo }}</td>
+                <td>
+                  <form method="POST" action="{{ url_for('eliminar_servicio_salud_route', servicio_id=s.id_servicio_salud, animal_id=animal.id_animal) }}" class="d-inline" onsubmit="return confirm('¿Eliminar servicio de salud?');">
+                    <button class="btn btn-sm btn-danger">Eliminar</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card mt-4">
+        <div class="card-header bg-warning">Listado de servicios sexuales</div>
+        <div class="card-body">
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Tipo</th>
+                <th>Profesional</th>
+                <th>Costo</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for x in servicios_sexuales %}
+              <tr>
+                <td>{{ x.fecha_servicio }}</td>
+                <td>{{ x.tipo_servicio.nombre_servicio if x.tipo_servicio else '' }}</td>
+                <td>{{ (x.trabajador.nombre ~ ' ' ~ x.trabajador.apellido) if x.trabajador else '' }}</td>
+                <td>{{ x.costo_total }}</td>
+                <td>
+                  <form method="POST" action="{{ url_for('eliminar_servicio_sexual_route', servicio_id=x.id_servicio, animal_id=animal.id_animal) }}" class="d-inline" onsubmit="return confirm('¿Eliminar servicio sexual?');">
+                    <button class="btn btn-sm btn-danger">Eliminar</button>
+                  </form>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

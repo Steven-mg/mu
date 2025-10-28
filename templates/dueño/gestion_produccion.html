@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+
+{% block title %}Gestión de Producción{% endblock %}
+
+{% block sidebar %}
+{% include 'components/sidebar_dueno.html' %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .owner-header { background: #28a745; color: white; padding: 20px; border-radius: 10px; box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+    .finca-card { border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: all 0.2s ease; margin-bottom: 20px; border: 1px solid #e9ecef; background: #ffffff; }
+    .finca-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); transform: translateY(-2px); }
+    .finca-header { background: #28a745; color: white; padding: 12px 16px; font-weight: 600; }
+    .finca-body { padding: 16px; }
+    .finca-footer { padding: 12px 16px; background-color: #f8f9fa; border-top: 1px solid #e9ecef; }
+    .finca-action-btn { border-radius: 6px; font-weight: 500; }
+
+    .column-header { display: flex; align-items: center; justify-content: space-between; }
+    .sexo-title { font-weight: 700; }
+    .sexo-hembras { color: #e83e8c; }
+    .sexo-machos { color: #0d6efd; }
+    .tabla-compacta thead th { white-space: nowrap; }
+</style>
+{% endblock %}
+
+{% block navbar %}{% include 'components/navbar.html' %}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-12 px-md-4">
+      <div class="p-4">
+        <!-- Encabezado -->
+        <div class="owner-header mb-4 d-flex justify-content-between align-items-center">
+          <div>
+            <h2 class="h4 mb-1"><i class="fas fa-chart-line me-2"></i> Gestión de Producción</h2>
+            <p class="mb-0">Selecciona una finca y revisa sus animales por sexo</p>
+          </div>
+          <div class="d-flex gap-2">
+            <a href="{{ url_for('dashboard_dueno') }}" class="btn btn-light btn-sm"><i class="fas fa-home me-1"></i> Dashboard</a>
+            <a href="{{ url_for('gestion_animales') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-cow me-1"></i> Ganado</a>
+          </div>
+        </div>
+
+        <!-- Selector de Finca -->
+        <div class="mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-3">
+            <h4 class="mb-0">Mis Fincas</h4>
+          </div>
+          <div class="row">
+            {% if fincas %}
+              {% for finca_item in fincas %}
+              <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card finca-card">
+                  <div class="finca-header">
+                    <h5 class="mb-0">{{ finca_item.nombre_finca }}</h5>
+                  </div>
+                  <div class="finca-body">
+                    <p><i class="fas fa-map-marker-alt me-2 text-success"></i> {{ finca_item.localizacion or 'No especificada' }}</p>
+                    <p><i class="fas fa-user me-2 text-success"></i> {{ finca_item.nombreEncargado or 'No especificado' }}</p>
+                    <p><i class="fas fa-phone me-2 text-success"></i> {{ finca_item.telefono or 'No especificado' }}</p>
+                  </div>
+                  <div class="finca-footer d-flex justify-content-start gap-2">
+                    <a href="{{ url_for('gestion_produccion_route') }}?finca_id={{ finca_item.id_finca }}" class="btn btn-outline-success btn-sm finca-action-btn">
+                      <i class="fas fa-chart-line me-1"></i> Revisar Producción
+                    </a>
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            {% else %}
+              <div class="col-12">
+                <div class="alert alert-info">
+                  <i class="fas fa-info-circle me-2"></i> No tienes fincas registradas. ¡Agrega tu primera finca!
+                </div>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if finca %}
+        <!-- Resumen de Finca Seleccionada -->
+        <div class="card mb-3">
+          <div class="card-header bg-success text-white">
+            <div class="d-flex justify-content-between align-items-center">
+              <strong>{{ finca.nombre_finca }}</strong>
+              <div>
+                <a href="{{ url_for('ver_animales_finca_route', finca_id=finca.id_finca) }}" class="btn btn-light btn-sm"><i class="fas fa-list me-1"></i> Ver animales</a>
+              </div>
+            </div>
+          </div>
+          <div class="card-body">
+            <div class="row">
+              <div class="col-md-4"><p><i class="fas fa-map-marker-alt me-2 text-success"></i><strong>Ubicación:</strong> {{ finca.localizacion or 'No especificada' }}</p></div>
+              <div class="col-md-4"><p><i class="fas fa-user me-2 text-success"></i><strong>Encargado:</strong> {{ finca.nombreEncargado or 'No especificado' }}</p></div>
+              <div class="col-md-4"><p><i class="fas fa-phone me-2 text-success"></i><strong>Teléfono:</strong> {{ finca.telefono or 'No especificado' }}</p></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Columnas por sexo -->
+        <div class="row">
+          <div class="col-lg-6 mb-3">
+            <div class="card h-100">
+              <div class="card-header bg-light">
+                <div class="column-header">
+                  <span class="sexo-title sexo-hembras"><i class="fas fa-venus me-1"></i> Hembras</span>
+                  <span class="badge bg-danger">{{ hembras|length }}</span>
+                </div>
+              </div>
+              <div class="card-body">
+                {% if hembras %}
+                <div class="table-responsive">
+                  <table class="table table-striped tabla-compacta">
+                    <thead class="table-warning">
+                      <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Raza</th>
+                        <th class="text-end">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for a in hembras %}
+                      <tr>
+                        <td>{{ a.id_animal }}</td>
+                        <td>{{ a.nombre_animal }}</td>
+                        <td>{{ a.raza.nombre_raza if a.raza else 'Sin raza' }}</td>
+                        <td class="text-end">
+                          <a href="{{ url_for('ver_animal_route', animal_id=a.id_animal) }}" class="btn btn-info btn-sm"><i class="fas fa-eye me-1"></i> Ver</a>
+                          <a href="{{ url_for('procedimientos_animal_route', animal_id=a.id_animal) }}" class="btn btn-success btn-sm ms-1"><i class="fas fa-notes-medical me-1"></i> Procedimientos</a>
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No hay hembras registradas en esta finca.</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="col-lg-6 mb-3">
+            <div class="card h-100">
+              <div class="card-header bg-light">
+                <div class="column-header">
+                  <span class="sexo-title sexo-machos"><i class="fas fa-mars me-1"></i> Machos</span>
+                  <span class="badge bg-primary">{{ machos|length }}</span>
+                </div>
+              </div>
+              <div class="card-body">
+                {% if machos %}
+                <div class="table-responsive">
+                  <table class="table table-striped tabla-compacta">
+                    <thead class="table-info">
+                      <tr>
+                        <th>ID</th>
+                        <th>Nombre</th>
+                        <th>Raza</th>
+                        <th class="text-end">Acciones</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {% for a in machos %}
+                      <tr>
+                        <td>{{ a.id_animal }}</td>
+                        <td>{{ a.nombre_animal }}</td>
+                        <td>{{ a.raza.nombre_raza if a.raza else 'Sin raza' }}</td>
+                        <td class="text-end">
+                          <a href="{{ url_for('ver_animal_route', animal_id=a.id_animal) }}" class="btn btn-info btn-sm"><i class="fas fa-eye me-1"></i> Ver</a>
+                          <a href="{{ url_for('procedimientos_animal_route', animal_id=a.id_animal) }}" class="btn btn-success btn-sm ms-1"><i class="fas fa-notes-medical me-1"></i> Procedimientos</a>
+                        </td>
+                      </tr>
+                      {% endfor %}
+                    </tbody>
+                  </table>
+                </div>
+                {% else %}
+                <p class="text-muted mb-0">No hay machos registrados en esta finca.</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('Gestión de Producción cargada');
+  });
+</script>
+{% endblock %}

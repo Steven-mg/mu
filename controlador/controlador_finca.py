@@ -354,24 +354,30 @@ def gestionar_finca(finca_id):
             if pid not in ultima_cerrada_por_potrero:
                 ultima_cerrada_por_potrero[pid] = rot
 
-        # Calcular sobrecupo y último uso para cada potrero
+        # Calcular ocupación por grupos (rotaciones abiertas usan tamaño total del grupo)
+        ocupacion_grupos_total_dict = {}
         for p in potreros:
             pid = p.id_potrero
-            grupos_activos = grupos_activos_por_potrero.get(pid, set())
-            grupos_con_rotacion = { (r.id_grupo_animal or r.id_grupo) for r in rotaciones_filtradas_por_potrero.get(pid, []) }
+            capacidad = p.capacidad_animal or 0
+            animales_presentes = int(animales_presentes_dict.get(pid, 0) or 0)
 
-            ocupacion_por_grupos = 0
-            presentes_dict_pid = presentes_por_potrero.get(pid, {})
+            # Grupos activos en este potrero vía rotación abierta o presencia física
+            grupos_activos = grupos_activos_por_potrero.get(pid, set())
+            grupos_con_rotacion = { (r.id_grupo_animal or r.id_grupo) for r in rotaciones_filtradas_por_potrero.get(pid, []) if (r.id_grupo_animal or r.id_grupo) }
+
+            # Ocupación por grupos aplicando la regla: si el grupo rota aquí, usar su tamaño total; si no, usar presentes
+            ocupacion_grupos_total = 0
             for gid in grupos_activos:
                 if gid in grupos_con_rotacion:
-                    ocupacion_por_grupos += totales_dict.get(gid, 0)
+                    ocupacion_grupos_total += int(totales_dict.get(gid, 0) or 0)
                 else:
-                    ocupacion_por_grupos += presentes_dict_pid.get(gid, 0)
+                    ocupacion_grupos_total += int(presentes_por_potrero.get(pid, {}).get(gid, 0) or 0)
+            ocupacion_grupos_total_dict[pid] = ocupacion_grupos_total
 
-            capacidad = p.capacidad_animal or 0
-            sobrecupo_map[pid] = bool(capacidad and ocupacion_por_grupos > capacidad)
+            # Sobrecupo en la lista se determina por ocupación de grupos respecto a capacidad
+            sobrecupo_map[pid] = bool(capacidad and ocupacion_grupos_total > capacidad)
 
-            animales_presentes = animales_presentes_dict.get(pid, 0) or 0
+            # Último uso: 'En uso' si hay animales presentes; si no, última rotación cerrada
             if animales_presentes > 0:
                 ultimo_uso_map[pid] = 'En uso'
             else:
@@ -387,6 +393,16 @@ def gestionar_finca(finca_id):
         sobrecupo_map = {}
         ultimo_uso_map = {}
 
+    # Datos para gráficas basados en la BD
+    chart_uso_potreros = {
+        'disponible': sum(1 for p in potreros if p.estado == 'activo' and (animales_presentes_dict.get(p.id_potrero, 0) or 0) == 0),
+        'ocupado': sum(1 for p in potreros if p.estado == 'activo' and (animales_presentes_dict.get(p.id_potrero, 0) or 0) > 0),
+        'descanso': sum(1 for p in potreros if p.estado == 'descanso'),
+    }
+    chart_labels = [p.nombre_potrero for p in potreros]
+    chart_capacidad = [int(p.capacidad_animal or 0) for p in potreros]
+    chart_ocupacion = [(ocupacion_grupos_total_dict.get(p.id_potrero, (animales_presentes_dict.get(p.id_potrero, 0) or 0))) for p in potreros]
+
     return render_template(
         'dueño/gestionarfinca.html',
         finca=finca,
@@ -399,7 +415,11 @@ def gestionar_finca(finca_id):
         asignados_ids=asignados_ids,
         documentos_map=documentos_map,
         sobrecupo_map=sobrecupo_map,
-        ultimo_uso_map=ultimo_uso_map
+        ultimo_uso_map=ultimo_uso_map,
+        chart_uso_potreros=chart_uso_potreros,
+        chart_labels=chart_labels,
+        chart_capacidad=chart_capacidad,
+        chart_ocupacion=chart_ocupacion
     )
 
 @login_required
@@ -850,6 +870,7 @@ def ver_potrero(potrero_id):
         finca=potrero.finca,
         conteo_animales_potrero=conteo_animales_potrero,
         ocupacion_total=ocupacion_total,
+        ocupacion_grupos_total=ocupacion_grupos_total,
         capacidad_excedida=capacidad_excedida,
         ultimo_uso_text=ultimo_uso_text
     )

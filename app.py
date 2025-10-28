@@ -6,11 +6,24 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from forms.login_form import LoginForm
 from flask_login import login_required, current_user, logout_user  # Añadir logout_user
 from config import app, db, add_server_timing, cache_get, cache_set
-from modelo.models import Usuario, Finca, Animal, Reporte, ActividadReciente, UsuarioFinca, Potrero, RotacionPotrero, GrupoAnimal, Trabajador  # Agregar RotacionPotrero y GrupoAnimal
+from modelo.models import (
+    Usuario,
+    Finca,
+    Animal,
+    Reporte,
+    ActividadReciente,
+    UsuarioFinca,
+    Potrero,
+    RotacionPotrero,
+    GrupoAnimal,
+    Trabajador,
+    TipoServicioSalud,
+    TipoServicioSexual,
+)  # Agregar modelos usados por actualizaciones ORM
 from controlador.controlador_actividad import obtener_actividades_recientes  # Importar la función
 from datetime import datetime  # Añadir esta importación
 import time
-from sqlalchemy import text
+from sqlalchemy import text, Table, MetaData, update
 
 # Migración segura: asegurar columnas aplica_a_sexo en tablas de tipos de servicio
 def ensure_aplica_a_sexo_columns():
@@ -37,8 +50,16 @@ def ensure_aplica_a_sexo_columns():
                     """
                 ))
                 print('Columna aplica_a_sexo agregada a tipo_servicio_salud')
-            conn.execute(text("UPDATE tipo_servicio_salud SET aplica_a_sexo = 'ambos' WHERE aplica_a_sexo IS NULL"))
+        # Inicializar valores nulos vía ORM (seguro y portable)
+        try:
+            db.session.query(TipoServicioSalud).\
+                filter(TipoServicioSalud.aplica_a_sexo == None).\
+                update({TipoServicioSalud.aplica_a_sexo: 'ambos'}, synchronize_session=False)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
 
+        with db.engine.connect() as conn:
             # Sexual
             exists_sexual = conn.execute(text(
                 """
@@ -56,7 +77,14 @@ def ensure_aplica_a_sexo_columns():
                     """
                 ))
                 print('Columna aplica_a_sexo agregada a tipo_servicio_sexual')
-            conn.execute(text("UPDATE tipo_servicio_sexual SET aplica_a_sexo = 'ambos' WHERE aplica_a_sexo IS NULL"))
+        # Inicializar valores nulos vía ORM
+        try:
+            db.session.query(TipoServicioSexual).\
+                filter(TipoServicioSexual.aplica_a_sexo == None).\
+                update({TipoServicioSexual.aplica_a_sexo: 'ambos'}, synchronize_session=False)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
     except Exception as e:
         # No romper arranque; solo loguear
         print('Error asegurando aplica_a_sexo:', e)
@@ -122,8 +150,14 @@ def ensure_usuario_finca_permission_columns():
                     """
                 ))
                 print('Columna estado_asignacion agregada a usuario_finca')
-                # Inicializar estado_asignacion para filas existentes
-                conn.execute(text("UPDATE usuario_finca SET estado_asignacion = 'asignado' WHERE estado_asignacion IS NULL"))
+        # Inicializar estado_asignacion para filas existentes usando ORM
+        try:
+            db.session.query(UsuarioFinca).\
+                filter(UsuarioFinca.estado_asignacion == None).\
+                update({UsuarioFinca.estado_asignacion: 'asignado'}, synchronize_session=False)
+            db.session.commit()
+        except Exception:
+            db.session.rollback()
     except Exception as e:
         print('Error asegurando columnas usuario_finca:', e)
 
@@ -272,7 +306,13 @@ def ensure_trabajador_table():
                     pass
                 # Opcional: backfill con dueno_id si está NULL para mayor compatibilidad
                 try:
-                    conn.execute(text("UPDATE trabajador SET id_jefe = dueno_id WHERE id_jefe IS NULL"))
+                    # Reflejar tabla y actualizar vía SQLAlchemy Core (parametrizado)
+                    meta = MetaData()
+                    trabajador_tbl = Table('trabajador', meta, autoload_with=conn)
+                    stmt = update(trabajador_tbl).\
+                        where(trabajador_tbl.c.id_jefe == None).\
+                        values({trabajador_tbl.c.id_jefe: trabajador_tbl.c.dueno_id})
+                    conn.execute(stmt)
                 except Exception:
                     pass
 
@@ -305,7 +345,12 @@ def ensure_trabajador_table():
                     pass
                 # Opcional: normalizar valores vacíos a NULL
                 try:
-                    conn.execute(text("UPDATE trabajador SET usuario = NULL WHERE usuario = ''"))
+                    meta = MetaData()
+                    trabajador_tbl = Table('trabajador', meta, autoload_with=conn)
+                    stmt = update(trabajador_tbl).\
+                        where(trabajador_tbl.c.usuario == '').\
+                        values({trabajador_tbl.c.usuario: None})
+                    conn.execute(stmt)
                 except Exception:
                     pass
 
@@ -406,8 +451,16 @@ def ensure_trabajador_table():
                     """
                 )).first()
                 if exists_activo_col:
-                    conn.execute(text("UPDATE trabajador SET estado = 'activo' WHERE activo = 1"))
-                    conn.execute(text("UPDATE trabajador SET estado = 'inactivo' WHERE activo = 0"))
+                    meta = MetaData()
+                    trabajador_tbl = Table('trabajador', meta, autoload_with=conn)
+                    stmt_activo = update(trabajador_tbl).\
+                        where(trabajador_tbl.c.activo == 1).\
+                        values({trabajador_tbl.c.estado: 'activo'})
+                    stmt_inactivo = update(trabajador_tbl).\
+                        where(trabajador_tbl.c.activo == 0).\
+                        values({trabajador_tbl.c.estado: 'inactivo'})
+                    conn.execute(stmt_activo)
+                    conn.execute(stmt_inactivo)
     except Exception as e:
         print('Error asegurando tabla trabajador:', e)
 
@@ -485,6 +538,35 @@ def ensure_permiso_finca_usuario_table():
     except Exception as e:
         print('Error asegurando tabla permiso_finca_usuario:', e)
 
+# Migración segura: asegurar columna fecha_proximo en servicios_sexuales
+from sqlalchemy import text
+
+def ensure_fecha_proximo_servicios_sexuales():
+    try:
+        dialect = db.engine.dialect.name
+        if dialect != 'mysql':
+            print('Salto migración fecha_proximo (servicios_sexuales): dialecto no MySQL ->', dialect)
+            return
+        with db.engine.connect() as conn:
+            exists_col = conn.execute(text(
+                """
+                SELECT 1 FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() 
+                  AND TABLE_NAME = 'servicios_sexuales' 
+                  AND COLUMN_NAME = 'fecha_proximo'
+                """
+            )).first()
+            if not exists_col:
+                conn.execute(text(
+                    """
+                    ALTER TABLE servicios_sexuales 
+                    ADD COLUMN fecha_proximo DATE NULL
+                    """
+                ))
+                print('Columna fecha_proximo agregada a servicios_sexuales')
+    except Exception as e:
+        print('Error asegurando fecha_proximo en servicios_sexuales:', e)
+
 # Crear todas las tablas en la base de datos
 with app.app_context():
     db.create_all()
@@ -498,6 +580,8 @@ with app.app_context():
     # Ejecutar migración segura de tabla trabajador (añade columna 'estado' si falta)
     ensure_trabajador_table()
     ensure_permiso_finca_usuario_table()
+    # Nueva: asegurar columna fecha_proximo en servicios_sexuales
+    ensure_fecha_proximo_servicios_sexuales()
     
     # Importar e inicializar el usuario administrador
     from modelo.models import inicializar_usuario_admin
@@ -676,7 +760,7 @@ def cambiar_password_route():
 from controlador.controlador_usuario import listar_usuarios, crear_usuario, editar_usuario, eliminar_usuario_controlador
 
 # Importar las funciones de gestión de animales
-from controlador.controlador_animal import listar_animales, crear_animal, editar_animal, eliminar_animal, ver_animal, obtener_animales_por_finca, obtener_animales_por_sexo, get_potreros_por_finca, get_animales_disponibles, get_animales_potrero, asignar_animales_potrero, ver_foto_animal, ver_animales_finca, ver_animales_fuera, ver_animales_fuera_global, api_madurez_sexual_por_raza, documentos_geneticos, agregar_documento_genetico, ver_documento_genetico, descargar_documento_genetico, eliminar_documento_genetico, procedimientos_animal, eliminar_servicio_salud, eliminar_servicio_sexual, genealogia_animal
+from controlador.controlador_animal import listar_animales, crear_animal, editar_animal, eliminar_animal, ver_animal, obtener_animales_por_finca, obtener_animales_por_sexo, get_potreros_por_finca, get_animales_disponibles, get_animales_potrero, asignar_animales_potrero, ver_foto_animal, ver_animales_finca, ver_animales_fuera, ver_animales_fuera_global, api_madurez_sexual_por_raza, documentos_geneticos, agregar_documento_genetico, ver_documento_genetico, descargar_documento_genetico, eliminar_documento_genetico, procedimientos_animal, eliminar_servicio_salud, eliminar_servicio_sexual, genealogia_animal, historial_procedimientos, gestion_produccion
 from controlador.controlador_animal import editar_documento_genetico
 
 # Importar las funciones de gestión de fincas
@@ -769,6 +853,12 @@ def eliminar_mi_cuenta():
 def gestion_animales():
     return listar_animales()
 
+# Nueva pestaña: Gestión de Producción
+@app.route('/gestion_produccion', endpoint='gestion_produccion_route')
+@login_required
+def gestion_produccion_route():
+    return gestion_produccion()
+
 @app.route('/finca/<int:finca_id>/animales')
 @login_required
 def ver_animales_finca_route(finca_id):
@@ -811,10 +901,16 @@ def genealogia_animal_route(animal_id):
     return genealogia_animal(animal_id)
 
 # Procedimientos del animal (salud y sexuales)
-@app.route('/animal/<int:animal_id>/procedimientos', endpoint='procedimientos_animal_route')
+@app.route('/animal/<int:animal_id>/procedimientos', methods=['GET', 'POST'], endpoint='procedimientos_animal_route')
 @login_required
 def procedimientos_animal_route(animal_id):
     return procedimientos_animal(animal_id)
+
+# Historial de procedimientos del animal
+@app.route('/animal/<int:animal_id>/historial', endpoint='historial_procedimientos_route')
+@login_required
+def historial_procedimientos_route(animal_id):
+    return historial_procedimientos(animal_id)
 
 # Documentos genéticos
 @app.route('/animal/<int:animal_id>/documentos_geneticos', endpoint='documentos_geneticos_route')
@@ -922,7 +1018,7 @@ def api_animales_potrero():
 def api_asignar_animales_potrero():
     return asignar_animales_potrero()
 
-# Aplicar decoradores de rol a las rutas de gestión de usuarios
+# Aplicar decoradores de rol a las rutas de gestión de animales
 admin_usuarios = requiere_rol(3)(admin_usuarios)
 crear_usuario_route = requiere_rol(3)(crear_usuario_route)
 editar_usuario_route = requiere_rol(3)(editar_usuario_route)
@@ -1053,12 +1149,14 @@ def api_quitar_animal_de_grupo_route(grupo_id):
 
 # Aplicar decoradores de rol a las rutas de gestión de animales
 gestion_animales = requiere_rol(2)(gestion_animales)
+gestion_produccion_route = requiere_rol(2)(gestion_produccion_route)
 crear_animal_route = requiere_rol(2)(crear_animal_route)
 editar_animal_route = requiere_rol(2)(editar_animal_route)
 eliminar_animal_route = requiere_rol(2)(eliminar_animal_route)
 ver_animal_route = requiere_rol(2)(ver_animal_route)
 genealogia_animal_route = requiere_rol(2)(genealogia_animal_route)
 procedimientos_animal_route = requiere_rol(2)(procedimientos_animal_route)
+historial_procedimientos_route = requiere_rol(2)(historial_procedimientos_route)
 ver_foto_animal_route = requiere_rol(2)(ver_foto_animal_route)
 documentos_geneticos_route = requiere_rol(2)(documentos_geneticos_route)
 agregar_documento_genetico_route = requiere_rol(2)(agregar_documento_genetico_route)

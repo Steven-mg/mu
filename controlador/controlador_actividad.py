@@ -24,7 +24,7 @@ def obtener_actividades_recientes(limite=5):
         usuario = Usuario.query.get(actividad.usuario_id)
         nik_name = usuario.nik_name if usuario else "Usuario desconocido"
         
-        # Formatear la fecha
+        
         fecha_actual = datetime.utcnow()
         fecha_actividad = actividad.fecha
         

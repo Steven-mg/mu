@@ -369,6 +369,7 @@ class ServiciosSexuales(db.Model):
     # La columna se mantiene como id_veterinario en la BD pero referencia a trabajador
     id_veterinario = db.Column(db.SmallInteger, db.ForeignKey('trabajador.id_trabajador'), nullable=False)
     fecha_servicio = db.Column(db.Date, nullable=False)
+    fecha_proximo = db.Column(db.Date, nullable=True)
     notas_servicio = db.Column(db.String(200), nullable=True)
     costo_total = db.Column(db.Float, nullable=True)
     

@@ -33,9 +33,7 @@
                     <a href="{{ url_for('crear_potrero_route', finca_id=finca.id_finca) }}" class="btn btn-success">
                         <i class="fas fa-plus me-2"></i>Nuevo Potrero
                     </a>
-                    <a href="{{ url_for('gestionar_trabajadores_finca_route', finca_id=finca.id_finca) }}" id="btnAdministrarTrabajadores" class="btn btn-outline-primary ms-2">
-                        <i class="fas fa-users-cog me-2"></i>Administrar Trabajadores
-                    </a>
+                    <!-- Eliminado: Administrar Trabajadores -->
                 </div>
             </div>
 
@@ -202,7 +200,7 @@
                     <button class="nav-link" id="estadisticas-tab" data-bs-toggle="tab" data-bs-target="#estadisticas" type="button" role="tab" aria-controls="estadisticas" aria-selected="false">Estadísticas</button>
                 </li>
                 <li class="nav-item" role="presentation">
-                    <button class="nav-link" id="trabajadores-tab" data-bs-toggle="tab" data-bs-target="#trabajadores" type="button" role="tab" aria-controls="trabajadores" aria-selected="false">Trabajadores</button>
+                    <!-- Eliminado: pestaña Trabajadores -->
                 </li>
             </ul>
 
@@ -230,7 +228,7 @@
                                         <p><strong>Área:</strong> {{ potrero.extension }} hectáreas</p>
                                         <p><strong>Capacidad:</strong> {{ potrero.capacidad_animal or 'No especificada' }} animales</p>
                                         <p><strong>Tipo de pasto:</strong> {{ potrero.tipo_pasto or 'No especificado' }}</p>
-                                        <p><strong>Último uso:</strong> {{ potrero.fecha_ultimo_uso.strftime('%d/%m/%Y') if potrero.fecha_ultimo_uso else 'Sin uso registrado' }}</p>
+                                        <p><strong>Último uso:</strong> {{ ultimo_uso_map.get(potrero.id_potrero, 'Sin uso registrado') }}</p>
                                     </div>
                                     <div class="card-footer d-flex justify-content-between">
                                         <a href="{{ url_for('editar_potrero_route', potrero_id=potrero.id_potrero) }}" class="btn btn-sm btn-outline-primary">
@@ -330,23 +328,7 @@
 
                 <!-- Pestaña de Trabajadores -->
                 <div class="tab-pane fade" id="trabajadores" role="tabpanel" aria-labelledby="trabajadores-tab">
-                    <div class="card">
-                        <div class="card-header d-flex justify-content-between align-items-center">
-                            <h5 class="mb-0">Administración de trabajadores</h5>
-                        </div>
-                        <div class="card-body">
-                            <p class="text-muted mb-3">La administración de trabajadores ahora se realiza en una página dedicada.</p>
-                            <a href="{{ url_for('gestionar_trabajadores_finca_route', finca_id=finca.id_finca) }}" class="btn btn-outline-primary">
-                                Abrir la página de administración de trabajadores
-                            </a>
-                        </div>
-                    </div>
-
-                    <!-- Modales eliminados: usar la página dedicada de trabajadores -->
-
-                    <!-- Modales eliminados: usar la página dedicada de trabajadores -->
-
-                    <!-- Modales eliminados: usar la página dedicada de trabajadores -->
+                    <!-- Se eliminó la sección de Trabajadores -->
                 </div>
             </div>
         </div>
@@ -374,17 +356,40 @@
         s.onload = function(){ try { callback && callback(); } catch(e) { console.error(e); } };
         document.head.appendChild(s);
     }
+    function loadDataLabels(callback){
+        var p = document.createElement('script');
+        p.src = 'https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0';
+        p.defer = true;
+        p.onload = function(){
+            try {
+                if (window.Chart && window.ChartDataLabels) {
+                    Chart.register(window.ChartDataLabels);
+                }
+                callback && callback();
+            } catch(e) { console.error(e); callback && callback(); }
+        };
+        document.head.appendChild(p);
+    }
     function initCharts(){
+        const uso = {{ chart_uso_potreros|tojson }};
+        const labels = {{ chart_labels|tojson }};
+        const capacidad = {{ chart_capacidad|tojson }};
+        const ocupacion = {{ chart_ocupacion|tojson }};
+    
         // Pie chart: Uso de potreros
         if (document.getElementById('chartUsoPotreros')) {
             const ctxUso = document.getElementById('chartUsoPotreros').getContext('2d');
             new Chart(ctxUso, {
                 type: 'pie',
                 data: {
-                    labels: ['Disponible', 'Ocupado', 'En descanso', 'En mantenimiento'],
+                    labels: ['Disponible', 'Ocupado', 'En descanso'],
                     datasets: [{
-                        data: [2, 3, 1, 1],
-                        backgroundColor: ['#28a745', '#ffc107', '#17a2b8', '#dc3545']
+                        data: [
+                            (uso?.disponible ?? 0),
+                            (uso?.ocupado ?? 0),
+                            (uso?.descanso ?? 0)
+                        ],
+                        backgroundColor: ['#28a745', '#ffc107', '#17a2b8']
                     }]
                 },
                 options: {
@@ -396,28 +401,40 @@
                 }
             });
         }
+    
         // Bar chart: Capacidad vs Ocupación
         if (document.getElementById('chartCapacidadOcupacion')) {
             const ctxCap = document.getElementById('chartCapacidadOcupacion').getContext('2d');
             new Chart(ctxCap, {
                 type: 'bar',
                 data: {
-                    labels: ['Potrero 1', 'Potrero 2', 'Potrero 3', 'Potrero 4', 'Potrero 5'],
+                    labels: labels,
                     datasets: [{
                         label: 'Capacidad',
-                        data: [20, 15, 25, 18, 22],
+                        data: capacidad,
                         backgroundColor: 'rgba(26, 157, 89, 0.7)'
                     }, {
                         label: 'Ocupación actual',
-                        data: [18, 0, 20, 15, 0],
-                        backgroundColor: 'rgba(255, 193, 7, 0.7)'
+                        data: ocupacion,
+                        backgroundColor: ocupacion.map((n, i) => n > (capacidad[i] || 0) ? 'rgba(255, 99, 132, 0.7)' : 'rgba(255, 193, 7, 0.7)')
                     }]
                 },
                 options: {
                     responsive: true,
                     plugins: {
                         legend: { position: 'bottom' },
-                        title: { display: true, text: 'Capacidad vs Ocupación actual' }
+                        title: { display: true, text: 'Capacidad vs Ocupación actual' },
+                        datalabels: {
+                            anchor: 'end',
+                            align: 'top',
+                            formatter: (value) => value,
+                            color: (ctx) => {
+                                const i = ctx.dataIndex;
+                                const v = ctx.raw;
+                                return v > (capacidad[i] || 0) ? '#e74c3c' : '#333333';
+                            },
+                            font: { weight: 'bold' }
+                        }
                     },
                     scales: {
                         y: {
@@ -439,7 +456,7 @@
             if (window.Chart) {
                 initCharts();
             } else {
-                loadChartJs(initCharts);
+                loadChartJs(() => loadDataLabels(initCharts));
             }
         }
 

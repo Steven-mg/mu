@@ -13,7 +13,7 @@ except ImportError:
     Image = None
 from werkzeug.utils import secure_filename
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 @login_required
 def listar_animales():
@@ -34,6 +34,25 @@ def listar_animales():
         animales = query.all()
 
     return render_template('dueño/gestion_animales.html', animales=animales, fincas=fincas_usuario, finca_id_seleccionada=finca_id)
+
+@login_required
+def gestion_produccion():
+    """Página para seleccionar finca y separar animales por sexo"""
+    fincas_usuario = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()
+    finca_id = request.args.get('finca_id', type=int)
+    finca = None
+    hembras = []
+    machos = []
+    if finca_id:
+        # Verificar acceso del usuario a la finca seleccionada
+        relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=finca_id).first()
+        if not relacion and current_user.tipo_usuario != 3:
+            flash('No tienes permisos para ver esta finca', 'danger')
+            return redirect(url_for('gestion_produccion_route'))
+        finca = Finca.query.get_or_404(finca_id)
+        hembras = Animal.query.filter(Animal.id_finca == finca_id, Animal.sexo == 'Hembra').order_by(Animal.nombre_animal.asc()).all()
+        machos = Animal.query.filter(Animal.id_finca == finca_id, Animal.sexo == 'Macho').order_by(Animal.nombre_animal.asc()).all()
+    return render_template('dueño/gestion_produccion.html', fincas=fincas_usuario, finca=finca, hembras=hembras, machos=machos, finca_id_seleccionada=finca_id)
 
 @login_required
 def ver_animales_finca(finca_id):
@@ -215,76 +234,124 @@ def procedimientos_animal(animal_id):
     form_salud.id_veterinario.choices = [(v.id_trabajador, f"{v.nombre} {v.apellido}") for v in vets]
     form_sexual.id_servicioanimal.choices = [(t.id_servicio, t.nombre_servicio) for t in tipos_sexual]
     form_sexual.id_veterinario.choices = [(v.id_trabajador, f"{v.nombre} {v.apellido}") for v in vets]
+    # Construir mapa de duraciones para la UI (id -> días)
+    duraciones_salud = {t.id_tipo_salud: int(getattr(t, 'duracion_efecto_dias', 0) or 0) for t in tipos_salud}
 
     # Procesamiento de altas
-    if form_salud.submit.data and form_salud.validate_on_submit():
-        tipo_salud_sel = TipoServicioSalud.query.get(form_salud.id_tipo_salud.data)
-        aplica_salud = aplica_real_por_nombre(tipo_salud_sel, salud_macho_only, salud_hembra_only) if tipo_salud_sel else 'ambos'
-        # Bloqueo si el tipo de servicio requiere veterinario y el usuario no es veterinario
-        try:
-            requiere_vet = bool(getattr(tipo_salud_sel, 'requiere_veterinario', False))
-        except Exception:
-            requiere_vet = False
-        if requiere_vet and current_user.tipo_usuario != 1:
-            flash('Este procedimiento requiere profesional veterinario y debe ser registrado por un usuario veterinario.', 'danger')
-            return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
-        # Validación adicional: el profesional seleccionado debe ser un trabajador con rol veterinario activo
-        vet = Trabajador.query.get(form_salud.id_veterinario.data)
-        if requiere_vet and (not vet or vet.rol != 'veterinario' or vet.estado != 'activo'):
-            flash('Debe seleccionar un profesional veterinario activo.', 'warning')
-            return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
-        # Sin bloqueo por inmadurez para servicios de salud
-        if sexo_animal == 'macho' and aplica_salud == 'hembra':
-            flash('Este servicio de salud aplica solo a hembras.', 'warning')
-            return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
-        if sexo_animal == 'hembra' and aplica_salud == 'macho':
-            flash('Este servicio de salud aplica solo a machos.', 'warning')
-            return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
-        nuevo = ServiciosSalud(
-            id_animal=animal_id,
-            id_tipo_salud=form_salud.id_tipo_salud.data,
-            id_veterinario=form_salud.id_veterinario.data,
-            fecha_servicio=form_salud.fecha_servicio.data,
-            fecha_proximo=form_salud.fecha_proximo.data,
-            dosis=form_salud.dosis.data,
-            observaciones=form_salud.observaciones.data,
-            costo=form_salud.costo.data,
-        )
-        db.session.add(nuevo)
-        db.session.commit()
-        flash('Servicio de salud registrado', 'success')
-        return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
-
-    if form_sexual.submit.data and form_sexual.validate_on_submit():
-        tipo_sexual_sel = TipoServicioSexual.query.get(form_sexual.id_servicioanimal.data)
-        aplica_sexual = aplica_real_por_nombre(tipo_sexual_sel, sexual_macho_only, sexual_hembra_only) if tipo_sexual_sel else 'ambos'
-        # Bloqueo por inmadurez sexual
-        if inmaduro:
-            if sexo_animal == 'macho':
-                flash('Animal inmaduro: en machos no se permiten servicios sexuales.', 'warning')
+    if request.method == 'POST' and request.form.get('form_name') == 'salud':
+        if form_salud.validate_on_submit():
+            tipo_salud_sel = TipoServicioSalud.query.get(form_salud.id_tipo_salud.data)
+            aplica_salud = aplica_real_por_nombre(tipo_salud_sel, salud_macho_only, salud_hembra_only) if tipo_salud_sel else 'ambos'
+            # Bloqueo si el tipo de servicio requiere veterinario y el usuario no es veterinario
+            try:
+                requiere_vet = bool(getattr(tipo_salud_sel, 'requiere_veterinario', False))
+            except Exception:
+                requiere_vet = False
+            # No bloquear por rol del usuario; solo validar profesional cuando el servicio lo requiera
+            # Validación adicional: el profesional seleccionado debe ser un trabajador con rol veterinario activo
+            vet = Trabajador.query.get(form_salud.id_veterinario.data)
+            if requiere_vet and (not vet or vet.rol != 'veterinario' or vet.estado != 'activo'):
+                flash('Debe seleccionar un profesional veterinario activo.', 'warning')
                 return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
-            elif sexo_animal == 'hembra':
-                if not tipo_sexual_sel or (tipo_sexual_sel.nombre_servicio or '').lower() not in {'capacitación en detección de celo', 'capacitacion en deteccion de celo'}:
-                    flash('Animal inmaduro: en hembras solo se permite Capacitación en Detección de Celo.', 'warning')
+            # Sin bloqueo por inmadurez para servicios de salud
+            if sexo_animal == 'macho' and aplica_salud == 'hembra':
+                flash('Este servicio de salud aplica solo a hembras.', 'warning')
+                return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+            if sexo_animal == 'hembra' and aplica_salud == 'macho':
+                flash('Este servicio de salud aplica solo a machos.', 'warning')
+                return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+            # Calcular fecha próxima automáticamente si no fue ingresada
+            fecha_proximo_val = form_salud.fecha_proximo.data
+            try:
+                duracion_dias = int(getattr(tipo_salud_sel, 'duracion_efecto_dias', 0) or 0)
+            except Exception:
+                duracion_dias = 0
+            if not fecha_proximo_val and duracion_dias and form_salud.fecha_servicio.data:
+                try:
+                    fecha_proximo_val = form_salud.fecha_servicio.data + timedelta(days=duracion_dias)
+                except Exception:
+                    fecha_proximo_val = None
+            nuevo = ServiciosSalud(
+                id_animal=animal_id,
+                id_tipo_salud=form_salud.id_tipo_salud.data,
+                id_veterinario=form_salud.id_veterinario.data,
+                fecha_servicio=form_salud.fecha_servicio.data,
+                fecha_proximo=fecha_proximo_val,
+                dosis=form_salud.dosis.data,
+                observaciones=form_salud.observaciones.data,
+                costo=form_salud.costo.data,
+            )
+            db.session.add(nuevo)
+            db.session.commit()
+            flash('Servicio de salud registrado', 'success')
+            return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+        else:
+            # Mostrar errores de validación del formulario de salud
+            try:
+                errores = []
+                for campo, msgs in (form_salud.errors or {}).items():
+                    etiqueta = getattr(getattr(form_salud, campo, None), 'label', None)
+                    nombre = etiqueta.text if etiqueta else campo
+                    for m in msgs:
+                        errores.append(f"{nombre}: {m}")
+                mensaje = 'No se pudo registrar el servicio de salud. '
+                if errores:
+                    mensaje += ' ' + '; '.join(errores)
+                else:
+                    mensaje += 'Revise los campos obligatorios.'
+                flash(mensaje, 'warning')
+            except Exception:
+                flash('No se pudo registrar el servicio de salud. Revise los campos obligatorios.', 'warning')
+
+    if request.method == 'POST' and request.form.get('form_name') == 'sexual':
+        if form_sexual.validate_on_submit():
+            tipo_sexual_sel = TipoServicioSexual.query.get(form_sexual.id_servicioanimal.data)
+            aplica_sexual = aplica_real_por_nombre(tipo_sexual_sel, sexual_macho_only, sexual_hembra_only) if tipo_sexual_sel else 'ambos'
+            # Bloqueo por inmadurez sexual
+            if inmaduro:
+                if sexo_animal == 'macho':
+                    flash('Animal inmaduro: en machos no se permiten servicios sexuales.', 'warning')
                     return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
-        if sexo_animal == 'macho' and aplica_sexual == 'hembra':
-            flash('Este servicio sexual aplica solo a hembras.', 'warning')
+                elif sexo_animal == 'hembra':
+                    if not tipo_sexual_sel or (tipo_sexual_sel.nombre_servicio or '').lower() not in {'capacitación en detección de celo', 'capacitacion en deteccion de celo'}:
+                        flash('Animal inmaduro: en hembras solo se permite Capacitación en Detección de Celo.', 'warning')
+                        return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+            if sexo_animal == 'macho' and aplica_sexual == 'hembra':
+                flash('Este servicio sexual aplica solo a hembras.', 'warning')
+                return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+            if sexo_animal == 'hembra' and aplica_sexual == 'macho':
+                flash('Este servicio sexual aplica solo a machos.', 'warning')
+                return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+            nuevo = ServiciosSexuales(
+                id_servicioanimal=form_sexual.id_servicioanimal.data,
+                id_animal=animal_id,
+                id_veterinario=form_sexual.id_veterinario.data,
+                fecha_servicio=form_sexual.fecha_servicio.data,
+                fecha_proximo=form_sexual.fecha_proximo.data,
+                notas_servicio=form_sexual.notas_servicio.data,
+                costo_total=form_sexual.costo_total.data,
+            )
+            db.session.add(nuevo)
+            db.session.commit()
+            flash('Servicio sexual registrado', 'success')
             return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
-        if sexo_animal == 'hembra' and aplica_sexual == 'macho':
-            flash('Este servicio sexual aplica solo a machos.', 'warning')
-            return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
-        nuevo = ServiciosSexuales(
-            id_servicioanimal=form_sexual.id_servicioanimal.data,
-            id_animal=animal_id,
-            id_veterinario=form_sexual.id_veterinario.data,
-            fecha_servicio=form_sexual.fecha_servicio.data,
-            notas_servicio=form_sexual.notas_servicio.data,
-            costo_total=form_sexual.costo_total.data,
-        )
-        db.session.add(nuevo)
-        db.session.commit()
-        flash('Servicio sexual registrado', 'success')
-        return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+        else:
+            # Mostrar errores de validación del formulario sexual
+            try:
+                errores = []
+                for campo, msgs in (form_sexual.errors or {}).items():
+                    etiqueta = getattr(getattr(form_sexual, campo, None), 'label', None)
+                    nombre = etiqueta.text if etiqueta else campo
+                    for m in msgs:
+                        errores.append(f"{nombre}: {m}")
+                mensaje = 'No se pudo registrar el servicio sexual. '
+                if errores:
+                    mensaje += ' ' + '; '.join(errores)
+                else:
+                    mensaje += 'Revise los campos obligatorios.'
+                flash(mensaje, 'warning')
+            except Exception:
+                flash('No se pudo registrar el servicio sexual. Revise los campos obligatorios.', 'warning')
 
     servicios_salud = ServiciosSalud.query.filter_by(id_animal=animal_id).order_by(ServiciosSalud.fecha_servicio.desc()).all()
     servicios_sexuales = ServiciosSexuales.query.filter_by(id_animal=animal_id).order_by(ServiciosSexuales.fecha_servicio.desc()).all()
@@ -299,7 +366,21 @@ def procedimientos_animal(animal_id):
         servicios_sexuales=servicios_sexuales,
         sexo_animal=animal.sexo,
         tipos_salud_count=len(tipos_salud),
-        tipos_sexual_count=len(tipos_sexual)
+        tipos_sexual_count=len(tipos_sexual),
+        duraciones_salud=duraciones_salud
+    )
+
+@login_required
+def historial_procedimientos(animal_id):
+    """Ver historial de servicios de salud y sexuales para un animal"""
+    animal = Animal.query.get_or_404(animal_id)
+    servicios_salud = ServiciosSalud.query.filter_by(id_animal=animal_id).order_by(ServiciosSalud.fecha_servicio.desc()).all()
+    servicios_sexuales = ServiciosSexuales.query.filter_by(id_animal=animal_id).order_by(ServiciosSexuales.fecha_servicio.desc()).all()
+    return render_template(
+        'dueño/historial_procedimientos.html',
+        animal=animal,
+        servicios_salud=servicios_salud,
+        servicios_sexuales=servicios_sexuales
     )
 
 @login_required

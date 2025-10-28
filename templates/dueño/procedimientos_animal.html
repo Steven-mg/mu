@@ -10,12 +10,26 @@
         <div class="col-12 d-flex justify-content-between align-items-center">
             <h4 class="mb-0">Procedimientos del animal: {{ animal.nombre_animal }}</h4>
             <div>
+                <a href="{{ url_for('historial_procedimientos_route', animal_id=animal.id_animal) }}" class="btn btn-success me-2">
+                    Historial de Procedimientos
+                </a>
                 <a href="{{ url_for('ver_animales_finca_route', finca_id=animal.id_finca) }}" class="btn btn-outline-secondary">
                     <i class="fas fa-arrow-left me-2"></i>Volver a Animales
                 </a>
             </div>
         </div>
     </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 
     <div class="row">
         <div class="col-md-6">
@@ -28,6 +42,7 @@
                 <div class="card-body">
                     <form method="POST">
                         {{ form_salud.hidden_tag() }}
+                        <input type="hidden" name="form_name" value="salud">
                         <div class="mb-3">
                             {{ form_salud.id_tipo_salud.label(class='form-label') }}
                             {{ form_salud.id_tipo_salud(class='form-select') }}
@@ -55,7 +70,7 @@
                         </div>
                         <div class="mb-3">
                             {{ form_salud.costo.label(class='form-label') }}
-                            {{ form_salud.costo(class='form-control') }}
+                            {{ form_salud.costo(class='form-control currency-input', inputmode='decimal', placeholder='Ingrese costo') }}
                         </div>
                         {{ form_salud.submit(class='btn btn-primary') }}
                     </form>
@@ -80,6 +95,7 @@
                 <div class="card-body">
                     <form method="POST">
                         {{ form_sexual.hidden_tag() }}
+                        <input type="hidden" name="form_name" value="sexual">
                         <div class="mb-3">
                             {{ form_sexual.id_servicioanimal.label(class='form-label') }}
                             {{ form_sexual.id_servicioanimal(class='form-select') }}
@@ -94,12 +110,16 @@
                             {{ form_sexual.fecha_servicio(class='form-control') }}
                         </div>
                         <div class="mb-3">
+                            {{ form_sexual.fecha_proximo.label(class='form-label') }}
+                            {{ form_sexual.fecha_proximo(class='form-control') }}
+                        </div>
+                        <div class="mb-3">
                             {{ form_sexual.notas_servicio.label(class='form-label') }}
                             {{ form_sexual.notas_servicio(class='form-control', rows=3) }}
                         </div>
                         <div class="mb-3">
                             {{ form_sexual.costo_total.label(class='form-label') }}
-                            {{ form_sexual.costo_total(class='form-control') }}
+                            {{ form_sexual.costo_total(class='form-control currency-input', inputmode='decimal', placeholder='Ingrese costo') }}
                         </div>
                         {{ form_sexual.submit(class='btn btn-warning') }}
                     </form>
@@ -118,67 +138,127 @@
 
     <div class="row">
         <div class="col-12">
-            <div class="card">
-                <div class="card-header bg-success text-white">Historial de Procedimientos</div>
-                <div class="card-body">
-                    <h6 class="text-muted">Listado de servicios de salud</h6>
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Tipo</th>
-                                <th>Profesional</th>
-                                <th>Costo</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for s in servicios_salud %}
-                            <tr>
-                                <td>{{ s.fecha_servicio }}</td>
-                                <td>{{ s.tipo_servicio.nombre_servicio if s.tipo_servicio else '' }}</td>
-                                <td>{{ (s.trabajador.nombre ~ ' ' ~ s.trabajador.apellido) if s.trabajador else '' }}</td>
-                                <td>{{ s.costo }}</td>
-                                <td>
-                                    <form method="POST" action="{{ url_for('eliminar_servicio_salud_route', servicio_id=s.id_servicio_salud, animal_id=animal.id_animal) }}" class="d-inline" onsubmit="return confirm('¿Eliminar servicio de salud?');">
-                                        <button class="btn btn-sm btn-danger">Eliminar</button>
-                                    </form>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
 
-                    <h6 class="text-muted mt-4">Listado de servicios sexuales</h6>
-                    <table class="table table-sm">
-                        <thead>
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Tipo</th>
-                                <th>Profesional</th>
-                                <th>Costo</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for x in servicios_sexuales %}
-                            <tr>
-                                <td>{{ x.fecha_servicio }}</td>
-                                <td>{{ x.tipo_servicio.nombre_servicio if x.tipo_servicio else '' }}</td>
-                                <td>{{ (x.trabajador.nombre ~ ' ' ~ x.trabajador.apellido) if x.trabajador else '' }}</td>
-                                <td>{{ x.costo_total }}</td>
-                                <td>
-                                    <form method="POST" action="{{ url_for('eliminar_servicio_sexual_route', servicio_id=x.id_servicio, animal_id=animal.id_animal) }}" class="d-inline" onsubmit="return confirm('¿Eliminar servicio sexual?');">
-                                        <button class="btn btn-sm btn-danger">Eliminar</button>
-                                    </form>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
         </div>
     </div>
 </div>
+
+<script>
+(function() {
+  // ----- Formateo de costos: miles y 2 decimales -----
+  function formatVisible(value) {
+    if (!value) return '';
+    let v = String(value).replace(/[^\d,\.'\s]/g, '');
+    const lastDot = v.lastIndexOf('.');
+    const lastComma = v.lastIndexOf(',');
+    if (lastDot > -1 && lastComma === -1 && /^\d{1,2}$/.test(v.substring(lastDot + 1))) {
+      v = v.slice(0, lastDot) + ',' + v.slice(lastDot + 1);
+    }
+    v = v.replace(/[.'\s]/g, '');
+    const parts = v.split(',');
+    let integer = parts[0];
+    let decimal = (parts[1] || '').replace(/\D/g, '').slice(0, 2);
+    integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return decimal ? integer + ',' + decimal : integer;
+  }
+  function padTwoDecimals(displayValue) {
+    let v = String(displayValue || '').replace(/[^\d,\.'\s]/g, '');
+    v = v.replace(/[.'\s]/g, '');
+    const parts = v.split(',');
+    let integer = parts[0] || '';
+    let decimal = (parts[1] || '').replace(/\D/g, '').slice(0, 2).padEnd(2, '0');
+    integer = integer.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return integer + ',' + decimal;
+  }
+  function toPlain(value) {
+    if (!value) return '';
+    let v = String(value).replace(/[^\d,\.'\s]/g, '');
+    const lastComma = v.lastIndexOf(',');
+    const lastDot = v.lastIndexOf('.');
+    let integer = v, decimal = '';
+    if (lastComma > -1) {
+      integer = v.slice(0, lastComma);
+      decimal = v.slice(lastComma + 1);
+    } else if (lastDot > -1) {
+      integer = v.slice(0, lastDot);
+      decimal = v.slice(lastDot + 1);
+    }
+    integer = integer.replace(/[.'\s]/g, '');
+    decimal = (decimal || '').replace(/\D/g, '').slice(0, 2).padEnd(2, '0');
+    return decimal ? integer + '.' + decimal : integer;
+  }
+  function attachCurrency(el) {
+    el.addEventListener('input', function() {
+      const formatted = formatVisible(el.value);
+      el.value = formatted;
+      try { el.setSelectionRange(el.value.length, el.value.length); } catch(e) {}
+    });
+    el.addEventListener('blur', function() {
+      el.value = padTwoDecimals(el.value);
+    });
+    const form = el.closest('form');
+    if (form) {
+      form.addEventListener('submit', function() {
+        el.value = toPlain(padTwoDecimals(el.value));
+      });
+    }
+    el.value = formatVisible(el.value);
+  }
+
+  // ----- Cálculo automático de Próxima fecha (Salud) -----
+  const DURS_SALUD = {{ duraciones_salud|tojson }};
+  function parseDateInput(value) {
+    if (!value) return null;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+      const [y, m, d] = value.split('-');
+      return new Date(Number(y), Number(m) - 1, Number(d));
+    }
+    if (/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+      const [d, m, y] = value.split('/');
+      return new Date(Number(y), Number(m) - 1, Number(d));
+    }
+    return null;
+  }
+  function formatDateYYYYMMDD(dateObj) {
+    const yyyy = dateObj.getFullYear();
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const dd = String(dateObj.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  function addDays(dateObj, days) {
+    const d = new Date(dateObj.getTime());
+    d.setDate(d.getDate() + Number(days || 0));
+    return d;
+  }
+  function updateProximaFecha() {
+    const select = document.querySelector('select[name="id_tipo_salud"]');
+    if (!select) return;
+    const form = select.closest('form');
+    const fechaServ = form.querySelector('input[name="fecha_servicio"]');
+    const fechaProx = form.querySelector('input[name="fecha_proximo"]');
+    if (!fechaServ || !fechaProx) return;
+    const id = parseInt(select.value, 10);
+    const dias = DURS_SALUD && DURS_SALUD[id] ? Number(DURS_SALUD[id]) : 0;
+    const base = parseDateInput(fechaServ.value);
+    if (dias > 0 && base) {
+      const next = addDays(base, dias);
+      fechaProx.value = formatDateYYYYMMDD(next);
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('input[name="costo"], input[name="costo_total"]').forEach(attachCurrency);
+    const select = document.querySelector('select[name="id_tipo_salud"]');
+    if (select) {
+      const form = select.closest('form');
+      const fechaServ = form.querySelector('input[name="fecha_servicio"]');
+      select.addEventListener('change', updateProximaFecha);
+      if (fechaServ) fechaServ.addEventListener('change', updateProximaFecha);
+      // Intento inicial: si ya hay fecha de servicio y tipo seleccionado
+      updateProximaFecha();
+    }
+  });
+})();
+</script>
 {% endblock %}
