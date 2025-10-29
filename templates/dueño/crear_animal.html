@@ -38,7 +38,7 @@
                         <p class="mb-0">Completa el formulario para registrar un nuevo animal en tu finca</p>
                     </div>
                     <div class="form-body">
-                        <form method="POST" action="{{ url_for('crear_animal_route') }}" enctype="multipart/form-data">
+                        <form id="crear_animal_form" method="POST" action="{{ url_for('crear_animal_route') }}" enctype="multipart/form-data">
                             {{ form.hidden_tag() }}
                             
                             <div class="row mb-3">
@@ -231,6 +231,7 @@
         const sexoSelect = document.getElementById('sexo');
         const fechaInput = document.getElementById('fecha_nacimiento');
         const estadoReprodSelect = document.getElementById('id_estado_reprod');
+        const nombreInput = document.getElementById('nombre_animal');
 
         function setDefaultPotrero(text, disabled = true) {
             potreroSelect.innerHTML = '';
@@ -500,6 +501,33 @@
         restringirEstadosPorSexo();
         // Evaluar al cargar
         evaluarMadurez();
+
+        // --- Validación: bloquear envío si existe nombre duplicado ---
+        const crearForm = document.getElementById('crear_animal_form');
+        if (crearForm && nombreInput) {
+            crearForm.addEventListener('submit', async function(e) {
+                const nombre = (nombreInput.value || '').trim();
+                const fincaId = fincaSelect ? fincaSelect.value : '0';
+                if (!nombre) return; // deja validación normal actuar
+                try {
+                    const qs = new URLSearchParams();
+                    qs.set('nombre', nombre);
+                    if (fincaId && fincaId !== '0') qs.set('finca_id', fincaId);
+                    const resp = await fetch(`/api/animal/existe-nombre?${qs.toString()}`);
+                    const data = await resp.json();
+                    if (data && data.success && data.exists) {
+                        e.preventDefault();
+                        alert('Ya existe un animal con este nombre en la finca seleccionada. Cambia el nombre para continuar.');
+                        nombreInput.focus();
+                        nombreInput.classList.add('is-invalid');
+                        setTimeout(() => nombreInput.classList.remove('is-invalid'), 3000);
+                    }
+                } catch (err) {
+                    // En caso de error en la verificación, permitir que la validación del servidor actúe
+                    console.warn('No se pudo verificar duplicado en cliente:', err);
+                }
+            });
+        }
     });
 </script>
 {% endblock %}

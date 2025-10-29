@@ -1,0 +1,198 @@
+{% extends 'base.html' %}
+
+{% block title %}Producción del Animal{% endblock %}
+
+{% block sidebar %}
+{% include 'components/sidebar_dueno.html' %}
+{% endblock %}
+
+{% block navbar %}{% include 'components/navbar.html' %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .owner-header { background: #28a745; color: white; padding: 16px; border-radius: 10px; box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+  .tabla-compacta thead th { white-space: nowrap; }
+  .notes-col { max-width: 380px; }
+  .notes-col .text-truncate { max-width: 360px; display: inline-block; }
+  .badge-unit { background-color: #e9f7ef; color: #198754; }
+  .page-actions .btn { border-radius: 6px; }
+  .table-wrapper { border: 1px solid #e9ecef; border-radius: 8px; }
+  .empty-state { border: 1px dashed #ced4da; border-radius: 8px; padding: 24px; color: #6c757d; }
+  .animal-meta { color: #0d6efd; }
+  .animal-meta i { color: #198754; }
+  .fecha-col { white-space: nowrap; }
+  .filter-bar { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+  .filter-bar .form-select { max-width: 260px; }
+  .status-badge { border-radius: 20px; padding: .25rem .6rem; font-size: .85rem; }
+  .status-badge.normal { background-color: #e9f7ef; color: #198754; }
+  .status-badge.bajo { background-color: #fdecea; color: #dc3545; }
+  .status-badge.alto { background-color: #fff3cd; color: #b8860b; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+  <div class="row">
+    <div class="col-12 px-md-4">
+      <div class="p-4">
+        <!-- Encabezado -->
+        <div class="owner-header mb-3 d-flex justify-content-between align-items-center">
+          <div>
+            <h2 class="h5 mb-1"><i class="fas fa-list me-2"></i> Producción - {{ animal.nombre_animal }}</h2>
+            <div class="animal-meta small">
+              <i class="fas fa-id-badge me-1"></i> ID {{ animal.id_animal }}
+              {% if animal.raza %}<span class="ms-2"><i class="fas fa-tag me-1"></i> {{ animal.raza.nombre_raza }}</span>{% endif %}
+            </div>
+          </div>
+          <div class="page-actions d-flex gap-2">
+            <a href="{{ url_for('animal_consumo_route', animal_id=animal.id_animal) }}" class="btn btn-outline-light btn-sm"><i class="fas fa-utensils me-1"></i> Productos</a>
+            <a href="{{ url_for('gestion_produccion_route') }}" class="btn btn-light btn-sm"><i class="fas fa-arrow-left me-1"></i> Volver</a>
+          </div>
+        </div>
+
+        <!-- Barra de filtros -->
+        <div class="filter-bar">
+          <form method="get" id="filtroProductoForm" class="d-flex align-items-center gap-2">
+            <label for="producto_id" class="form-label mb-0">Producto</label>
+            <select id="producto_id" name="producto_id" class="form-select form-select-sm" onchange="document.getElementById('filtroProductoForm').submit()">
+              <option value="0" {% if not producto_id_selected %}selected{% endif %}>Todos</option>
+              {% for prod in productos_disponibles %}
+                <option value="{{ prod.id_producto }}" {% if producto_id_selected == prod.id_producto %}selected{% endif %}>{{ prod.nombre_producto }}</option>
+              {% endfor %}
+            </select>
+          </form>
+        </div>
+
+        <!-- Tabla de producción -->
+        {% if producciones and producciones|length > 0 %}
+        <div class="table-wrapper">
+          <div class="table-responsive">
+            <table class="table table-striped tabla-compacta mb-0">
+              <thead class="table-success">
+                <tr>
+                  <th>ID</th>
+                  <th class="fecha-col">Fecha</th>
+                  <th>Producto</th>
+                  <th class="text-end">Cantidad</th>
+                  <th>Unidad</th>
+                  <th class="notes-col">Notas</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for p in producciones %}
+                <tr>
+                  <td>{{ p.id_produccion }}</td>
+                  <td class="fecha-col">{{ p.fecha.strftime('%Y-%m-%d') if p.fecha else '' }}</td>
+                  <td>{{ p.producto.nombre_producto if p.producto else 'Producto' }}</td>
+                  <td class="text-end">{{ '%.2f'|format(p.cantidad|float) if p.cantidad is not none else '' }}</td>
+                  <td><span class="badge badge-unit">{{ unidad_map.get(p.producto.tipo_cantidad, '') if p.producto else '' }}</span></td>
+                  <td class="notes-col"><span class="text-truncate">{{ p.notas_produccion or '' }}</span></td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </div>
+        {% else %}
+        <div class="empty-state text-center">
+          <i class="fas fa-info-circle me-2"></i> No hay registros de producción para este animal.
+        </div>
+        {% endif %}
+
+        <!-- Gráfica: Producción de Leche por Día -->
+        <div class="card mt-4">
+          <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-chart-line me-2"></i> Producción de Leche por Día</span>
+            {% if leche_estado_msg %}
+              <span class="status-badge {{ leche_estado_tipo }}">{{ leche_estado_msg }}</span>
+            {% endif %}
+          </div>
+          <div class="card-body">
+            {% if leche_labels and leche_labels|length > 0 %}
+              <canvas id="lecheChart" height="120"></canvas>
+            {% else %}
+              <div class="empty-state text-center">
+                <i class="fas fa-info-circle me-2"></i> No hay registros de leche para graficar.
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Sección de tarjetas de administración (peso/ciclo/salud) removida de Producción.
+             Mantener sólo en la vista del animal. -->
+
+      </div>
+    </div>
+  </div>
+ </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    console.log('Producción del animal cargada');
+
+    // Datos para la gráfica de leche
+    const labels = {{ leche_labels|tojson }};
+    const values = {{ leche_values|tojson }};
+    const umMin = {{ leche_umbral_min|tojson }};
+    const umNorm = {{ leche_umbral_norm|tojson }};
+
+    if (labels && labels.length > 0) {
+      const ctx = document.getElementById('lecheChart').getContext('2d');
+      const len = labels.length;
+      const minSeries = Array(len).fill(umMin || null);
+      const normSeries = Array(len).fill(umNorm || null);
+
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Leche (litros)',
+              data: values,
+              borderColor: '#198754',
+              backgroundColor: 'rgba(25, 135, 84, 0.15)',
+              tension: 0.2,
+              fill: true,
+            },
+            {
+              label: 'Mínimo raza',
+              data: minSeries,
+              borderColor: '#dc3545',
+              borderDash: [6, 6],
+              pointRadius: 0,
+              fill: false,
+            },
+            {
+              label: 'Normal raza',
+              data: normSeries,
+              borderColor: '#0d6efd',
+              borderDash: [6, 6],
+              pointRadius: 0,
+              fill: false,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: {
+              beginAtZero: true,
+              title: { display: true, text: 'Litros por día' }
+            },
+            x: { title: { display: true, text: 'Fecha' } }
+          },
+          plugins: {
+            legend: { position: 'bottom' },
+            tooltip: { mode: 'index', intersect: false }
+          }
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

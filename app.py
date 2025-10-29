@@ -760,7 +760,19 @@ def cambiar_password_route():
 from controlador.controlador_usuario import listar_usuarios, crear_usuario, editar_usuario, eliminar_usuario_controlador
 
 # Importar las funciones de gestión de animales
-from controlador.controlador_animal import listar_animales, crear_animal, editar_animal, eliminar_animal, ver_animal, obtener_animales_por_finca, obtener_animales_por_sexo, get_potreros_por_finca, get_animales_disponibles, get_animales_potrero, asignar_animales_potrero, ver_foto_animal, ver_animales_finca, ver_animales_fuera, ver_animales_fuera_global, api_madurez_sexual_por_raza, documentos_geneticos, agregar_documento_genetico, ver_documento_genetico, descargar_documento_genetico, eliminar_documento_genetico, procedimientos_animal, eliminar_servicio_salud, eliminar_servicio_sexual, genealogia_animal, historial_procedimientos, gestion_produccion
+from controlador.controlador_animal import (
+    listar_animales, crear_animal, editar_animal, eliminar_animal, ver_animal,
+    obtener_animales_por_finca, obtener_animales_por_sexo, get_potreros_por_finca,
+    get_animales_disponibles, get_animales_potrero, asignar_animales_potrero,
+    ver_foto_animal, ver_animales_finca, ver_animales_fuera, ver_animales_fuera_global,
+    api_madurez_sexual_por_raza, documentos_geneticos, agregar_documento_genetico,
+    ver_documento_genetico, descargar_documento_genetico, eliminar_documento_genetico,
+    procedimientos_animal, eliminar_servicio_salud, eliminar_servicio_sexual,
+    genealogia_animal, historial_procedimientos, gestion_produccion, gestion_produccion_finca,
+    consumo_animal, biologicos_animal, ver_produccion_animal,
+    # Importar vistas dedicadas
+    ver_peso_animal, ver_ciclo_animal, ver_salud_animal, ver_graficos_animal
+)
 from controlador.controlador_animal import editar_documento_genetico
 
 # Importar las funciones de gestión de fincas
@@ -859,6 +871,12 @@ def gestion_animales():
 def gestion_produccion_route():
     return gestion_produccion()
 
+# Vista dedicada de producción por finca
+@app.route('/gestion_produccion/finca/<int:finca_id>', endpoint='gestion_produccion_finca_route')
+@login_required
+def gestion_produccion_finca_route(finca_id):
+    return gestion_produccion_finca(finca_id)
+
 @app.route('/finca/<int:finca_id>/animales')
 @login_required
 def ver_animales_finca_route(finca_id):
@@ -889,10 +907,32 @@ def editar_animal_route(animal_id):
 def eliminar_animal_route(animal_id):
     return eliminar_animal(animal_id)
 
-@app.route('/animal/<int:animal_id>')
+@app.route('/animal/<int:animal_id>', methods=['GET', 'POST'])
 @login_required
 def ver_animal_route(animal_id):
     return ver_animal(animal_id)
+
+# Páginas dedicadas para peso, ciclo y salud
+@app.route('/animal/<int:animal_id>/peso', methods=['GET', 'POST'], endpoint='animal_peso_route')
+@login_required
+def animal_peso_route(animal_id):
+    return ver_peso_animal(animal_id)
+
+@app.route('/animal/<int:animal_id>/ciclo', methods=['GET', 'POST'], endpoint='animal_ciclo_route')
+@login_required
+def animal_ciclo_route(animal_id):
+    return ver_ciclo_animal(animal_id)
+
+@app.route('/animal/<int:animal_id>/salud', methods=['GET', 'POST'], endpoint='animal_salud_route')
+@login_required
+def animal_salud_route(animal_id):
+    return ver_salud_animal(animal_id)
+
+# Página dedicada de gráficos
+@app.route('/animal/<int:animal_id>/graficos', methods=['GET'], endpoint='animal_graficos_route')
+@login_required
+def animal_graficos_route(animal_id):
+    return ver_graficos_animal(animal_id)
 
 # Genealogía del animal
 @app.route('/animal/<int:animal_id>/genealogia', endpoint='genealogia_animal_route')
@@ -905,6 +945,24 @@ def genealogia_animal_route(animal_id):
 @login_required
 def procedimientos_animal_route(animal_id):
     return procedimientos_animal(animal_id)
+
+# Consumo del animal (leche y consumibles)
+@app.route('/animal/<int:animal_id>/consumo', methods=['GET', 'POST'], endpoint='animal_consumo_route')
+@login_required
+def animal_consumo_route(animal_id):
+    return consumo_animal(animal_id)
+
+# Biológicos del animal (sexual, semen, embriones)
+@app.route('/animal/<int:animal_id>/biologicos', methods=['GET', 'POST'], endpoint='animal_biologicos_route')
+@login_required
+def animal_biologicos_route(animal_id):
+    return biologicos_animal(animal_id)
+
+# Producción registrada del animal
+@app.route('/animal/<int:animal_id>/produccion', methods=['GET', 'POST'], endpoint='animal_produccion_route')
+@login_required
+def animal_produccion_route(animal_id):
+    return ver_produccion_animal(animal_id)
 
 # Historial de procedimientos del animal
 @app.route('/animal/<int:animal_id>/historial', endpoint='historial_procedimientos_route')
@@ -1001,6 +1059,12 @@ def api_grupos_por_finca_route():
 @login_required
 def api_madurez_sexual_por_raza_route(raza_id):
     return api_madurez_sexual_por_raza(raza_id)
+
+# API para verificar nombre de animal duplicado
+@app.route('/api/animal/existe-nombre')
+@login_required
+def api_existe_nombre_animal_route():
+    return api_existe_nombre_animal()
 
 # Endpoints adicionales para gestión de animales en potreros
 @app.route('/api/animales-disponibles')
@@ -1150,6 +1214,7 @@ def api_quitar_animal_de_grupo_route(grupo_id):
 # Aplicar decoradores de rol a las rutas de gestión de animales
 gestion_animales = requiere_rol(2)(gestion_animales)
 gestion_produccion_route = requiere_rol(2)(gestion_produccion_route)
+gestion_produccion_finca_route = requiere_rol(2)(gestion_produccion_finca_route)
 crear_animal_route = requiere_rol(2)(crear_animal_route)
 editar_animal_route = requiere_rol(2)(editar_animal_route)
 eliminar_animal_route = requiere_rol(2)(eliminar_animal_route)
@@ -1165,6 +1230,13 @@ descargar_documento_genetico_route = requiere_rol(2)(descargar_documento_genetic
 eliminar_documento_genetico_route = requiere_rol(2)(eliminar_documento_genetico_route)
 eliminar_servicio_salud_route = requiere_rol(2)(eliminar_servicio_salud_route)
 eliminar_servicio_sexual_route = requiere_rol(2)(eliminar_servicio_sexual_route)
+animal_consumo_route = requiere_rol(2)(animal_consumo_route)
+animal_biologicos_route = requiere_rol(2)(animal_biologicos_route)
+animal_produccion_route = requiere_rol(2)(animal_produccion_route)
+animal_peso_route = requiere_rol(2)(animal_peso_route)
+animal_ciclo_route = requiere_rol(2)(animal_ciclo_route)
+animal_salud_route = requiere_rol(2)(animal_salud_route)
+animal_graficos_route = requiere_rol(2)(animal_graficos_route)
 
 # Rutas de gestión de trabajadores (Dueño)
 @app.route('/trabajadores')
@@ -1252,6 +1324,7 @@ api_animales_potrero = requiere_rol(2)(api_animales_potrero)
 api_asignar_animales_potrero = requiere_rol(2)(api_asignar_animales_potrero)
 api_default_tipo_uso_potrero_route = requiere_rol(2)(api_default_tipo_uso_potrero_route)
 api_madurez_sexual_por_raza_route = requiere_rol(2)(api_madurez_sexual_por_raza_route)
+api_existe_nombre_animal_route = requiere_rol(2)(api_existe_nombre_animal_route)
 
 # Aplicar decoradores de rol a las rutas de gestión de fincas
 crear_finca_route = requiere_rol(2)(crear_finca_route)

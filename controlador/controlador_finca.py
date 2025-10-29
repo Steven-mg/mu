@@ -30,6 +30,13 @@ def crear_finca():
     except Exception:
         trabajadores_existentes = []
     
+    # Poblar el selector de encargado con opciones dinámicas
+    try:
+        opciones_encargado = [(u.nik_name, u.nik_name) for u in trabajadores_existentes]
+        form.nombreEncargado.choices = [('', 'Seleccione Encargado (opcional)')] + opciones_encargado
+    except Exception:
+        form.nombreEncargado.choices = [('', 'Seleccione Encargado (opcional)')]
+    
     if form.validate_on_submit():
         # Crear una nueva finca
         nueva_finca = Finca(
@@ -106,6 +113,16 @@ def editar_finca(finca_id):
         ).all() if nik_names else []
     except Exception:
         trabajadores_existentes = []
+    
+    # Poblar el selector con opciones dinámicas y asegurar que el valor actual esté disponible
+    try:
+        opciones_encargado = [(u.nik_name, u.nik_name) for u in trabajadores_existentes]
+        valor_actual = (finca.nombreEncargado or '').strip()
+        if valor_actual and valor_actual not in [v for v, _ in opciones_encargado]:
+            opciones_encargado.append((valor_actual, valor_actual))
+        form.nombreEncargado.choices = [('', 'Seleccione Encargado (opcional)')] + opciones_encargado
+    except Exception:
+        form.nombreEncargado.choices = [('', 'Seleccione Encargado (opcional)')]
     
     if form.validate_on_submit():
         try:

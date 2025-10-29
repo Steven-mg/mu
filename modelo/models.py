@@ -153,6 +153,10 @@ class Productos(db.Model):
     id_producto = db.Column(db.SmallInteger, primary_key=True)
     nombre_producto = db.Column(db.String(20), nullable=False)
     descripcion_producto = db.Column(db.String(300), nullable=False)
+    # Tipo de cantidad para unidades dinámicas en formularios:
+    # 1 = litros, 2 = libras, 3 = unidades
+    tipo_cantidad = db.Column(db.SmallInteger, nullable=True)
+    # Sin precio_venta: el esquema SQL no define esta columna
 
     productos_animal = db.relationship('ProductosAnimal', backref='producto')
 
@@ -197,7 +201,7 @@ class ServiciosSalud(db.Model):
     id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal', ondelete='CASCADE'), nullable=False)
     id_tipo_salud = db.Column(db.SmallInteger, db.ForeignKey('tipo_servicio_salud.id_tipo_salud'), nullable=False)
     # La columna se mantiene como id_veterinario en la BD pero referencia a trabajador
-    id_veterinario = db.Column(db.SmallInteger, db.ForeignKey('trabajador.id_trabajador'), nullable=False)
+    id_veterinario = db.Column(db.Integer, db.ForeignKey('trabajador.id_trabajador'), nullable=False)
     fecha_servicio = db.Column(db.Date, nullable=False)
     fecha_proximo = db.Column(db.Date, nullable=True)
     dosis = db.Column(db.String(50), nullable=True)
@@ -355,7 +359,7 @@ class HistorialEstadoReproductivo(db.Model):
 class TipoServicioSexual(db.Model):
     __tablename__ = 'tipo_servicio_sexual'
     id_servicio = db.Column(db.SmallInteger, primary_key=True)
-    nombre_servicio = db.Column(db.String(20), nullable=False)
+    nombre_servicio = db.Column(db.String(40), nullable=False)
     descripcion_servicio = db.Column(db.String(200), nullable=False)
     aplica_a_sexo = db.Column(db.Enum('macho', 'hembra', 'ambos'), nullable=True, default='ambos')
     
@@ -367,7 +371,7 @@ class ServiciosSexuales(db.Model):
     id_servicioanimal = db.Column(db.SmallInteger, db.ForeignKey('tipo_servicio_sexual.id_servicio'), nullable=False)
     id_animal = db.Column(db.SmallInteger, db.ForeignKey('animal.id_animal'), nullable=False)
     # La columna se mantiene como id_veterinario en la BD pero referencia a trabajador
-    id_veterinario = db.Column(db.SmallInteger, db.ForeignKey('trabajador.id_trabajador'), nullable=False)
+    id_veterinario = db.Column(db.Integer, db.ForeignKey('trabajador.id_trabajador'), nullable=False)
     fecha_servicio = db.Column(db.Date, nullable=False)
     fecha_proximo = db.Column(db.Date, nullable=True)
     notas_servicio = db.Column(db.String(200), nullable=True)

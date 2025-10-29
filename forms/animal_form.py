@@ -118,6 +118,14 @@ class AnimalForm(FlaskForm):
         if not padre:
             return
 
+        # Debe ser de la misma raza que el animal
+        try:
+            raza_hijo_id = int(self.id_raza.data or 0)
+        except Exception:
+            raza_hijo_id = 0
+        if raza_hijo_id and padre.id_raza and int(padre.id_raza) != raza_hijo_id:
+            raise ValidationError('El padre debe ser de la misma raza que el animal.')
+
         # Calcular edades en días
         edad_padre_dias = self._edad_en_dias(padre.fecha_nacimiento)
         edad_hijo_dias = self._edad_en_dias(self.fecha_nacimiento.data)
@@ -147,6 +155,14 @@ class AnimalForm(FlaskForm):
         madre = Animal.query.get(id_madre.data)
         if not madre:
             return
+
+        # Debe ser de la misma raza que el animal
+        try:
+            raza_hijo_id = int(self.id_raza.data or 0)
+        except Exception:
+            raza_hijo_id = 0
+        if raza_hijo_id and madre.id_raza and int(madre.id_raza) != raza_hijo_id:
+            raise ValidationError('La madre debe ser de la misma raza que el animal.')
 
         # Calcular edades en días
         edad_madre_dias = self._edad_en_dias(madre.fecha_nacimiento)

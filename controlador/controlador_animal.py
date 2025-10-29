@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
-from modelo.models import db, Animal, Raza, Finca, EstadoReproductivo, UsuarioFinca, CompraAnimales, Potrero, AnimalGrupo, GrupoAnimal, DocumentoGenetico, ServiciosSalud, TipoServicioSalud, Trabajador, ServiciosSexuales, TipoServicioSexual
+from modelo.models import db, Animal, Raza, Finca, EstadoReproductivo, UsuarioFinca, CompraAnimales, Potrero, AnimalGrupo, GrupoAnimal, DocumentoGenetico, ServiciosSalud, TipoServicioSalud, Trabajador, ServiciosSexuales, TipoServicioSexual, Productos, ProductosAnimal, RegistroPeso, CicloReproductivo, EstadoSalud, HistorialEstadoSalud, HistorialEstadoReproductivo
 from sqlalchemy.orm import joinedload
+from sqlalchemy import func
 from forms.animal_form import AnimalForm, FiltroAnimalForm
 from controlador.controlador_actividad import registrar_actividad
 from config import app, allowed_image, allowed_document
@@ -13,7 +14,17 @@ except ImportError:
     Image = None
 from werkzeug.utils import secure_filename
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
+import unicodedata
+
+def _normalize(text: str) -> str:
+    """Normaliza texto a minúsculas sin acentos para comparaciones robustas."""
+    try:
+        s = unicodedata.normalize('NFD', (text or ''))
+        s = ''.join(ch for ch in s if unicodedata.category(ch) != 'Mn')
+        return s.lower()
+    except Exception:
+        return (text or '').lower()
 
 @login_required
 def listar_animales():
@@ -55,6 +66,106 @@ def gestion_produccion():
     return render_template('dueño/gestion_produccion.html', fincas=fincas_usuario, finca=finca, hembras=hembras, machos=machos, finca_id_seleccionada=finca_id)
 
 @login_required
+def gestion_produccion_finca(finca_id):
+    """Vista dedicada de producción por finca con filtros de sexo, madurez y raza"""
+    # Verificar acceso del usuario a la finca seleccionada
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=finca_id).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para ver esta finca', 'danger')
+        return redirect(url_for('gestion_produccion_route'))
+
+    finca = Finca.query.get_or_404(finca_id)
+
+    # Parámetros de filtro
+    sexo = request.args.get('sexo')  # 'Hembra' | 'Macho' | None
+    maduros = request.args.get('maduros', default='0')  # '0' | '1'
+    raza_id = request.args.get('raza_id', type=int)
+
+    # Razas disponibles en la finca
+    try:
+        razas = (db.session.query(Raza)
+                 .join(Animal, Raza.id_raza == Animal.id_raza)
+                 .filter(Animal.id_finca == finca_id)
+                 .distinct()
+                 .order_by(Raza.nombre_raza.asc())
+                 .all())
+    except Exception:
+        razas = []
+
+    # Consulta de animales con filtros
+    query = Animal.query.filter(Animal.id_finca == finca_id)
+    if sexo in ('Hembra', 'Macho'):
+        query = query.filter(Animal.sexo == sexo)
+    if raza_id:
+        query = query.filter(Animal.id_raza == raza_id)
+
+    animales = query.order_by(Animal.nombre_animal.asc()).all()
+
+    # Productos disponibles y clasificación
+    try:
+        productos_consumibles = Productos.query.order_by(Productos.nombre_producto.asc()).all()
+    except Exception:
+        productos_consumibles = []
+
+    try:
+        tipos_sexuales = TipoServicioSexual.query.order_by(TipoServicioSexual.nombre_servicio.asc()).all()
+    except Exception:
+        tipos_sexuales = []
+
+    def _filtra_sexuales_por_sexo(items, sexo_sel):
+        s = (sexo_sel or '').strip().lower()
+        if s == 'hembra':
+            return [t for t in items if (getattr(t, 'aplica_a_sexo', 'ambos') or 'ambos').lower() in ['ambos', 'hembra']]
+        if s == 'macho':
+            return [t for t in items if (getattr(t, 'aplica_a_sexo', 'ambos') or 'ambos').lower() in ['ambos', 'macho']]
+        return items
+
+    productos_sexuales = _filtra_sexuales_por_sexo(tipos_sexuales, sexo)
+
+    # Determinar madurez sexual por raza
+    def _es_maduro(a: Animal) -> bool:
+        try:
+            fn = a.fecha_nacimiento
+            hoy = date.today()
+            meses = (hoy.year - fn.year) * 12 + (hoy.month - fn.month)
+            if hoy.day < fn.day:
+                meses -= 1
+        except Exception:
+            return False
+
+        try:
+            umbral = None
+            if a.raza:
+                if a.sexo == 'Hembra':
+                    umbral = a.raza.madurez_sexual_hembras_meses
+                else:
+                    umbral = a.raza.madurez_sexual_machos_meses
+            if umbral is None:
+                umbral = 12
+        except Exception:
+            umbral = 12
+        return meses >= int(umbral)
+
+    if str(maduros) == '1':
+        animales = [a for a in animales if _es_maduro(a)]
+
+    hembras = [a for a in animales if a.sexo == 'Hembra']
+    machos = [a for a in animales if a.sexo == 'Macho']
+
+    return render_template(
+        'dueño/produccion_finca.html',
+        finca=finca,
+        hembras=hembras,
+        machos=machos,
+        razas=razas,
+        sexo_selected=sexo if sexo in ('Hembra', 'Macho') else 'todos',
+        maduros_selected=1 if str(maduros) == '1' else 0,
+        raza_selected=raza_id,
+        productos_consumibles=productos_consumibles,
+        productos_sexuales=productos_sexuales,
+    )
+
+@login_required
 def ver_animales_finca(finca_id):
     """Mostrar información de una finca y los animales presentes solo en esa finca"""
     # Verificar acceso del usuario a la finca
@@ -72,7 +183,18 @@ def ver_animales_finca(finca_id):
                 )
                 .all())
 
-    return render_template('dueño/ver_animales_finca.html', finca=finca, animales=animales)
+    # Razas presentes en la finca (para filtro en la UI)
+    try:
+        razas = (db.session.query(Raza)
+                 .join(Animal, Raza.id_raza == Animal.id_raza)
+                 .filter(Animal.id_finca == finca_id)
+                 .distinct()
+                 .order_by(Raza.nombre_raza.asc())
+                 .all())
+    except Exception:
+        razas = []
+
+    return render_template('dueño/ver_animales_finca.html', finca=finca, animales=animales, razas=razas)
 
 @login_required
 def ver_animales_fuera(finca_id):
@@ -404,6 +526,984 @@ def eliminar_servicio_sexual(animal_id, servicio_id):
     db.session.commit()
     flash('Servicio sexual eliminado', 'success')
     return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+
+@login_required
+def consumo_animal(animal_id):
+    """Registrar productos para un animal: pestañas Sexuales y Consumibles."""
+    animal = Animal.query.get_or_404(animal_id)
+
+    from forms.consumo_form import ConsumoProductoForm
+    # Form para consumibles (carne, leche, estiércol, animal vivo)
+    form_consumo = ConsumoProductoForm()
+    # Form para productos sexuales (semen, embriones)
+    form_sexualprod = ConsumoProductoForm()
+
+    sexo = (animal.sexo or '').lower()
+
+    # Helpers de contexto: madurez y lactancia
+    def _es_maduro_local(a: Animal) -> bool:
+        # Calcular edad en meses y comparar con umbral de la raza
+        try:
+            fn = a.fecha_nacimiento
+            hoy = date.today()
+            meses = (hoy.year - fn.year) * 12 + (hoy.month - fn.month)
+            if hoy.day < fn.day:
+                meses -= 1
+        except Exception:
+            return False
+
+        try:
+            umbral = None
+            if a.raza:
+                umbral = a.raza.madurez_sexual_hembras_meses if a.sexo == 'Hembra' else a.raza.madurez_sexual_machos_meses
+            if umbral is None:
+                umbral = 12
+        except Exception:
+            umbral = 12
+        return meses >= int(umbral)
+
+    def _esta_lactando(a: Animal) -> bool:
+        # Ciclo activo en lactancia o estado reproductivo lactancia
+        try:
+            activo = next((cr for cr in a.ciclos_reproductivos if not cr.fecha_fin), None)
+            if activo and (activo.tipo_ciclo or '').lower() == 'lactancia':
+                return True
+        except Exception:
+            pass
+        desc = (getattr(a.estado_reproductivo, 'descripcion', '') or '').lower()
+        return desc == 'lactancia'
+
+    # Filtro por contexto (sexo + estado) según nombre del producto
+    def permitido_por_contexto(nombre: str) -> bool:
+        n = _normalize(nombre)
+        if 'semen' in n:
+            # Solo macho maduro
+            return sexo == 'macho' and _es_maduro_local(animal)
+        if 'embrion' in n:
+            # Solo hembra madura
+            return sexo == 'hembra' and _es_maduro_local(animal)
+        if 'leche' in n:
+            # Solo hembra en lactancia
+            return sexo == 'hembra' and _esta_lactando(animal)
+        return True
+
+    try:
+        todos = Productos.query.order_by(Productos.nombre_producto.asc()).all()
+    except Exception:
+        todos = []
+
+    # Helpers de detección por nombre con sinónimos
+    def es_sexual(nombre: str) -> bool:
+        n = _normalize(nombre)
+        # Cubrir semen/embrion y sinónimos frecuentes (pajuela/pajilla, embri*)
+        return any(k in n for k in ['semen', 'embrion', 'embri', 'pajuela', 'pajilla'])
+
+    def es_consumible(nombre: str) -> bool:
+        n = _normalize(nombre)
+        # Productos de consumo habituales
+        return any(k in n for k in ['carne', 'leche', 'estiercol', 'animal'])
+
+    # División por categorías usando los helpers
+    consumibles = [p for p in todos if es_consumible(p.nombre_producto)]
+    sexuales = [p for p in todos if es_sexual(p.nombre_producto)]
+
+    # Aplicar filtros por contexto
+    consumibles = [p for p in consumibles if permitido_por_contexto(p.nombre_producto)]
+    sexuales = [p for p in sexuales if permitido_por_contexto(p.nombre_producto)]
+
+    # Asignar choices básicos (solo para validación); el select se renderiza manual para agregar data-tipo
+    form_consumo.id_producto.choices = [(p.id_producto, p.nombre_producto) for p in consumibles]
+    form_sexualprod.id_producto.choices = [(p.id_producto, p.nombre_producto) for p in sexuales]
+
+    # Procesamiento de POST
+    if request.method == 'POST':
+        form_name = request.form.get('form_name')
+        if form_name == 'consumible':
+            if form_consumo.validate_on_submit():
+                # Validación adicional por contexto
+                prod = Productos.query.get(form_consumo.id_producto.data)
+                # Validar que sea consumible y que aplique al contexto
+                if not prod or not es_consumible(getattr(prod, 'nombre_producto', '')) or not permitido_por_contexto(getattr(prod, 'nombre_producto', '')):
+                    flash('Este producto no aplica al sexo/estado del animal.', 'warning')
+                    return redirect(url_for('animal_consumo_route', animal_id=animal_id))
+
+                nuevo = ProductosAnimal(
+                    id_producto=form_consumo.id_producto.data,
+                    id_animal=animal_id,
+                    cantidad=form_consumo.cantidad.data,
+                    fecha=form_consumo.fecha.data,
+                    notas_produccion=form_consumo.notas_produccion.data,
+                )
+                db.session.add(nuevo)
+                db.session.commit()
+                flash('Producto consumible registrado', 'success')
+                return redirect(url_for('animal_consumo_route', animal_id=animal_id))
+            else:
+                flash('Revise los campos para registrar el consumible.', 'warning')
+        elif form_name == 'sexual_producto':
+            if form_sexualprod.validate_on_submit():
+                # Validación adicional por contexto
+                prod = Productos.query.get(form_sexualprod.id_producto.data)
+                # Validar que sea sexual y que aplique al contexto
+                if not prod or not es_sexual(getattr(prod, 'nombre_producto', '')) or not permitido_por_contexto(getattr(prod, 'nombre_producto', '')):
+                    flash('Este producto sexual no aplica al sexo/estado del animal.', 'warning')
+                    return redirect(url_for('animal_consumo_route', animal_id=animal_id))
+
+                nuevo = ProductosAnimal(
+                    id_producto=form_sexualprod.id_producto.data,
+                    id_animal=animal_id,
+                    cantidad=form_sexualprod.cantidad.data,
+                    fecha=form_sexualprod.fecha.data,
+                    notas_produccion=form_sexualprod.notas_produccion.data,
+                )
+                db.session.add(nuevo)
+                db.session.commit()
+                flash('Producto sexual registrado', 'success')
+                return redirect(url_for('animal_consumo_route', animal_id=animal_id))
+            else:
+                flash('Revise los campos para registrar el producto sexual.', 'warning')
+
+    return render_template(
+        'dueño/animal_consumo.html',
+        animal=animal,
+        form_consumo=form_consumo,
+        form_sexualprod=form_sexualprod,
+        productos_consumibles=consumibles,
+        productos_sexuales=sexuales,
+    )
+
+@login_required
+def biologicos_animal(animal_id):
+    """Registrar biológicos (servicios sexuales, semen, embriones) para un animal"""
+    animal = Animal.query.get_or_404(animal_id)
+
+    from forms.servicio_sexual_form import ServicioSexualForm
+    from forms.consumo_form import ConsumoProductoForm
+    form_sexual = ServicioSexualForm()
+    form_semen = ServicioSexualForm()
+    form_embrion = ServicioSexualForm()
+    form_producto = ConsumoProductoForm()
+
+    sexo_animal = (animal.sexo or '').lower()
+
+    # Listar trabajadores del dueño actual con rol veterinario y estado activo
+    vets = Trabajador.query.filter(
+        Trabajador.id_jefe == current_user.id,
+        Trabajador.rol == 'veterinario',
+        Trabajador.estado == 'activo'
+    ).all()
+    vet_choices = [(v.id_trabajador, f"{v.nombre} {v.apellido}") for v in vets]
+    form_sexual.id_veterinario.choices = vet_choices
+    form_semen.id_veterinario.choices = vet_choices
+    form_embrion.id_veterinario.choices = vet_choices
+
+    # Construir choices de productos biológicos (Semen / Embriones) con sinónimos
+    try:
+        _todos = Productos.query.order_by(Productos.nombre_producto.asc()).all()
+        def _es_sexual(nombre: str) -> bool:
+            n = _normalize(nombre)
+            return any(k in n for k in ['semen', 'embrion', 'embri', 'pajuela', 'pajilla'])
+        productos_bio = [p for p in _todos if _es_sexual(p.nombre_producto)]
+    except Exception:
+        productos_bio = []
+    form_producto.id_producto.choices = [(p.id_producto, p.nombre_producto) for p in productos_bio]
+
+    # Helpers de filtrado por sexo y nombre
+    def filtrar_por_nombre_y_sexo(tipos, sexo):
+        s = (sexo or '').lower()
+        if s == 'macho':
+            return [t for t in tipos if (getattr(t, 'aplica_a_sexo', 'ambos') or 'ambos').lower() in ['ambos', 'macho']]
+        if s == 'hembra':
+            return [t for t in tipos if (getattr(t, 'aplica_a_sexo', 'ambos') or 'ambos').lower() in ['ambos', 'hembra']]
+        return tipos
+
+    def es_inmaduro_sexual(an):
+        try:
+            if getattr(an, 'id_estado_reprod', None) == 15:
+                return True
+            if getattr(an, 'estado_reprod', None) and (getattr(an.estado_reprod, 'descripcion', '') or '').lower() == 'inmaduro':
+                return True
+            raza = Raza.query.get(getattr(an, 'id_raza', None)) if getattr(an, 'id_raza', None) else None
+            fecha_nac = getattr(an, 'fecha_nacimiento', None)
+            if raza and fecha_nac:
+                hoy = datetime.now()
+                edad_meses = (hoy.year - fecha_nac.year) * 12 + (hoy.month - fecha_nac.month)
+                if sexo_animal == 'macho' and raza.madurez_sexual_machos_meses and edad_meses < raza.madurez_sexual_machos_meses:
+                    return True
+                if sexo_animal == 'hembra' and raza.madurez_sexual_hembras_meses and edad_meses < raza.madurez_sexual_hembras_meses:
+                    return True
+        except Exception:
+            return False
+        return False
+
+    inmaduro = es_inmaduro_sexual(animal)
+
+    # Construir grupos de tipos
+    tipos = TipoServicioSexual.query.all()
+    tipos_sexual_general = filtrar_por_nombre_y_sexo([t for t in tipos if 'semen' not in (t.nombre_servicio or '').lower() and 'embri' not in (t.nombre_servicio or '').lower()], sexo_animal)
+    tipos_semen = filtrar_por_nombre_y_sexo([t for t in tipos if 'semen' in (t.nombre_servicio or '').lower()], sexo_animal)
+    tipos_embrion = filtrar_por_nombre_y_sexo([t for t in tipos if 'embri' in (t.nombre_servicio or '').lower()], sexo_animal)
+
+    form_sexual.id_servicioanimal.choices = [(t.id_servicio, t.nombre_servicio) for t in tipos_sexual_general]
+    form_semen.id_servicioanimal.choices = [(t.id_servicio, t.nombre_servicio) for t in tipos_semen]
+    form_embrion.id_servicioanimal.choices = [(t.id_servicio, t.nombre_servicio) for t in tipos_embrion]
+
+    # Procesamiento de POST por pestaña
+    if request.method == 'POST':
+        form_name = request.form.get('form_name')
+        target_form = None
+        if form_name == 'sexual':
+            target_form = form_sexual
+        elif form_name == 'semen':
+            target_form = form_semen
+        elif form_name == 'embrion':
+            target_form = form_embrion
+        elif form_name == 'biologico_producto':
+            # Guardar en productos_animal
+            if form_producto.validate_on_submit():
+                nuevo = ProductosAnimal(
+                    id_producto=form_producto.id_producto.data,
+                    id_animal=animal_id,
+                    cantidad=form_producto.cantidad.data,
+                    fecha=form_producto.fecha.data,
+                    notas_produccion=form_producto.notas_produccion.data,
+                )
+                db.session.add(nuevo)
+                db.session.commit()
+                flash('Producto biológico guardado', 'success')
+                return redirect(url_for('animal_biologicos_route', animal_id=animal_id))
+            else:
+                flash('Revise los campos para registrar el producto biológico.', 'warning')
+
+        if target_form and target_form.validate_on_submit():
+            tipo_sexual_sel = TipoServicioSexual.query.get(target_form.id_servicioanimal.data)
+            aplica = (getattr(tipo_sexual_sel, 'aplica_a_sexo', 'ambos') or 'ambos').lower() if tipo_sexual_sel else 'ambos'
+            if inmaduro:
+                flash('Animal inmaduro: revise que el servicio sea acorde a la edad/raza.', 'warning')
+            if sexo_animal == 'macho' and aplica == 'hembra':
+                flash('Este servicio aplica solo a hembras.', 'warning')
+                return redirect(url_for('animal_biologicos_route', animal_id=animal_id))
+            if sexo_animal == 'hembra' and aplica == 'macho':
+                flash('Este servicio aplica solo a machos.', 'warning')
+                return redirect(url_for('animal_biologicos_route', animal_id=animal_id))
+            nuevo = ServiciosSexuales(
+                id_servicioanimal=target_form.id_servicioanimal.data,
+                id_animal=animal_id,
+                id_veterinario=target_form.id_veterinario.data,
+                fecha_servicio=target_form.fecha_servicio.data,
+                fecha_proximo=target_form.fecha_proximo.data,
+                notas_servicio=target_form.notas_servicio.data,
+                costo_total=target_form.costo_total.data,
+            )
+            db.session.add(nuevo)
+            db.session.commit()
+            flash('Servicio biológico registrado', 'success')
+            return redirect(url_for('animal_biologicos_route', animal_id=animal_id))
+        elif target_form:
+            flash('Revise los campos del formulario seleccionado.', 'warning')
+
+    return render_template(
+        'dueño/animal_biologicos.html',
+        animal=animal,
+        form_sexual=form_sexual,
+        form_semen=form_semen,
+        form_embrion=form_embrion,
+        form_producto=form_producto,
+        inmaduro=inmaduro,
+        sexo_animal=animal.sexo,
+    )
+
+@login_required
+def ver_produccion_animal(animal_id):
+    """Listar registros de ProductosAnimal para un animal específico, con filtro y métricas."""
+    animal = Animal.query.get_or_404(animal_id)
+
+    # Selector de producto
+    producto_id = request.args.get('producto_id', type=int)
+    try:
+        productos_disponibles = (
+            db.session.query(Productos)
+            .join(ProductosAnimal, Productos.id_producto == ProductosAnimal.id_producto)
+            .filter(ProductosAnimal.id_animal == animal_id)
+            .distinct()
+            .order_by(Productos.nombre_producto.asc())
+            .all()
+        )
+    except Exception:
+        productos_disponibles = []
+
+    # Producciones con filtro
+    base_q = (
+        ProductosAnimal.query
+        .options(joinedload(ProductosAnimal.producto))
+        .filter(ProductosAnimal.id_animal == animal_id)
+    )
+    if producto_id:
+        base_q = base_q.filter(ProductosAnimal.id_producto == producto_id)
+    producciones = base_q.order_by(ProductosAnimal.fecha.desc()).all()
+
+    # Métricas para leche por día: agregación por fecha
+    def _es_leche(nombre: str) -> bool:
+        n = (nombre or '').lower()
+        return 'leche' in n
+
+    # Obtener todas las producciones del animal para detectar leche
+    todas_prods = (
+        ProductosAnimal.query.options(joinedload(ProductosAnimal.producto))
+        .filter(ProductosAnimal.id_animal == animal_id)
+        .order_by(ProductosAnimal.fecha.asc())
+        .all()
+    )
+
+    from collections import defaultdict
+    leche_por_dia = defaultdict(float)
+    for p in todas_prods:
+        if p.producto and _es_leche(p.producto.nombre_producto) and p.fecha:
+            try:
+                key = p.fecha.strftime('%Y-%m-%d')
+            except Exception:
+                key = str(p.fecha)
+            leche_por_dia[key] += float(p.cantidad or 0)
+
+    # Ordenar por fecha
+    labels_leche = sorted(leche_por_dia.keys())
+    values_leche = [round(leche_por_dia[d], 2) for d in labels_leche]
+
+    # Umbrales por raza
+    umbral_min = None
+    umbral_norm = None
+    try:
+        if animal.raza:
+            umbral_min = float(animal.raza.produccion_leche_dia_min or 0)
+            umbral_norm = float(animal.raza.produccion_leche_dia_max or 0)
+    except Exception:
+        umbral_min = None
+        umbral_norm = None
+
+    # Estado de producción reciente (promedio últimos 7 días)
+    avg_7d = None
+    estado_msg = None
+    estado_tipo = 'normal'
+    if labels_leche:
+        try:
+            # Tomar últimos 7 días ordenados
+            ultimos = values_leche[-7:] if len(values_leche) > 7 else values_leche
+            if ultimos:
+                avg_7d = round(sum(ultimos) / len(ultimos), 2)
+                if umbral_min is not None and avg_7d < umbral_min:
+                    estado_tipo = 'bajo'
+                    estado_msg = f"Promedio 7d {avg_7d} por debajo del mínimo ({umbral_min})."
+                elif umbral_norm is not None and avg_7d > umbral_norm:
+                    estado_tipo = 'alto'
+                    estado_msg = f"Promedio 7d {avg_7d} por encima del normal ({umbral_norm})."
+                else:
+                    estado_tipo = 'normal'
+                    estado_msg = f"Promedio 7d {avg_7d} dentro del rango normal ({umbral_min}–{umbral_norm})."
+        except Exception:
+            estado_msg = None
+
+    # --- Integración de formularios: peso, ciclo reproductivo y estado de salud ---
+    try:
+        from forms.peso_form import RegistroPesoForm
+        from forms.ciclo_reproductivo_form import CicloReproductivoForm, CerrarCicloForm
+        from forms.estado_salud_form import EstadoSaludForm
+    except Exception:
+        RegistroPesoForm = None
+        CicloReproductivoForm = None
+        CerrarCicloForm = None
+        EstadoSaludForm = None
+
+    form_peso = RegistroPesoForm() if RegistroPesoForm else None
+    form_ciclo = CicloReproductivoForm() if CicloReproductivoForm else None
+    form_cerrar_ciclo = CerrarCicloForm() if CerrarCicloForm else None
+    form_salud = EstadoSaludForm() if EstadoSaludForm else None
+
+    # Cargar choices de salud
+    estados_salud_choices = []
+    if form_salud:
+        try:
+            estados_salud = EstadoSalud.query.order_by(EstadoSalud.descripcion.asc()).all()
+            estados_salud_choices = [(e.id_estado_salud, e.descripcion) for e in estados_salud]
+            form_salud.id_estado_salud.choices = estados_salud_choices
+        except Exception:
+            form_salud.id_estado_salud.choices = []
+
+    # Ciclo activo y últimos registros
+    try:
+        ciclo_activo = CicloReproductivo.query.filter_by(id_animal=animal.id_animal, fecha_fin=None).order_by(CicloReproductivo.fecha_inicio.desc()).first()
+    except Exception:
+        ciclo_activo = None
+    try:
+        ciclos_previos = CicloReproductivo.query.filter_by(id_animal=animal.id_animal).order_by(CicloReproductivo.fecha_inicio.desc()).limit(10).all()
+    except Exception:
+        ciclos_previos = []
+    try:
+        registros_peso = RegistroPeso.query.filter_by(id_animal=animal.id_animal).order_by(RegistroPeso.fecha_registro.desc()).limit(10).all()
+    except Exception:
+        registros_peso = []
+    try:
+        historial_salud = HistorialEstadoSalud.query.options(joinedload(HistorialEstadoSalud.estado_salud)).filter_by(id_animal=animal.id_animal).order_by(HistorialEstadoSalud.fecha_cambio.desc()).limit(10).all()
+        estado_salud_actual = historial_salud[0].estado_salud.descripcion if historial_salud and historial_salud[0].estado_salud else None
+    except Exception:
+        historial_salud = []
+        estado_salud_actual = None
+
+    # Ajustar dinámicamente las opciones del tipo de ciclo según catálogo de estados
+    if form_ciclo:
+        try:
+            estados_db = EstadoReproductivo.query.order_by(EstadoReproductivo.descripcion.asc()).all()
+            def _find_label(candidates: set) -> str:
+                for e in estados_db:
+                    if _normalize(e.descripcion) in candidates:
+                        return e.descripcion
+                return None
+            form_ciclo.tipo_ciclo.choices = [
+                ('celo', _find_label({'celo', 'en celo'}) or 'Celo'),
+                ('gestación', _find_label({'gestacion', 'preniez', 'preñez', 'prenada', 'preñada'}) or 'Gestación'),
+                ('lactancia', _find_label({'lactancia', 'lactacion'}) or 'Lactancia'),
+                ('descanso', _find_label({'descanso', 'secado'}) or 'Descanso'),
+            ]
+        except Exception:
+            form_ciclo.tipo_ciclo.choices = [
+                ('celo', 'Celo'),
+                ('gestación', 'Gestación'),
+                ('lactancia', 'Lactancia'),
+                ('descanso', 'Descanso'),
+            ]
+
+    # Ajustar dinámicamente las opciones del tipo de ciclo según catálogo de estados
+    if form_ciclo:
+        try:
+            estados_db = EstadoReproductivo.query.order_by(EstadoReproductivo.descripcion.asc()).all()
+            def _find_label(candidates: set) -> str:
+                for e in estados_db:
+                    if _normalize(e.descripcion) in candidates:
+                        return e.descripcion
+                return None
+            form_ciclo.tipo_ciclo.choices = [
+                ('celo', _find_label({'celo', 'en celo'}) or 'Celo'),
+                ('gestación', _find_label({'gestacion', 'preniez', 'preñez', 'prenada', 'preñada'}) or 'Gestación'),
+                ('lactancia', _find_label({'lactancia', 'lactacion'}) or 'Lactancia'),
+                ('descanso', _find_label({'descanso', 'secado'}) or 'Descanso'),
+            ]
+        except Exception:
+            form_ciclo.tipo_ciclo.choices = [
+                ('celo', 'Celo'),
+                ('gestación', 'Gestación'),
+                ('lactancia', 'Lactancia'),
+                ('descanso', 'Descanso'),
+            ]
+
+    def _buscar_estado_reprod_por_desc(desc_lower: str):
+        # Coincidencia robusta con sinónimos del catálogo
+        t = _normalize(desc_lower)
+        key_map = {
+            'preniez': 'gestacion', 'preñez': 'gestacion', 'prenada': 'gestacion', 'preñada': 'gestacion', 'gestacion': 'gestacion',
+            'lactancia': 'lactancia', 'lactacion': 'lactancia',
+            'celo': 'celo', 'en celo': 'celo',
+            'descanso': 'descanso', 'secado': 'descanso',
+        }
+        key = key_map.get(t, t)
+        candidates_map = {
+            'gestacion': {'gestacion', 'preniez', 'preñez', 'prenada', 'preñada'},
+            'lactancia': {'lactancia', 'lactacion'},
+            'celo': {'celo', 'en celo'},
+            'descanso': {'descanso', 'secado'},
+        }
+        candidates = candidates_map.get(key, {key})
+        try:
+            estados = EstadoReproductivo.query.all()
+            for e in estados:
+                if _normalize(e.descripcion) in candidates:
+                    return e
+        except Exception:
+            return None
+        return None
+
+    if request.method == 'POST':
+        target = request.form.get('form_name')
+        if target == 'peso' and form_peso and form_peso.validate_on_submit():
+            try:
+                nuevo = RegistroPeso(
+                    id_animal=animal.id_animal,
+                    fecha_registro=form_peso.fecha_registro.data,
+                    peso=form_peso.peso.data,
+                    tipo_momento=form_peso.tipo_momento.data,
+                    notas=form_peso.notas.data,
+                )
+                db.session.add(nuevo)
+                db.session.commit()
+                registrar_actividad(current_user.id, f"Registró peso para {animal.nombre_animal}")
+                flash('Peso registrado correctamente.', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error registrando peso: {e}', 'danger')
+            return redirect(url_for('animal_produccion_route', animal_id=animal_id))
+
+        if target == 'ciclo_nuevo' and form_ciclo and form_ciclo.validate_on_submit():
+            if ciclo_activo:
+                flash('Ya existe un ciclo activo. Cierre el actual antes de iniciar uno nuevo.', 'warning')
+                return redirect(url_for('animal_produccion_route', animal_id=animal_id))
+            try:
+                nuevo_ciclo = CicloReproductivo(
+                    id_animal=animal.id_animal,
+                    fecha_inicio=form_ciclo.fecha_inicio.data,
+                    tipo_ciclo=form_ciclo.tipo_ciclo.data,
+                    duracion_esperada=form_ciclo.duracion_esperada.data,
+                    notas=form_ciclo.notas.data,
+                )
+                db.session.add(nuevo_ciclo)
+
+                estado_match = _buscar_estado_reprod_por_desc((form_ciclo.tipo_ciclo.data or '').lower())
+                if estado_match:
+                    db.session.add(HistorialEstadoReproductivo(
+                        id_animal=animal.id_animal,
+                        id_estado_reprod=estado_match.id_estado_reprod,
+                        observaciones=f"Inicio de ciclo {form_ciclo.tipo_ciclo.data}"
+                    ))
+                    try:
+                        if (animal.sexo or '').lower() == 'hembra':
+                            animal.id_estado_reprod = estado_match.id_estado_reprod
+                    except Exception:
+                        pass
+                else:
+                    flash('No se encontró un estado reproductivo correspondiente al tipo de ciclo. Verifique que exista "Gestación", "Lactancia", "Celo" o "Descanso" en el catálogo.', 'warning')
+
+                db.session.commit()
+                registrar_actividad(current_user.id, f"Inició ciclo {form_ciclo.tipo_ciclo.data} en {animal.nombre_animal}")
+                flash('Ciclo reproductivo iniciado.', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error iniciando ciclo: {e}', 'danger')
+            return redirect(url_for('animal_produccion_route', animal_id=animal_id))
+
+        if target == 'ciclo_cerrar' and form_cerrar_ciclo and form_cerrar_ciclo.validate_on_submit():
+            if not ciclo_activo:
+                flash('No existe un ciclo activo para cerrar.', 'warning')
+                return redirect(url_for('animal_produccion_route', animal_id=animal_id))
+            try:
+                ciclo_activo.fecha_fin = form_cerrar_ciclo.fecha_fin.data
+                if form_cerrar_ciclo.notas_fin.data:
+                    ciclo_activo.notas = (ciclo_activo.notas or '') + f"\nCierre: {form_cerrar_ciclo.notas_fin.data}"
+
+                estado_descanso = _buscar_estado_reprod_por_desc('descanso')
+                if estado_descanso:
+                    db.session.add(HistorialEstadoReproductivo(
+                        id_animal=animal.id_animal,
+                        id_estado_reprod=estado_descanso.id_estado_reprod,
+                        observaciones=f"Cierre de ciclo: {ciclo_activo.tipo_ciclo}"
+                    ))
+                    try:
+                        if (animal.sexo or '').lower() == 'hembra':
+                            animal.id_estado_reprod = estado_descanso.id_estado_reprod
+                    except Exception:
+                        pass
+
+                db.session.commit()
+                registrar_actividad(current_user.id, f"Cerró ciclo {ciclo_activo.tipo_ciclo} en {animal.nombre_animal}")
+                flash('Ciclo reproductivo cerrado.', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error cerrando ciclo: {e}', 'danger')
+            return redirect(url_for('animal_produccion_route', animal_id=animal_id))
+
+        if target == 'salud_estado' and form_salud and form_salud.validate_on_submit():
+            try:
+                nuevo_hist = HistorialEstadoSalud(
+                    id_animal=animal.id_animal,
+                    id_estado_salud=form_salud.id_estado_salud.data,
+                    observaciones=form_salud.observaciones.data,
+                )
+                db.session.add(nuevo_hist)
+                db.session.commit()
+                registrar_actividad(current_user.id, f"Actualizó estado de salud de {animal.nombre_animal}")
+                flash('Estado de salud actualizado.', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error actualizando estado de salud: {e}', 'danger')
+            return redirect(url_for('animal_produccion_route', animal_id=animal_id))
+
+    unidad_map = {1: 'litros', 2: 'libras', 3: 'unidades'}
+
+    return render_template(
+        'dueño/animal_produccion.html',
+        animal=animal,
+        producciones=producciones,
+        unidad_map=unidad_map,
+        productos_disponibles=productos_disponibles,
+        producto_id_selected=producto_id or 0,
+        leche_labels=labels_leche,
+        leche_values=values_leche,
+        leche_umbral_min=umbral_min,
+        leche_umbral_norm=umbral_norm,
+        leche_avg_7d=avg_7d,
+        leche_estado_tipo=estado_tipo,
+        leche_estado_msg=estado_msg,
+        # UI extendida
+        form_peso=form_peso,
+        registros_peso=registros_peso,
+        form_ciclo=form_ciclo,
+        form_cerrar_ciclo=form_cerrar_ciclo,
+        ciclo_activo=ciclo_activo,
+        ciclos_previos=ciclos_previos,
+        form_salud=form_salud,
+        historial_salud=historial_salud,
+        estado_salud_actual=estado_salud_actual,
+        estados_salud_choices=estados_salud_choices,
+    )
+
+# Página dedicada solo a gráficos
+@login_required
+def ver_graficos_animal(animal_id):
+    """Vista dedicada para gráficos del animal (sin tabla de producción)."""
+    animal = Animal.query.get_or_404(animal_id)
+
+    # Agregación: producción de leche por día
+    def _es_leche(nombre: str) -> bool:
+        n = (nombre or '').lower()
+        return 'leche' in n
+
+    try:
+        todas_prods = (
+            ProductosAnimal.query.options(joinedload(ProductosAnimal.producto))
+            .filter(ProductosAnimal.id_animal == animal_id)
+            .order_by(ProductosAnimal.fecha.asc())
+            .all()
+        )
+    except Exception:
+        todas_prods = []
+
+    from collections import defaultdict
+    leche_por_dia = defaultdict(float)
+    for p in todas_prods:
+        if p.producto and _es_leche(p.producto.nombre_producto) and p.fecha:
+            try:
+                key = p.fecha.strftime('%Y-%m-%d')
+            except Exception:
+                key = str(p.fecha)
+            leche_por_dia[key] += float(p.cantidad or 0)
+
+    labels_leche = sorted(leche_por_dia.keys())
+    values_leche = [round(leche_por_dia[d], 2) for d in labels_leche]
+
+    # Umbrales por raza
+    umbral_min = None
+    umbral_norm = None
+    try:
+        if animal.raza:
+            umbral_min = float(animal.raza.produccion_leche_dia_min or 0)
+            umbral_norm = float(animal.raza.produccion_leche_dia_max or 0)
+    except Exception:
+        umbral_min = None
+        umbral_norm = None
+
+    # Estado de producción reciente (promedio últimos 7 días)
+    avg_7d = None
+    estado_msg = None
+    estado_tipo = 'normal'
+    if labels_leche:
+        try:
+            ultimos = values_leche[-7:] if len(values_leche) > 7 else values_leche
+            if ultimos:
+                avg_7d = round(sum(ultimos) / len(ultimos), 2)
+                if umbral_min is not None and avg_7d < umbral_min:
+                    estado_tipo = 'bajo'
+                    estado_msg = f"Promedio 7d {avg_7d} por debajo del mínimo ({umbral_min})."
+                elif umbral_norm is not None and avg_7d > umbral_norm:
+                    estado_tipo = 'alto'
+                    estado_msg = f"Promedio 7d {avg_7d} por encima del normal ({umbral_norm})."
+                else:
+                    estado_tipo = 'normal'
+                    estado_msg = f"Promedio 7d {avg_7d} dentro del rango normal ({umbral_min}–{umbral_norm})."
+        except Exception:
+            estado_msg = None
+
+    return render_template(
+        'dueño/animal_graficos.html',
+        animal=animal,
+        leche_labels=labels_leche,
+        leche_values=values_leche,
+        leche_umbral_min=umbral_min,
+        leche_umbral_norm=umbral_norm,
+        leche_avg_7d=avg_7d,
+        leche_estado_tipo=estado_tipo,
+        leche_estado_msg=estado_msg,
+    )
+
+# Páginas dedicadas solicitadas: Peso, Ciclo y Salud
+@login_required
+def ver_peso_animal(animal_id):
+    """Página dedicada para registrar peso y ver historial de un animal."""
+    animal = Animal.query.get_or_404(animal_id)
+
+    # Validar acceso a la finca del animal
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=animal.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para ver este animal', 'danger')
+        return redirect(url_for('gestion_animales'))
+
+    try:
+        from forms.peso_form import RegistroPesoForm
+    except Exception:
+        RegistroPesoForm = None
+
+    form_peso = RegistroPesoForm() if RegistroPesoForm else None
+
+    try:
+        registros_peso = RegistroPeso.query.filter_by(id_animal=animal.id_animal).order_by(RegistroPeso.fecha_registro.desc()).limit(50).all()
+    except Exception:
+        registros_peso = []
+
+    peso_actual = None
+    try:
+        if registros_peso:
+            peso_actual = float(registros_peso[0].peso or 0)
+    except Exception:
+        peso_actual = None
+
+    if request.method == 'POST' and form_peso and form_peso.validate_on_submit():
+        try:
+            nuevo = RegistroPeso(
+                id_animal=animal.id_animal,
+                fecha_registro=form_peso.fecha_registro.data,
+                peso=form_peso.peso.data,
+                tipo_momento=form_peso.tipo_momento.data,
+                notas=form_peso.notas.data,
+            )
+            db.session.add(nuevo)
+            db.session.commit()
+            registrar_actividad(current_user.id, f"Registró peso para {animal.nombre_animal}")
+            flash('Peso registrado correctamente.', 'success')
+            return redirect(url_for('animal_peso_route', animal_id=animal_id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error registrando peso: {e}', 'danger')
+
+    return render_template(
+        'dueño/animal_peso.html',
+        animal=animal,
+        form_peso=form_peso,
+        registros_peso=registros_peso,
+        peso_actual=peso_actual,
+    )
+
+@login_required
+def ver_ciclo_animal(animal_id):
+    """Página dedicada para administrar el ciclo reproductivo y ver historial."""
+    animal = Animal.query.get_or_404(animal_id)
+
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=animal.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para ver este animal', 'danger')
+        return redirect(url_for('gestion_animales'))
+
+    try:
+        from forms.ciclo_reproductivo_form import CicloReproductivoForm, CerrarCicloForm
+    except Exception:
+        CicloReproductivoForm = None
+        CerrarCicloForm = None
+
+    form_ciclo = CicloReproductivoForm() if CicloReproductivoForm else None
+    form_cerrar_ciclo = CerrarCicloForm() if CerrarCicloForm else None
+
+    # Ajustar dinámicamente las opciones del tipo de ciclo según catálogo de estados
+    if form_ciclo:
+        try:
+            estados_db = EstadoReproductivo.query.order_by(EstadoReproductivo.descripcion.asc()).all()
+            def _find_label(candidates: set) -> str:
+                for e in estados_db:
+                    if _normalize(e.descripcion) in candidates:
+                        return e.descripcion
+                return None
+            form_ciclo.tipo_ciclo.choices = [
+                ('celo', _find_label({'celo', 'en celo'}) or 'Celo'),
+                ('gestación', _find_label({'gestacion', 'preniez', 'preñez', 'prenada', 'preñada'}) or 'Gestación'),
+                ('lactancia', _find_label({'lactancia', 'lactacion'}) or 'Lactancia'),
+                ('descanso', _find_label({'descanso', 'secado'}) or 'Descanso'),
+            ]
+        except Exception:
+            form_ciclo.tipo_ciclo.choices = [
+                ('celo', 'Celo'),
+                ('gestación', 'Gestación'),
+                ('lactancia', 'Lactancia'),
+                ('descanso', 'Descanso'),
+            ]
+
+    try:
+        ciclo_activo = CicloReproductivo.query.filter_by(id_animal=animal.id_animal, fecha_fin=None).order_by(CicloReproductivo.fecha_inicio.desc()).first()
+    except Exception:
+        ciclo_activo = None
+    try:
+        ciclos_previos = CicloReproductivo.query.filter_by(id_animal=animal.id_animal).order_by(CicloReproductivo.fecha_inicio.desc()).limit(50).all()
+    except Exception:
+        ciclos_previos = []
+
+    def _normalize(text: str) -> str:
+        try:
+            return unicodedata.normalize('NFKD', text).encode('ASCII', 'ignore').decode('ASCII').lower().strip()
+        except Exception:
+            return (text or '').lower().strip()
+
+    def _buscar_estado_reprod_por_desc(desc_lower: str):
+        t = _normalize(desc_lower)
+        key_map = {
+            'preniez': 'gestacion', 'preñez': 'gestacion', 'prenada': 'gestacion', 'preñada': 'gestacion', 'gestacion': 'gestacion',
+            'lactancia': 'lactancia', 'lactacion': 'lactancia',
+            'celo': 'celo', 'en celo': 'celo',
+            'descanso': 'descanso', 'secado': 'descanso',
+        }
+        key = key_map.get(t, t)
+        candidates_map = {
+            'gestacion': {'gestacion', 'preniez', 'preñez', 'prenada', 'preñada'},
+            'lactancia': {'lactancia', 'lactacion'},
+            'celo': {'celo', 'en celo'},
+            'descanso': {'descanso', 'secado'},
+        }
+        candidates = candidates_map.get(key, {key})
+        try:
+            estados = EstadoReproductivo.query.all()
+            for e in estados:
+                if _normalize(e.descripcion) in candidates:
+                    return e
+        except Exception:
+            return None
+        return None
+
+    if request.method == 'POST':
+        target = request.form.get('form_name')
+        if target == 'ciclo_nuevo' and form_ciclo and form_ciclo.validate_on_submit():
+            if ciclo_activo:
+                flash('Ya existe un ciclo activo. Cierre el actual antes de iniciar uno nuevo.', 'warning')
+                return redirect(url_for('animal_ciclo_route', animal_id=animal_id))
+            try:
+                nuevo_ciclo = CicloReproductivo(
+                    id_animal=animal.id_animal,
+                    fecha_inicio=form_ciclo.fecha_inicio.data,
+                    tipo_ciclo=form_ciclo.tipo_ciclo.data,
+                    duracion_esperada=form_ciclo.duracion_esperada.data,
+                    notas=form_ciclo.notas.data,
+                )
+                db.session.add(nuevo_ciclo)
+
+                estado_match = _buscar_estado_reprod_por_desc((form_ciclo.tipo_ciclo.data or '').lower())
+                if estado_match:
+                    db.session.add(HistorialEstadoReproductivo(
+                        id_animal=animal.id_animal,
+                        id_estado_reprod=estado_match.id_estado_reprod,
+                        observaciones=f"Inicio de ciclo {form_ciclo.tipo_ciclo.data}"
+                    ))
+                    try:
+                        if (animal.sexo or '').lower() == 'hembra':
+                            animal.id_estado_reprod = estado_match.id_estado_reprod
+                    except Exception:
+                        pass
+                else:
+                    flash('No se encontró un estado reproductivo correspondiente al tipo de ciclo. Verifique que exista "Gestación", "Lactancia", "Celo" o "Descanso" en el catálogo.', 'warning')
+
+                db.session.commit()
+                registrar_actividad(current_user.id, f"Inició ciclo {form_ciclo.tipo_ciclo.data} en {animal.nombre_animal}")
+                flash('Ciclo reproductivo iniciado.', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error iniciando ciclo: {e}', 'danger')
+            return redirect(url_for('animal_ciclo_route', animal_id=animal_id))
+
+        if target == 'ciclo_cerrar' and form_cerrar_ciclo and form_cerrar_ciclo.validate_on_submit():
+            if not ciclo_activo:
+                flash('No existe un ciclo activo para cerrar.', 'warning')
+                return redirect(url_for('animal_ciclo_route', animal_id=animal_id))
+            try:
+                ciclo_activo.fecha_fin = form_cerrar_ciclo.fecha_fin.data
+                if form_cerrar_ciclo.notas_fin.data:
+                    ciclo_activo.notas = (ciclo_activo.notas or '') + f"\nCierre: {form_cerrar_ciclo.notas_fin.data}"
+
+                estado_descanso = _buscar_estado_reprod_por_desc('descanso')
+                if estado_descanso:
+                    db.session.add(HistorialEstadoReproductivo(
+                        id_animal=animal.id_animal,
+                        id_estado_reprod=estado_descanso.id_estado_reprod,
+                        observaciones=f"Cierre de ciclo: {ciclo_activo.tipo_ciclo}"
+                    ))
+                    try:
+                        if (animal.sexo or '').lower() == 'hembra':
+                            animal.id_estado_reprod = estado_descanso.id_estado_reprod
+                    except Exception:
+                        pass
+
+                db.session.commit()
+                registrar_actividad(current_user.id, f"Cerró ciclo {ciclo_activo.tipo_ciclo} en {animal.nombre_animal}")
+                flash('Ciclo reproductivo cerrado.', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error cerrando ciclo: {e}', 'danger')
+            return redirect(url_for('animal_ciclo_route', animal_id=animal_id))
+
+    return render_template(
+        'dueño/animal_ciclo.html',
+        animal=animal,
+        form_ciclo=form_ciclo,
+        form_cerrar_ciclo=form_cerrar_ciclo,
+        ciclo_activo=ciclo_activo,
+        ciclos_previos=ciclos_previos,
+    )
+
+@login_required
+def ver_salud_animal(animal_id):
+    """Página dedicada para actualizar estado de salud y ver historial."""
+    animal = Animal.query.get_or_404(animal_id)
+
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=animal.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para ver este animal', 'danger')
+        return redirect(url_for('gestion_animales'))
+
+    try:
+        from forms.estado_salud_form import EstadoSaludForm
+    except Exception:
+        EstadoSaludForm = None
+
+    form_salud = EstadoSaludForm() if EstadoSaludForm else None
+
+    estados_salud_choices = []
+    if form_salud:
+        try:
+            estados_salud = EstadoSalud.query.order_by(EstadoSalud.descripcion.asc()).all()
+            estados_salud_choices = [(e.id_estado_salud, e.descripcion) for e in estados_salud]
+            form_salud.id_estado_salud.choices = estados_salud_choices
+        except Exception:
+            form_salud.id_estado_salud.choices = []
+
+    try:
+        historial_salud = HistorialEstadoSalud.query.options(joinedload(HistorialEstadoSalud.estado_salud)).filter_by(id_animal=animal.id_animal).order_by(HistorialEstadoSalud.fecha_cambio.desc()).limit(50).all()
+        estado_salud_actual = historial_salud[0].estado_salud.descripcion if historial_salud and historial_salud[0].estado_salud else None
+    except Exception:
+        historial_salud = []
+        estado_salud_actual = None
+
+    if request.method == 'POST' and form_salud and form_salud.validate_on_submit():
+        try:
+            nuevo_hist = HistorialEstadoSalud(
+                id_animal=animal.id_animal,
+                id_estado_salud=form_salud.id_estado_salud.data,
+                observaciones=form_salud.observaciones.data,
+            )
+            db.session.add(nuevo_hist)
+            db.session.commit()
+            registrar_actividad(current_user.id, f"Actualizó estado de salud de {animal.nombre_animal}")
+            flash('Estado de salud actualizado.', 'success')
+            return redirect(url_for('animal_salud_route', animal_id=animal_id))
+        except Exception as e:
+            db.session.rollback()
+            flash(f'Error actualizando estado de salud: {e}', 'danger')
+
+    return render_template(
+        'dueño/animal_salud.html',
+        animal=animal,
+        form_salud=form_salud,
+        historial_salud=historial_salud,
+        estado_salud_actual=estado_salud_actual,
+        estados_salud_choices=estados_salud_choices,
+    )
 
 @login_required
 def crear_animal():
@@ -882,7 +1982,197 @@ def ver_animal(animal_id):
         flash('No tienes permisos para ver este animal', 'danger')
         return redirect(url_for('gestion_animales'))
     
-    return render_template('dueño/ver_animal.html', animal=animal)
+    # --- Integración de formularios: peso, ciclo reproductivo y estado de salud ---
+    try:
+        from forms.peso_form import RegistroPesoForm
+        from forms.ciclo_reproductivo_form import CicloReproductivoForm, CerrarCicloForm
+        from forms.estado_salud_form import EstadoSaludForm
+    except Exception:
+        RegistroPesoForm = None
+        CicloReproductivoForm = None
+        CerrarCicloForm = None
+        EstadoSaludForm = None
+
+    form_peso = RegistroPesoForm() if RegistroPesoForm else None
+    form_ciclo = CicloReproductivoForm() if CicloReproductivoForm else None
+    form_cerrar_ciclo = CerrarCicloForm() if CerrarCicloForm else None
+    form_salud = EstadoSaludForm() if EstadoSaludForm else None
+
+    # Cargar opciones de estados de salud
+    estados_salud_choices = []
+    if form_salud:
+        try:
+            estados_salud = EstadoSalud.query.order_by(EstadoSalud.descripcion.asc()).all()
+            estados_salud_choices = [(e.id_estado_salud, e.descripcion) for e in estados_salud]
+            form_salud.id_estado_salud.choices = estados_salud_choices
+        except Exception:
+            form_salud.id_estado_salud.choices = []
+
+    # Ciclo activo y últimas entradas
+    try:
+        ciclo_activo = CicloReproductivo.query.filter_by(id_animal=animal.id_animal, fecha_fin=None).order_by(CicloReproductivo.fecha_inicio.desc()).first()
+    except Exception:
+        ciclo_activo = None
+    try:
+        ciclos_previos = CicloReproductivo.query.filter_by(id_animal=animal.id_animal).order_by(CicloReproductivo.fecha_inicio.desc()).limit(10).all()
+    except Exception:
+        ciclos_previos = []
+    try:
+        registros_peso = RegistroPeso.query.filter_by(id_animal=animal.id_animal).order_by(RegistroPeso.fecha_registro.desc()).limit(10).all()
+    except Exception:
+        registros_peso = []
+    try:
+        historial_salud = HistorialEstadoSalud.query.options(joinedload(HistorialEstadoSalud.estado_salud)).filter_by(id_animal=animal.id_animal).order_by(HistorialEstadoSalud.fecha_cambio.desc()).limit(10).all()
+        estado_salud_actual = historial_salud[0].estado_salud.descripcion if historial_salud and historial_salud[0].estado_salud else None
+    except Exception:
+        historial_salud = []
+        estado_salud_actual = None
+
+    def _buscar_estado_reprod_por_desc(desc_lower: str):
+        t = _normalize(desc_lower)
+        key_map = {
+            'preniez': 'gestacion', 'preñez': 'gestacion', 'prenada': 'gestacion', 'preñada': 'gestacion', 'gestacion': 'gestacion',
+            'lactancia': 'lactancia', 'lactacion': 'lactancia',
+            'celo': 'celo', 'en celo': 'celo',
+            'descanso': 'descanso', 'secado': 'descanso',
+        }
+        key = key_map.get(t, t)
+        candidates_map = {
+            'gestacion': {'gestacion', 'preniez', 'preñez', 'prenada', 'preñada'},
+            'lactancia': {'lactancia', 'lactacion'},
+            'celo': {'celo', 'en celo'},
+            'descanso': {'descanso', 'secado'},
+        }
+        candidates = candidates_map.get(key, {key})
+        try:
+            estados = EstadoReproductivo.query.all()
+            for e in estados:
+                if _normalize(e.descripcion) in candidates:
+                    return e
+        except Exception:
+            return None
+        return None
+
+    # Manejo de envíos POST
+    if request.method == 'POST':
+        target = request.form.get('form_name')
+        if target == 'peso' and form_peso and form_peso.validate_on_submit():
+            try:
+                nuevo = RegistroPeso(
+                    id_animal=animal.id_animal,
+                    fecha_registro=form_peso.fecha_registro.data,
+                    peso=form_peso.peso.data,
+                    tipo_momento=form_peso.tipo_momento.data,
+                    notas=form_peso.notas.data,
+                )
+                db.session.add(nuevo)
+                db.session.commit()
+                registrar_actividad(current_user.id, f"Registró peso para {animal.nombre_animal}")
+                flash('Peso registrado correctamente.', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error registrando peso: {e}', 'danger')
+            return redirect(url_for('ver_animal_route', animal_id=animal_id))
+
+        if target == 'ciclo_nuevo' and form_ciclo and form_ciclo.validate_on_submit():
+            if ciclo_activo:
+                flash('Ya existe un ciclo activo. Cierre el actual antes de iniciar uno nuevo.', 'warning')
+                return redirect(url_for('ver_animal_route', animal_id=animal_id))
+            try:
+                nuevo_ciclo = CicloReproductivo(
+                    id_animal=animal.id_animal,
+                    fecha_inicio=form_ciclo.fecha_inicio.data,
+                    tipo_ciclo=form_ciclo.tipo_ciclo.data,
+                    duracion_esperada=form_ciclo.duracion_esperada.data,
+                    notas=form_ciclo.notas.data,
+                )
+                db.session.add(nuevo_ciclo)
+
+                estado_match = _buscar_estado_reprod_por_desc((form_ciclo.tipo_ciclo.data or '').lower())
+                if estado_match:
+                    db.session.add(HistorialEstadoReproductivo(
+                        id_animal=animal.id_animal,
+                        id_estado_reprod=estado_match.id_estado_reprod,
+                        observaciones=f"Inicio de ciclo {form_ciclo.tipo_ciclo.data}"
+                    ))
+                    try:
+                        if (animal.sexo or '').lower() == 'hembra':
+                            animal.id_estado_reprod = estado_match.id_estado_reprod
+                    except Exception:
+                        pass
+                else:
+                    flash('No se encontró un estado reproductivo correspondiente al tipo de ciclo. Verifique que exista "Gestación", "Lactancia", "Celo" o "Descanso" en el catálogo.', 'warning')
+
+                db.session.commit()
+                registrar_actividad(current_user.id, f"Inició ciclo {form_ciclo.tipo_ciclo.data} en {animal.nombre_animal}")
+                flash('Ciclo reproductivo iniciado.', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error iniciando ciclo: {e}', 'danger')
+            return redirect(url_for('ver_animal_route', animal_id=animal_id))
+
+        if target == 'ciclo_cerrar' and form_cerrar_ciclo and form_cerrar_ciclo.validate_on_submit():
+            if not ciclo_activo:
+                flash('No existe un ciclo activo para cerrar.', 'warning')
+                return redirect(url_for('ver_animal_route', animal_id=animal_id))
+            try:
+                ciclo_activo.fecha_fin = form_cerrar_ciclo.fecha_fin.data
+                if form_cerrar_ciclo.notas_fin.data:
+                    ciclo_activo.notas = (ciclo_activo.notas or '') + f"\nCierre: {form_cerrar_ciclo.notas_fin.data}"
+
+                estado_descanso = _buscar_estado_reprod_por_desc('descanso')
+                if estado_descanso:
+                    db.session.add(HistorialEstadoReproductivo(
+                        id_animal=animal.id_animal,
+                        id_estado_reprod=estado_descanso.id_estado_reprod,
+                        observaciones=f"Cierre de ciclo: {ciclo_activo.tipo_ciclo}"
+                    ))
+                    try:
+                        if (animal.sexo or '').lower() == 'hembra':
+                            animal.id_estado_reprod = estado_descanso.id_estado_reprod
+                    except Exception:
+                        pass
+
+                db.session.commit()
+                registrar_actividad(current_user.id, f"Cerró ciclo {ciclo_activo.tipo_ciclo} en {animal.nombre_animal}")
+                flash('Ciclo reproductivo cerrado.', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error cerrando ciclo: {e}', 'danger')
+            return redirect(url_for('ver_animal_route', animal_id=animal_id))
+
+        if target == 'salud_estado' and form_salud and form_salud.validate_on_submit():
+            try:
+                nuevo_hist = HistorialEstadoSalud(
+                    id_animal=animal.id_animal,
+                    id_estado_salud=form_salud.id_estado_salud.data,
+                    observaciones=form_salud.observaciones.data,
+                )
+                db.session.add(nuevo_hist)
+                db.session.commit()
+                registrar_actividad(current_user.id, f"Actualizó estado de salud de {animal.nombre_animal}")
+                flash('Estado de salud actualizado.', 'success')
+            except Exception as e:
+                db.session.rollback()
+                flash(f'Error actualizando estado de salud: {e}', 'danger')
+            return redirect(url_for('ver_animal_route', animal_id=animal_id))
+
+    return render_template(
+        'dueño/ver_animal.html',
+        animal=animal,
+        # UI extendida
+        form_peso=form_peso,
+        registros_peso=registros_peso,
+        peso_actual=(float(registros_peso[0].peso or 0) if registros_peso else None),
+        form_ciclo=form_ciclo,
+        form_cerrar_ciclo=form_cerrar_ciclo,
+        ciclo_activo=ciclo_activo,
+        ciclos_previos=ciclos_previos,
+        form_salud=form_salud,
+        historial_salud=historial_salud,
+        estado_salud_actual=estado_salud_actual,
+        estados_salud_choices=estados_salud_choices,
+    )
 
 
 # --- Genealogía ---
@@ -1187,27 +2477,85 @@ def obtener_animales_por_sexo(sexo):
             return jsonify({'error': 'No tienes permisos para acceder a esta finca'}), 403
         query = query.filter(Animal.id_finca == finca_id)
     else:
-        # Limitar a las fincas del usuario si no se especifica una
-        if finca_ids_usuario:
-            query = query.filter(Animal.id_finca.in_(finca_ids_usuario))
-        else:
-            return jsonify([])
+        # Requerir explícitamente la finca para garantizar que solo se traen animales de esa finca
+        return jsonify({'error': 'Parámetro finca_id es requerido'}), 400
 
     # Filtro por raza
     if raza_id:
         query = query.filter(Animal.id_raza == raza_id)
 
     # Filtro por fecha de nacimiento máxima
+    fecha_max = None
     if fecha_max_str:
         try:
             from datetime import datetime
             fecha_max = datetime.strptime(fecha_max_str, '%Y-%m-%d').date()
+            # El candidato debe haber nacido antes que la fecha de nacimiento del hijo
             query = query.filter(Animal.fecha_nacimiento <= fecha_max)
         except Exception:
             # Si la fecha no es válida, ignorar el filtro
-            pass
+            fecha_max = None
 
     animales = query.all()
+
+    # Reglas adicionales de madurez para candidatos a padre/madre
+    try:
+        from datetime import date as _date
+        hoy = _date.today()
+        edad_hijo_dias = 0
+        if fecha_max:
+            try:
+                edad_hijo_dias = max(0, (hoy - fecha_max).days)
+            except Exception:
+                edad_hijo_dias = 0
+
+        sexo_lower = (sexo or '').strip().lower()
+
+        if sexo_lower == 'macho':
+            # Padre: madurez del macho + edad del hijo (consistente con validación de formulario)
+            def _padre_apto(animal_local):
+                try:
+                    if not animal_local.fecha_nacimiento:
+                        return False
+                    edad_padre_dias = (hoy - animal_local.fecha_nacimiento).days
+                    umbral_meses = None
+                    try:
+                        umbral_meses = int(getattr(animal_local.raza, 'madurez_sexual_machos_meses', None) or 0)
+                    except Exception:
+                        umbral_meses = 0
+                    if not umbral_meses or umbral_meses <= 0:
+                        umbral_meses = 12
+                    umbral_dias = umbral_meses * 30
+                    requerido = umbral_dias + edad_hijo_dias
+                    return edad_padre_dias >= requerido
+                except Exception:
+                    return False
+
+            animales = [a for a in animales if _padre_apto(a)]
+        elif sexo_lower == 'hembra':
+            # Madre: madurez de hembra + edad del hijo + 260 días (gestación)
+            def _madre_apta(animal_local):
+                try:
+                    if not animal_local.fecha_nacimiento:
+                        return False
+                    edad_madre_dias = (hoy - animal_local.fecha_nacimiento).days
+                    umbral_meses = None
+                    try:
+                        umbral_meses = int(getattr(animal_local.raza, 'madurez_sexual_hembras_meses', None) or 0)
+                    except Exception:
+                        umbral_meses = 0
+                    if not umbral_meses or umbral_meses <= 0:
+                        umbral_meses = 12
+                    umbral_dias = umbral_meses * 30
+                    requerido = umbral_dias + edad_hijo_dias + 260
+                    return edad_madre_dias >= requerido
+                except Exception:
+                    return False
+
+            animales = [a for a in animales if _madre_apta(a)]
+    except Exception:
+        # Si algo falla en el cálculo, mantener el listado sin filtrar adicionalmente
+        pass
 
     animales_json = [{
         'id': animal.id_animal,
@@ -1216,3 +2564,38 @@ def obtener_animales_por_sexo(sexo):
     } for animal in animales]
 
     return jsonify(animales_json)
+
+@login_required
+def api_existe_nombre_animal():
+    """Verifica si ya existe un animal con el nombre indicado.
+    Si se proporciona `finca_id`, se limita a esa finca (validando permisos).
+    Si no, se limita a las fincas del usuario actual.
+    """
+    nombre = (request.args.get('nombre') or '').strip()
+    finca_id = request.args.get('finca_id', type=int)
+
+    if not nombre:
+        return jsonify({'success': False, 'message': 'nombre requerido'}), 400
+
+    # Query por nombre (case-insensitive)
+    q = Animal.query.filter(func.lower(Animal.nombre_animal) == nombre.lower())
+
+    if finca_id:
+        # Validar acceso a la finca
+        relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=finca_id).first()
+        if not relacion and current_user.tipo_usuario != 3:
+            return jsonify({'success': False, 'message': 'Sin permisos'}), 403
+        q = q.filter(Animal.id_finca == finca_id)
+    else:
+        # Limitar a fincas del usuario cuando no se especifica finca
+        try:
+            fincas_usuario_ids = [f.id_finca for f in Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()]
+        except Exception:
+            fincas_usuario_ids = []
+        if fincas_usuario_ids:
+            q = q.filter(Animal.id_finca.in_(fincas_usuario_ids))
+        else:
+            return jsonify({'success': True, 'exists': False})
+
+    exists = q.first() is not None
+    return jsonify({'success': True, 'exists': exists})

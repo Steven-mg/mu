@@ -10,10 +10,29 @@
         box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
     }
     .animal-header {
-        background: linear-gradient(to right, var(--primary-color), var(--secondary-color));
-        color: white;
-        padding: 20px;
+        padding: 0;
+        overflow: hidden;
+        border-top-left-radius: 15px;
+        border-top-right-radius: 15px;
     }
+    /* Barra superior dividida: izquierda verde (nombre/sexo), derecha clara (botones) */
+    .animal-header-bar {
+        display: grid;
+        grid-template-columns: minmax(260px, 0.38fr) 1fr;
+        align-items: center;
+    }
+    .animal-header-left {
+        background-color: #1f8f54; /* verde principal */
+        color: #fff;
+        padding: 16px 20px;
+    }
+    .animal-header-right {
+        background-color: #e9ecef; /* gris más notable */
+        color: #343a40;
+        padding: 14px 20px;
+        border-left: 1px solid #d6d9dc; /* leve separación */
+    }
+    .animal-header-right .btn { margin-right: .5rem; }
     .animal-body {
         padding: 30px;
     }
@@ -42,6 +61,12 @@
         background-color: #e83e8c;
         color: white;
     }
+    /* Unificar estilo de botones: mismos bordes y peso que los de abajo */
+    .action-btn {
+        border-radius: 10px;
+        font-weight: 600;
+        box-shadow: 0 3px 6px rgba(0,0,0,0.08);
+    }
 </style>
 {% endblock %}
 
@@ -53,32 +78,34 @@
 
 {% block content %}
 <div class="container py-4">
+    <div id="productos"></div>
     {# Breadcrumb eliminado para quitar rutas visibles #}
 
     <div class="card animal-card">
         <div class="animal-header">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
+            <div class="animal-header-bar">
+                <div class="animal-header-left">
                     <h3 class="mb-1">{{ animal.nombre_animal }}</h3>
                     <span class="sexo-badge {% if animal.sexo == 'Macho' %}sexo-macho{% else %}sexo-hembra{% endif %}">
                         {{ animal.sexo }}
                     </span>
                 </div>
-                <div>
-                    <a href="{{ url_for('procedimientos_animal_route', animal_id=animal.id_animal) }}" class="btn btn-primary btn-sm me-2">
-                        <i class="fas fa-stethoscope me-1"></i>Procedimientos
-                    </a>
-                    <a href="{{ url_for('genealogia_animal_route', animal_id=animal.id_animal) }}" class="btn btn-genealogia btn-sm me-2">
+                <div class="animal-header-right">
+                    <a href="{{ url_for('genealogia_animal_route', animal_id=animal.id_animal) }}" class="btn btn-outline-secondary action-btn btn-sm">
                         <i class="fas fa-sitemap me-1"></i>Genealogía
                     </a>
-                    <a href="{{ url_for('documentos_geneticos_route', animal_id=animal.id_animal) }}" class="btn btn-info btn-sm me-2">
+                    <a href="{{ url_for('documentos_geneticos_route', animal_id=animal.id_animal) }}" class="btn btn-outline-info action-btn btn-sm">
                         <i class="fas fa-dna me-1"></i>Genética
                     </a>
-                    <a href="{{ url_for('editar_animal_route', animal_id=animal.id_animal) }}" class="btn btn-warning btn-sm">
+                    <a href="{{ url_for('animal_graficos_route', animal_id=animal.id_animal) }}" class="btn btn-outline-primary action-btn btn-sm">
+                        <i class="fas fa-chart-line me-1"></i>Gráficos
+                    </a>
+                    <a href="{{ url_for('editar_animal_route', animal_id=animal.id_animal) }}" class="btn btn-outline-warning action-btn btn-sm">
                         <i class="fas fa-edit me-1"></i>Editar
                     </a>
                     <form method="POST" action="{{ url_for('eliminar_animal_route', animal_id=animal.id_animal) }}" style="display: inline;" onsubmit="return confirm('¿Estás seguro de que deseas eliminar este animal?');">
-                        <button type="submit" class="btn btn-danger btn-sm">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                        <button type="submit" class="btn btn-outline-danger action-btn btn-sm">
                             <i class="fas fa-trash me-1"></i>Eliminar
                         </button>
                     </form>
@@ -112,11 +139,15 @@
                         <div class="detail-label">Origen</div>
                         <div>{{ animal.origen or 'No especificado' }}</div>
                     </div>
+                    <div class="detail-row">
+                        <div class="detail-label">Peso actual</div>
+                        <div>{{ '%.2f'|format(peso_actual|float) if peso_actual is not none else 'Sin registro' }}</div>
+                    </div>
                 </div>
                 <div class="col-md-6">
                     <div class="detail-row">
                         <div class="detail-label">Estado Reproductivo</div>
-                        <div>{{ animal.estado_reprod.descripcion if animal.estado_reprod else 'No especificado' }}</div>
+                        <div>{{ animal.estado_reproductivo.descripcion if animal.estado_reproductivo else 'No especificado' }}</div>
                     </div>
                     <div class="detail-row">
                         <div class="detail-label">Padre</div>
@@ -136,6 +167,25 @@
                 </div>
             </div>
             
+            <!-- Botones dedicados: Peso / Ciclo / Salud -->
+            <div class="row mt-4 g-3">
+                <div class="col-lg-4">
+                    <a href="{{ url_for('animal_peso_route', animal_id=animal.id_animal) }}" class="btn btn-outline-success action-btn w-100 py-3">
+                        <i class="fas fa-weight me-2"></i>Peso
+                    </a>
+                </div>
+                <div class="col-lg-4">
+                    <a href="{{ url_for('animal_ciclo_route', animal_id=animal.id_animal) }}" class="btn btn-outline-primary action-btn w-100 py-3">
+                        <i class="fas fa-venus-mars me-2"></i>Ciclo
+                    </a>
+                </div>
+                <div class="col-lg-4">
+                    <a href="{{ url_for('animal_salud_route', animal_id=animal.id_animal) }}" class="btn btn-outline-info action-btn w-100 py-3">
+                        <i class="fas fa-heartbeat me-2"></i>Salud
+                    </a>
+                </div>
+            </div>
+
             <div class="d-flex justify-content-between mt-4">
                 <a href="{{ url_for('gestion_animales') }}" class="btn btn-secondary">
                     <i class="fas fa-arrow-left me-1"></i>Volver a la lista

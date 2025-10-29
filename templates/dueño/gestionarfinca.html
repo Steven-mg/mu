@@ -211,7 +211,13 @@
                     <div class="row" id="listaPotreros">
                         {% if potreros %}
                             {% for potrero in potreros %}
-                            <div class="col-md-4 mb-4">
+                            <div class="col-md-4 mb-4 potrero-item"
+                                 data-id="{{ potrero.id_potrero }}"
+                                 data-nombre="{{ potrero.nombre_potrero }}"
+                                 data-estado="{{ (potrero.estado or '')|lower }}"
+                                 data-area="{{ potrero.extension or 0 }}"
+                                 data-capacidad="{{ potrero.capacidad_animal or 0 }}"
+                                 data-ultimo="{{ ultimo_uso_map.get(potrero.id_potrero, '') }}">
                                 <div class="card potrero-card">
                                     <div class="card-header d-flex justify-content-between align-items-center">
                                         <h5 class="mb-0">{{ potrero.nombre_potrero }}</h5>
@@ -375,11 +381,14 @@
         const labels = {{ chart_labels|tojson }};
         const capacidad = {{ chart_capacidad|tojson }};
         const ocupacion = {{ chart_ocupacion|tojson }};
+        // Mapa de ocupación por nombre para reuso en filtros
+        window.__ocupacionPorNombre = {};
+        labels.forEach((n, i) => { window.__ocupacionPorNombre[n] = (ocupacion[i] || 0); });
     
         // Pie chart: Uso de potreros
         if (document.getElementById('chartUsoPotreros')) {
             const ctxUso = document.getElementById('chartUsoPotreros').getContext('2d');
-            new Chart(ctxUso, {
+            window.chartUsoPotreros = new Chart(ctxUso, {
                 type: 'pie',
                 data: {
                     labels: ['Disponible', 'Ocupado', 'En descanso'],
@@ -405,7 +414,7 @@
         // Bar chart: Capacidad vs Ocupación
         if (document.getElementById('chartCapacidadOcupacion')) {
             const ctxCap = document.getElementById('chartCapacidadOcupacion').getContext('2d');
-            new Chart(ctxCap, {
+            window.chartCapacidadOcupacion = new Chart(ctxCap, {
                 type: 'bar',
                 data: {
                     labels: labels,
@@ -431,7 +440,8 @@
                             color: (ctx) => {
                                 const i = ctx.dataIndex;
                                 const v = ctx.raw;
-                                return v > (capacidad[i] || 0) ? '#e74c3c' : '#333333';
+                                const caps = ctx.chart.data.datasets[0].data || [];
+                                return v > (caps[i] || 0) ? '#e74c3c' : '#333333';
                             },
                             font: { weight: 'bold' }
                         }
@@ -483,21 +493,128 @@
                 .catch(error => console.error('Error al cargar las fincas:', error));
         }
 
-        // Funcionalidad para filtrar potreros
-        document.getElementById('buscarPotrero').addEventListener('input', function(e) {
-            // Aquí iría la lógica para filtrar potreros por nombre
-            console.log('Buscando: ' + e.target.value);
-        });
+        // --- Filtros funcionales ---
+        const inputBuscar = document.getElementById('buscarPotrero');
+        const selectEstado = document.getElementById('filtroEstado');
+        const selectOrden = document.getElementById('ordenarPor');
+        const contenedorLista = document.getElementById('listaPotreros');
 
-        document.getElementById('filtroEstado').addEventListener('change', function(e) {
-            // Aquí iría la lógica para filtrar potreros por estado
-            console.log('Filtrando por estado: ' + e.target.value);
-        });
+        function normalizar(s){
+            return (s || '').toString().toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        }
 
-        document.getElementById('ordenarPor').addEventListener('change', function(e) {
-            // Aquí iría la lógica para ordenar potreros
-            console.log('Ordenando por: ' + e.target.value);
-        });
+        function esOcupado(nombre){
+            const n = window.__ocupacionPorNombre?.[nombre] || 0;
+            return n > 0;
+        }
+
+        function coincideEstado(item, filtro){
+            if (!filtro) return true;
+            const nombre = item.dataset.nombre || '';
+            const estado = (item.dataset.estado || '').toLowerCase();
+            switch(filtro){
+                case 'disponible':
+                    // Activo sin ocupación
+                    return estado === 'activo' && !esOcupado(nombre);
+                case 'ocupado':
+                    // Activo con ocupación
+                    return estado === 'activo' && esOcupado(nombre);
+                case 'en descanso':
+                    return estado === 'descanso';
+                case 'en mantenimiento':
+                    return estado === 'mantenimiento';
+                default:
+                    return true;
+            }
+        }
+
+        function compararPor(a, b, clave){
+            const va = a.dataset[clave] || '';
+            const vb = b.dataset[clave] || '';
+            if (clave === 'nombre'){
+                const na = normalizar(va), nb = normalizar(vb);
+                return na.localeCompare(nb);
+            }
+            if (clave === 'ultimo'){
+                const pa = Date.parse(va) || 0;
+                const pb = Date.parse(vb) || 0;
+                return pb - pa; // más reciente primero
+            }
+            // numéricos
+            const na = parseFloat(va) || 0;
+            const nb = parseFloat(vb) || 0;
+            return nb - na; // descendente
+        }
+
+        function actualizarGraficasDesdeVisibles(){
+            if (!window.chartCapacidadOcupacion && !window.chartUsoPotreros) return;
+            const items = Array.from(contenedorLista.querySelectorAll('.potrero-item')).filter(i => !i.classList.contains('d-none'));
+            const labels = items.map(i => i.dataset.nombre || '');
+            const caps = items.map(i => parseInt(i.dataset.capacidad || '0'));
+            const ocup = labels.map(n => window.__ocupacionPorNombre?.[n] || 0);
+
+            // Actualizar Capacidad vs Ocupación
+            if (window.chartCapacidadOcupacion){
+                const ch = window.chartCapacidadOcupacion;
+                ch.data.labels = labels;
+                ch.data.datasets[0].data = caps;
+                ch.data.datasets[1].data = ocup;
+                ch.data.datasets[1].backgroundColor = ocup.map((n, i) => n > (caps[i] || 0) ? 'rgba(255, 99, 132, 0.7)' : 'rgba(255, 193, 7, 0.7)');
+                ch.update();
+            }
+
+            // Recalcular uso: disponible, ocupado, descanso
+            let disp = 0, ocu = 0, desc = 0;
+            items.forEach(i => {
+                const est = (i.dataset.estado || '').toLowerCase();
+                const nom = i.dataset.nombre || '';
+                if (est === 'descanso') desc++;
+                else if (est === 'activo') {
+                    if (esOcupado(nom)) ocu++; else disp++;
+                }
+            });
+            if (window.chartUsoPotreros){
+                const ch = window.chartUsoPotreros;
+                ch.data.datasets[0].data = [disp, ocu, desc];
+                ch.update();
+            }
+        }
+
+        function aplicarFiltros(){
+            const texto = normalizar(inputBuscar.value);
+            const filtro = (selectEstado.value || '').toLowerCase();
+            const items = Array.from(contenedorLista.querySelectorAll('.potrero-item'));
+            items.forEach(item => {
+                const nombre = normalizar(item.dataset.nombre);
+                const visible = nombre.includes(texto) && coincideEstado(item, filtro);
+                item.classList.toggle('d-none', !visible);
+            });
+
+            // Ordenar sólo los visibles
+            const criterio = selectOrden.value;
+            const visibles = items.filter(i => !i.classList.contains('d-none'));
+            visibles.sort((a,b) => {
+                switch(criterio){
+                    case 'nombre': return compararPor(a,b,'nombre');
+                    case 'area': return compararPor(a,b,'area');
+                    case 'capacidad': return compararPor(a,b,'capacidad');
+                    case 'ultimo_uso': return compararPor(a,b,'ultimo');
+                    default: return 0;
+                }
+            });
+            // Reinsertar en orden
+            const fragment = document.createDocumentFragment();
+            visibles.forEach(el => fragment.appendChild(el));
+            contenedorLista.appendChild(fragment);
+
+            actualizarGraficasDesdeVisibles();
+        }
+
+        inputBuscar.addEventListener('input', aplicarFiltros);
+        selectEstado.addEventListener('change', aplicarFiltros);
+        selectOrden.addEventListener('change', aplicarFiltros);
+        // Ejecutar al cargar para respetar estado inicial
+        aplicarFiltros();
 
         // Guardar nuevo potrero
         document.getElementById('btnGuardarPotrero').addEventListener('click', function() {

@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 
-{% block title %}Gestión de Producción{% endblock %}
+{% block title %}Producción por Finca{% endblock %}
 
 {% block sidebar %}
 {% include 'components/sidebar_dueno.html' %}
@@ -8,19 +8,12 @@
 
 {% block extra_css %}
 <style>
-    .owner-header { background: #28a745; color: white; padding: 20px; border-radius: 10px; box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
-    .finca-card { border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.1); transition: all 0.2s ease; margin-bottom: 20px; border: 1px solid #e9ecef; background: #ffffff; }
-    .finca-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); transform: translateY(-2px); }
-    .finca-header { background: #28a745; color: white; padding: 12px 16px; font-weight: 600; }
-    .finca-body { padding: 16px; }
-    .finca-footer { padding: 12px 16px; background-color: #f8f9fa; border-top: 1px solid #e9ecef; }
-    .finca-action-btn { border-radius: 6px; font-weight: 500; }
-
-    .column-header { display: flex; align-items: center; justify-content: space-between; }
-    .sexo-title { font-weight: 700; }
-    .sexo-hembras { color: #e83e8c; }
-    .sexo-machos { color: #0d6efd; }
-    .tabla-compacta thead th { white-space: nowrap; }
+  .owner-header { background: #28a745; color: white; padding: 20px; border-radius: 10px; box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+  .column-header { display: flex; align-items: center; justify-content: space-between; }
+  .sexo-title { font-weight: 700; }
+  .sexo-hembras { color: #e83e8c; }
+  .sexo-machos { color: #0d6efd; }
+  .tabla-compacta thead th { white-space: nowrap; }
 </style>
 {% endblock %}
 
@@ -34,60 +27,48 @@
         <!-- Encabezado -->
         <div class="owner-header mb-4 d-flex justify-content-between align-items-center">
           <div>
-            <h2 class="h4 mb-1"><i class="fas fa-chart-line me-2"></i> Gestión de Producción</h2>
-            <p class="mb-0">Selecciona una finca y revisa sus animales por sexo</p>
+            <h2 class="h4 mb-1"><i class="fas fa-chart-line me-2"></i> Producción por Finca</h2>
+            <p class="mb-0">Información de hembras y machos para la finca seleccionada</p>
           </div>
-          <div class="d-flex gap-2">
-            <a href="{{ url_for('dashboard_dueno') }}" class="btn btn-light btn-sm"><i class="fas fa-home me-1"></i> Dashboard</a>
-            <a href="{{ url_for('gestion_animales') }}" class="btn btn-outline-light btn-sm"><i class="fas fa-cow me-1"></i> Ganado</a>
+          <div class="d-flex align-items-center gap-2">
+            <a href="{{ url_for('gestion_produccion_route') }}" class="btn btn-light btn-sm"><i class="fas fa-arrow-left me-1"></i> Volver</a>
+            <!-- Filtros -->
+            <form method="get" action="{{ url_for('gestion_produccion_finca_route', finca_id=finca.id_finca) }}" class="d-flex align-items-center gap-2">
+              <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="fas fa-venus-mars"></i></span>
+                <select name="sexo" class="form-select form-select-sm">
+                  <option value="" {% if sexo_selected == 'todos' %}selected{% endif %}>Todos</option>
+                  <option value="Hembra" {% if sexo_selected == 'Hembra' %}selected{% endif %}>Hembras</option>
+                  <option value="Macho" {% if sexo_selected == 'Macho' %}selected{% endif %}>Machos</option>
+                </select>
+              </div>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="fas fa-heartbeat"></i></span>
+                <select name="maduros" class="form-select form-select-sm">
+                  <option value="0" {% if not maduros_selected %}selected{% endif %}>Todos</option>
+                  <option value="1" {% if maduros_selected %}selected{% endif %}>Solo maduros</option>
+                </select>
+              </div>
+              <div class="input-group input-group-sm">
+                <span class="input-group-text"><i class="fas fa-dna"></i></span>
+                <select name="raza_id" class="form-select form-select-sm">
+                  <option value="" {% if not raza_selected %}selected{% endif %}>Todas las razas</option>
+                  {% for r in razas %}
+                  <option value="{{ r.id_raza }}" {% if raza_selected == r.id_raza %}selected{% endif %}>{{ r.nombre_raza }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+              <button type="submit" class="btn btn-outline-light btn-sm"><i class="fas fa-filter me-1"></i> Filtrar</button>
+            </form>
           </div>
         </div>
 
-        <!-- Selector de Finca -->
-        <div class="mb-4">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h4 class="mb-0">Mis Fincas</h4>
-          </div>
-          <div class="row">
-            {% if fincas %}
-              {% for finca_item in fincas %}
-              <div class="col-md-6 col-lg-4 mb-3">
-                <div class="card finca-card">
-                  <div class="finca-header">
-                    <h5 class="mb-0">{{ finca_item.nombre_finca }}</h5>
-                  </div>
-                  <div class="finca-body">
-                    <p><i class="fas fa-map-marker-alt me-2 text-success"></i> {{ finca_item.localizacion or 'No especificada' }}</p>
-                    <p><i class="fas fa-user me-2 text-success"></i> {{ finca_item.nombreEncargado or 'No especificado' }}</p>
-                    <p><i class="fas fa-phone me-2 text-success"></i> {{ finca_item.telefono or 'No especificado' }}</p>
-                  </div>
-                  <div class="finca-footer d-flex justify-content-start gap-2">
-                    <a href="{{ url_for('gestion_produccion_finca_route', finca_id=finca_item.id_finca) }}" class="btn btn-outline-success btn-sm finca-action-btn">
-                      <i class="fas fa-chart-line me-1"></i> Revisar Producción
-                    </a>
-                  </div>
-                </div>
-              </div>
-              {% endfor %}
-            {% else %}
-              <div class="col-12">
-                <div class="alert alert-info">
-                  <i class="fas fa-info-circle me-2"></i> No tienes fincas registradas. ¡Agrega tu primera finca!
-                </div>
-              </div>
-            {% endif %}
-          </div>
-        </div>
-
-        {% if finca %}
         <!-- Resumen de Finca Seleccionada -->
         <div class="card mb-3">
           <div class="card-header bg-success text-white">
             <div class="d-flex justify-content-between align-items-center">
               <strong>{{ finca.nombre_finca }}</strong>
-              <div>
-                <a href="{{ url_for('ver_animales_finca_route', finca_id=finca.id_finca) }}" class="btn btn-light btn-sm"><i class="fas fa-list me-1"></i> Ver animales</a>
-              </div>
+              <div></div>
             </div>
           </div>
           <div class="card-body">
@@ -98,6 +79,8 @@
             </div>
           </div>
         </div>
+
+        <!-- Sección de productos disponibles eliminada según solicitud -->
 
         <!-- Columnas por sexo -->
         <div class="row">
@@ -128,8 +111,7 @@
                         <td>{{ a.nombre_animal }}</td>
                         <td>{{ a.raza.nombre_raza if a.raza else 'Sin raza' }}</td>
                         <td class="text-end">
-                          <a href="{{ url_for('ver_animal_route', animal_id=a.id_animal) }}" class="btn btn-info btn-sm"><i class="fas fa-eye me-1"></i> Ver</a>
-                          <a href="{{ url_for('animal_consumo_route', animal_id=a.id_animal) }}" class="btn btn-outline-primary btn-sm ms-1"><i class="fas fa-utensils me-1"></i> Productos</a>
+                          <a href="{{ url_for('animal_consumo_route', animal_id=a.id_animal) }}" class="btn btn-outline-primary btn-sm"><i class="fas fa-utensils me-1"></i> Productos</a>
                           <a href="{{ url_for('animal_produccion_route', animal_id=a.id_animal) }}" class="btn btn-outline-success btn-sm ms-1"><i class="fas fa-list me-1"></i> Ver Producción</a>
                         </td>
                       </tr>
@@ -170,8 +152,7 @@
                         <td>{{ a.nombre_animal }}</td>
                         <td>{{ a.raza.nombre_raza if a.raza else 'Sin raza' }}</td>
                         <td class="text-end">
-                          <a href="{{ url_for('ver_animal_route', animal_id=a.id_animal) }}" class="btn btn-info btn-sm"><i class="fas fa-eye me-1"></i> Ver</a>
-                          <a href="{{ url_for('animal_consumo_route', animal_id=a.id_animal) }}" class="btn btn-outline-primary btn-sm ms-1"><i class="fas fa-utensils me-1"></i> Productos</a>
+                          <a href="{{ url_for('animal_consumo_route', animal_id=a.id_animal) }}" class="btn btn-outline-primary btn-sm"><i class="fas fa-utensils me-1"></i> Productos</a>
                           <a href="{{ url_for('animal_produccion_route', animal_id=a.id_animal) }}" class="btn btn-outline-success btn-sm ms-1"><i class="fas fa-list me-1"></i> Ver Producción</a>
                         </td>
                       </tr>
@@ -186,7 +167,6 @@
             </div>
           </div>
         </div>
-        {% endif %}
 
       </div>
     </div>
@@ -197,7 +177,7 @@
 {% block extra_js %}
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    console.log('Gestión de Producción cargada');
+    console.log('Producción por Finca cargada');
   });
 </script>
 {% endblock %}

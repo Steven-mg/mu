@@ -1,0 +1,199 @@
+{% extends 'base.html' %}
+
+{% block title %}Biológicos del Animal{% endblock %}
+
+{% block sidebar %}
+{% include 'components/sidebar_dueno.html' %}
+{% endblock %}
+
+{% block navbar %}{% include 'components/navbar.html' %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .tab-header { display: flex; gap: .5rem; margin-bottom: 1rem; }
+  .tab-header .btn { border-radius: 20px; }
+  .form-section { border: 1px solid #e9ecef; border-radius: 8px; padding: 16px; }
+  .note { font-size: .9rem; color: #6c757d; }
+  .selector-group { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+  .selector-group .search-input { border-radius: 8px; }
+  .selector-group .form-select { border-radius: 8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="fas fa-vial me-2"></i>Biológicos - {{ animal.nombre_animal }}</h3>
+    <div>
+      <a href="{{ url_for('ver_animal_route', animal_id=animal.id_animal) }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i> Volver</a>
+    </div>
+  </div>
+
+  {% if inmaduro %}
+  <div class="alert alert-warning">Este animal puede ser sexualmente inmaduro según raza/edad.</div>
+  {% endif %}
+
+  <div class="tab-header">
+    <a href="#tab-sexual" class="btn btn-primary btn-sm" onclick="showTab('sexual'); return false;">Sexual</a>
+    <a href="#tab-semen" class="btn btn-info btn-sm" onclick="showTab('semen'); return false;">Semen</a>
+    <a href="#tab-embrion" class="btn btn-success btn-sm" onclick="showTab('embrion'); return false;">Embriones</a>
+    <a href="#tab-producto" class="btn btn-secondary btn-sm" onclick="showTab('producto'); return false;">Producto biológico</a>
+  </div>
+
+  <div id="tab-sexual" class="form-section">
+    <h5 class="mb-3"><i class="fas fa-heartbeat me-2"></i> Servicio Sexual</h5>
+    <form method="POST">
+      <input type="hidden" name="form_name" value="sexual" />
+      {{ form_sexual.csrf_token }}
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Tipo</label>
+          {{ form_sexual.id_servicioanimal(class='form-select') }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Profesional</label>
+          {{ form_sexual.id_veterinario(class='form-select') }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Fecha</label>
+          {{ form_sexual.fecha_servicio(class='form-control') }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Próxima fecha</label>
+          {{ form_sexual.fecha_proximo(class='form-control') }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Costo</label>
+          {{ form_sexual.costo_total(class='form-control', placeholder='0.00') }}
+        </div>
+        <div class="col-12">
+          <label class="form-label">Notas</label>
+          {{ form_sexual.notas_servicio(class='form-control', rows='3') }}
+        </div>
+      </div>
+      <div class="mt-3">
+        {{ form_sexual.submit(class='btn btn-primary') }}
+      </div>
+    </form>
+  </div>
+  
+  <div id="tab-producto" class="form-section" style="display:none;">
+    <h5 class="mb-3"><i class="fas fa-prescription-bottle-alt me-2"></i> Registrar Producto Biológico</h5>
+    <form method="POST">
+      <input type="hidden" name="form_name" value="biologico_producto" />
+      {{ form_producto.csrf_token }}
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Producto</label>
+          {{ form_producto.id_producto(class='form-select', id='id_producto_bio') }}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Cantidad</label>
+          {{ form_producto.cantidad(class='form-control', placeholder='Cantidad') }}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Fecha</label>
+          {{ form_producto.fecha(class='form-control') }}
+        </div>
+        <div class="col-12">
+          <label class="form-label">Notas</label>
+          {{ form_producto.notas_produccion(class='form-control', rows='3') }}
+        </div>
+      </div>
+      <div class="mt-3">
+        {{ form_producto.submit(class='btn btn-secondary') }}
+      </div>
+    </form>
+  </div>
+
+  <div id="tab-semen" class="form-section" style="display:none;">
+    <h5 class="mb-3"><i class="fas fa-vial me-2"></i> Manejo de Semen</h5>
+    <form method="POST">
+      <input type="hidden" name="form_name" value="semen" />
+      {{ form_semen.csrf_token }}
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Tipo</label>
+          {{ form_semen.id_servicioanimal(class='form-select') }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Profesional</label>
+          {{ form_semen.id_veterinario(class='form-select') }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Fecha</label>
+          {{ form_semen.fecha_servicio(class='form-control') }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Próxima fecha</label>
+          {{ form_semen.fecha_proximo(class='form-control') }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Costo</label>
+          {{ form_semen.costo_total(class='form-control', placeholder='0.00') }}
+        </div>
+        <div class="col-12">
+          <label class="form-label">Notas</label>
+          {{ form_semen.notas_servicio(class='form-control', rows='3') }}
+        </div>
+      </div>
+      <div class="mt-3">
+        {{ form_semen.submit(class='btn btn-info') }}
+      </div>
+    </form>
+  </div>
+
+  <div id="tab-embrion" class="form-section" style="display:none;">
+    <h5 class="mb-3"><i class="fas fa-baby me-2"></i> Manejo de Embriones</h5>
+    <form method="POST">
+      <input type="hidden" name="form_name" value="embrion" />
+      {{ form_embrion.csrf_token }}
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Tipo</label>
+          {{ form_embrion.id_servicioanimal(class='form-select') }}
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Profesional</label>
+          {{ form_embrion.id_veterinario(class='form-select') }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Fecha</label>
+          {{ form_embrion.fecha_servicio(class='form-control') }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Próxima fecha</label>
+          {{ form_embrion.fecha_proximo(class='form-control') }}
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Costo</label>
+          {{ form_embrion.costo_total(class='form-control', placeholder='0.00') }}
+        </div>
+        <div class="col-12">
+          <label class="form-label">Notas</label>
+          {{ form_embrion.notas_servicio(class='form-control', rows='3') }}
+        </div>
+      </div>
+      <div class="mt-3">
+        {{ form_embrion.submit(class='btn btn-success') }}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function showTab(name) {
+    const tabs = {
+      sexual: document.getElementById('tab-sexual'),
+      semen: document.getElementById('tab-semen'),
+      embrion: document.getElementById('tab-embrion'),
+      producto: document.getElementById('tab-producto'),
+    };
+    Object.keys(tabs).forEach(k => { tabs[k].style.display = (k === name) ? 'block' : 'none'; });
+  }
+  // Buscador eliminado: las opciones ya vienen filtradas por sexo/estado.
+  document.addEventListener('DOMContentLoaded', function(){ showTab('sexual'); });
+</script>
+{% endblock %}

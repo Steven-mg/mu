@@ -1,0 +1,116 @@
+{% extends 'base.html' %}
+
+{% block title %}Gráficos del Animal{% endblock %}
+
+{% block sidebar %}
+{% include 'components/sidebar_dueno.html' %}
+{% endblock %}
+
+{% block navbar %}{% include 'components/navbar.html' %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .header { background: #0d6efd; color: #fff; padding: 16px; border-radius: 10px; box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
+  .status-badge { border-radius: 20px; padding: .25rem .6rem; font-size: .85rem; }
+  .status-badge.normal { background-color: #e9f2ff; color: #0d6efd; }
+  .status-badge.bajo { background-color: #fdecea; color: #dc3545; }
+  .status-badge.alto { background-color: #fff3cd; color: #b8860b; }
+  .page-actions .btn { border-radius: 6px; }
+  .chart-card { border: 1px solid #e9ecef; border-radius: 8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="header mb-3 d-flex justify-content-between align-items-center">
+    <div>
+      <h2 class="h5 mb-1"><i class="fas fa-chart-line me-2"></i> Gráficos - {{ animal.nombre_animal }}</h2>
+      <div class="small">ID {{ animal.id_animal }}{% if animal.raza %} · {{ animal.raza.nombre_raza }}{% endif %}</div>
+    </div>
+    <div class="page-actions d-flex gap-2">
+      {% if leche_estado_msg %}
+        <span class="status-badge {{ leche_estado_tipo }}">{{ leche_estado_msg }}</span>
+      {% endif %}
+      <a href="{{ url_for('ver_animal_route', animal_id=animal.id_animal) }}" class="btn btn-light btn-sm"><i class="fas fa-arrow-left me-1"></i> Volver</a>
+    </div>
+  </div>
+
+  <!-- Solo gráficos -->
+  <div class="card chart-card">
+    <div class="card-header bg-primary text-white"><i class="fas fa-chart-area me-2"></i> Producción de Leche por Día</div>
+    <div class="card-body" style="min-height: 320px;">
+      {% if leche_labels and leche_labels|length > 0 %}
+        <canvas id="lecheChart" height="160"></canvas>
+      {% else %}
+        <div class="text-center text-muted py-4">
+          <i class="fas fa-info-circle me-2"></i> No hay registros de leche para graficar.
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const labels = {{ leche_labels|tojson }};
+    const values = {{ leche_values|tojson }};
+    const umMin = {{ leche_umbral_min|tojson }};
+    const umNorm = {{ leche_umbral_norm|tojson }};
+
+    if (labels && labels.length > 0) {
+      const ctx = document.getElementById('lecheChart').getContext('2d');
+      const len = labels.length;
+      const minSeries = Array(len).fill(umMin || null);
+      const normSeries = Array(len).fill(umNorm || null);
+
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [
+            {
+              label: 'Leche (litros)',
+              data: values,
+              borderColor: '#198754',
+              backgroundColor: 'rgba(25, 135, 84, 0.15)',
+              tension: 0.2,
+              fill: true,
+            },
+            {
+              label: 'Mínimo raza',
+              data: minSeries,
+              borderColor: '#dc3545',
+              borderDash: [6, 6],
+              pointRadius: 0,
+              fill: false,
+            },
+            {
+              label: 'Normal raza',
+              data: normSeries,
+              borderColor: '#0d6efd',
+              borderDash: [6, 6],
+              pointRadius: 0,
+              fill: false,
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: {
+            y: { beginAtZero: true, title: { display: true, text: 'Litros por día' } },
+            x: { title: { display: true, text: 'Fecha' } }
+          },
+          plugins: {
+            legend: { position: 'bottom' },
+            tooltip: { mode: 'index', intersect: false }
+          }
+        }
+      });
+    }
+  });
+</script>
+{% endblock %}

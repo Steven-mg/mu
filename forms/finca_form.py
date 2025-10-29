@@ -1,6 +1,6 @@
 from flask_wtf import FlaskForm
-from wtforms import StringField, SubmitField, EmailField
-from wtforms.validators import DataRequired, Length, Email, ValidationError
+from wtforms import StringField, SubmitField, EmailField, SelectField
+from wtforms.validators import DataRequired, Length, Email, ValidationError, Optional
 from modelo.models import Finca
 
 class FincaForm(FlaskForm):
@@ -8,7 +8,7 @@ class FincaForm(FlaskForm):
     localizacion = StringField('Localización', validators=[Length(max=100)])
     correo = EmailField('Correo Electrónico', validators=[DataRequired(), Email()])
     telefono = StringField('Teléfono', validators=[Length(max=15)])
-    nombreEncargado = StringField('Nombre del Encargado', validators=[Length(max=40)])
+    nombreEncargado = SelectField('Nombre del Encargado', choices=[], validators=[Optional(), Length(max=40)], validate_choice=False)
     pais = StringField('País', validators=[Length(max=50)])
     departamento = StringField('Departamento', validators=[Length(max=50)])
     ciudad = StringField('Ciudad/Localidad', validators=[Length(max=50)])

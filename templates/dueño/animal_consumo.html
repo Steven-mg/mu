@@ -1,0 +1,139 @@
+{% extends 'base.html' %}
+
+{% block title %}Productos del Animal{% endblock %}
+
+{% block sidebar %}
+{% include 'components/sidebar_dueno.html' %}
+{% endblock %}
+
+{% block navbar %}{% include 'components/navbar.html' %}{% endblock %}
+
+{% block extra_css %}
+<style>
+  .tab-header { display: flex; gap: .5rem; margin-bottom: 1rem; }
+  .tab-header .btn { border-radius: 20px; }
+  .form-section { border: 1px solid #e9ecef; border-radius: 8px; padding: 16px; }
+  .selector-group { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+  .selector-group .search-input { border-radius: 8px; }
+  .selector-group .form-select { border-radius: 8px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0"><i class="fas fa-utensils me-2"></i>Productos - {{ animal.nombre_animal }}</h3>
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('gestion_produccion_route') }}" class="btn btn-outline-secondary btn-sm"><i class="fas fa-arrow-left me-1"></i> Volver</a>
+      <a href="{{ url_for('animal_produccion_route', animal_id=animal.id_animal) }}" class="btn btn-success btn-sm"><i class="fas fa-list me-1"></i> Ver Producción</a>
+    </div>
+  </div>
+
+  <div class="tab-header">
+    <a href="#tab-sexuales" class="btn btn-primary btn-sm" onclick="showTab('sexuales'); return false;">Sexuales</a>
+    <a href="#tab-consumibles" class="btn btn-success btn-sm" onclick="showTab('consumibles'); return false;">Consumibles</a>
+  </div>
+  <div id="tab-sexuales" class="form-section">
+    <h5 class="mb-3"><i class="fas fa-heartbeat me-2"></i> Registrar Producto Sexual</h5>
+    <form method="POST">
+      <input type="hidden" name="form_name" value="sexual_producto" />
+      {{ form_sexualprod.csrf_token }}
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Producto</label>
+          <select class="form-select" id="id_producto_sexual" name="id_producto">
+            <option value="">Seleccione un producto</option>
+            {% for p in productos_sexuales %}
+              <option value="{{ p.id_producto }}" data-tipo="{{ p.tipo_cantidad }}" data-nombre="{{ p.nombre_producto|lower }}">{{ p.nombre_producto }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Cantidad <small id="unidad-sexual" class="text-muted"></small></label>
+          {{ form_sexualprod.cantidad(class='form-control', placeholder='Cantidad') }}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Fecha</label>
+          {{ form_sexualprod.fecha(class='form-control') }}
+        </div>
+        <div class="col-12">
+          <label class="form-label">Notas</label>
+          {{ form_sexualprod.notas_produccion(class='form-control', rows='3') }}
+        </div>
+      </div>
+      <div class="mt-3">
+        {{ form_sexualprod.submit(class='btn btn-primary', value='Guardar Sexual') }}
+      </div>
+    </form>
+  </div>
+
+  <div id="tab-consumibles" class="form-section" style="display:none;">
+    <h5 class="mb-3"><i class="fas fa-box-open me-2"></i> Registrar Consumible</h5>
+    <form method="POST">
+      <input type="hidden" name="form_name" value="consumible" />
+      {{ form_consumo.csrf_token }}
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label">Producto</label>
+          <select class="form-select" id="id_producto" name="id_producto">
+            <option value="">Seleccione un producto</option>
+            {% for p in productos_consumibles %}
+              <option value="{{ p.id_producto }}" data-tipo="{{ p.tipo_cantidad }}" data-nombre="{{ p.nombre_producto|lower }}">{{ p.nombre_producto }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Cantidad <small id="unidad-cons" class="text-muted"></small></label>
+          {{ form_consumo.cantidad(class='form-control', placeholder='Cantidad') }}
+        </div>
+        <div class="col-md-3">
+          <label class="form-label">Fecha</label>
+          {{ form_consumo.fecha(class='form-control') }}
+        </div>
+        <div class="col-12">
+          <label class="form-label">Notas</label>
+          {{ form_consumo.notas_produccion(class='form-control', rows='3') }}
+        </div>
+      </div>
+      <div class="mt-3">
+        {{ form_consumo.submit(class='btn btn-success') }}
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  function showTab(name) {
+    const sexuales = document.getElementById('tab-sexuales');
+    const cons = document.getElementById('tab-consumibles');
+    sexuales.style.display = (name === 'sexuales') ? 'block' : 'none';
+    cons.style.display = (name === 'consumibles') ? 'block' : 'none';
+  }
+  // Buscador eliminado: los productos ya vienen filtrados por el backend.
+  function actualizarUnidad(selectEl, unidadElId) {
+    const opt = selectEl.options[selectEl.selectedIndex];
+    const tipo = opt ? parseInt(opt.getAttribute('data-tipo') || '0', 10) : 0;
+    const nombre = opt ? (opt.getAttribute('data-nombre') || '') : '';
+    let unidad = '';
+    if (tipo === 1) unidad = '(litros)';
+    else if (tipo === 2) unidad = '(lb)';
+    else if (tipo === 3) {
+      if (nombre.includes('semen')) unidad = '(provetas)';
+      else unidad = '(unidades)';
+    }
+    const el = document.getElementById(unidadElId);
+    if (el) el.textContent = unidad;
+  }
+  document.addEventListener('DOMContentLoaded', function(){
+    showTab('consumibles');
+    const selCons = document.getElementById('id_producto');
+    const selSex = document.getElementById('id_producto_sexual');
+    if (selCons) selCons.addEventListener('change', function(){ actualizarUnidad(selCons, 'unidad-cons'); });
+    if (selSex) selSex.addEventListener('change', function(){ actualizarUnidad(selSex, 'unidad-sexual'); });
+    if (selCons) actualizarUnidad(selCons, 'unidad-cons');
+    if (selSex) actualizarUnidad(selSex, 'unidad-sexual');
+  });
+</script>
+{% endblock %}
