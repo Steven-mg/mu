@@ -14,6 +14,12 @@
         align-items: center;
         margin-bottom: 1rem;
     }
+    .page-header .filters{
+        display: flex;
+        align-items: center;
+        gap: .75rem;
+    }
+    .finca-select{ min-width: 220px; }
     .table thead th { white-space: nowrap; }
     .badge-sexo { font-size: 0.85rem; }
 </style>
@@ -23,7 +29,18 @@
 <div class="container-fluid">
     <div class="page-header">
         <h3 class="mb-0">Animales fuera de todas tus fincas</h3>
-        <div class="btn-group">
+        <div class="filters">
+            {% if fincas %}
+            <form method="get" id="filtroFincaForm" class="d-flex align-items-center">
+                <label for="finca_id" class="form-label mb-0 me-2">Finca</label>
+                <select id="finca_id" name="finca_id" class="form-select form-select-sm finca-select" onchange="document.getElementById('filtroFincaForm').submit()">
+                    <option value="">Todas</option>
+                    {% for f in fincas %}
+                    <option value="{{ f.id_finca }}" {% if selected_finca_id == f.id_finca %}selected{% endif %}>{{ f.nombre_finca }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% endif %}
             <a href="{{ url_for('gestion_animales') }}" class="btn btn-outline-secondary">
                 <i class="fas fa-arrow-left me-2"></i> Volver a Gestión
             </a>

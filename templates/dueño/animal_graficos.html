@@ -10,44 +10,159 @@
 
 {% block extra_css %}
 <style>
-  .header { background: #0d6efd; color: #fff; padding: 16px; border-radius: 10px; box-shadow: 0 6px 12px rgba(0,0,0,0.1); }
-  .status-badge { border-radius: 20px; padding: .25rem .6rem; font-size: .85rem; }
+  .header { background: #0d6efd; color: #fff; padding: 16px; border-radius: 10px; box-shadow: 0 6px 12px rgba(0,0,0,0.1); position: sticky; top: 0; left: 0; right: 0; z-index: 1030; }
+  .status-badge { border-radius: 16px; padding: .35rem .7rem; font-size: .86rem; box-shadow: 0 2px 6px rgba(0,0,0,0.12); }
   .status-badge.normal { background-color: #e9f2ff; color: #0d6efd; }
   .status-badge.bajo { background-color: #fdecea; color: #dc3545; }
   .status-badge.alto { background-color: #fff3cd; color: #b8860b; }
+  .page-actions { flex-wrap: wrap; row-gap: .5rem; }
   .page-actions .btn { border-radius: 6px; }
+  .filters { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem .75rem; }
+  .filters input[type="date"] { width: 170px; }
+  .filters label { white-space: nowrap; }
   .chart-card { border: 1px solid #e9ecef; border-radius: 8px; }
+  /* Hacer el gráfico de intervalos más compacto */
+  .narrow-card { max-width: 900px; margin: 0 auto; }
+  /* Estética del header al anclar */
+  .header { backdrop-filter: saturate(140%) brightness(105%); }
+  /* Evitar desplazamiento lateral del bloque de filtros en pantallas pequeñas */
+  .header .filters { position: relative; }
+  .header .form-select.form-select-sm { min-width: 110px; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container py-4">
   <div class="header mb-3 d-flex justify-content-between align-items-center">
-    <div>
+    <div class="me-3">
       <h2 class="h5 mb-1"><i class="fas fa-chart-line me-2"></i> Gráficos - {{ animal.nombre_animal }}</h2>
       <div class="small">ID {{ animal.id_animal }}{% if animal.raza %} · {{ animal.raza.nombre_raza }}{% endif %}</div>
     </div>
-    <div class="page-actions d-flex gap-2">
-      {% if leche_estado_msg %}
+    <div class="page-actions d-flex gap-2 align-items-center w-100 justify-content-end">
+      {% if leche_estado_msg and chart_type == 'leche' and (animal.sexo or '').lower() == 'hembra' %}
         <span class="status-badge {{ leche_estado_tipo }}">{{ leche_estado_msg }}</span>
       {% endif %}
+
+      <!-- Selector tipo de gráfico -->
+      <form class="d-flex align-items-center gap-2" method="get" action="{{ url_for('animal_graficos_route', animal_id=animal.id_animal) }}">
+        {% if fecha_inicio %}<input type="hidden" name="inicio" value="{{ fecha_inicio }}">{% endif %}
+        {% if fecha_fin %}<input type="hidden" name="fin" value="{{ fecha_fin }}">{% endif %}
+        {% if fecha_inicio_leche %}<input type="hidden" name="inicio_leche" value="{{ fecha_inicio_leche }}">{% endif %}
+        {% if fecha_fin_leche %}<input type="hidden" name="fin_leche" value="{{ fecha_fin_leche }}">{% endif %}
+        {% if fecha_inicio_peso %}<input type="hidden" name="inicio_peso" value="{{ fecha_inicio_peso }}">{% endif %}
+        {% if fecha_fin_peso %}<input type="hidden" name="fin_peso" value="{{ fecha_fin_peso }}">{% endif %}
+        <label class="text-white-50 small mb-0">Gráfico</label>
+        <select name="chart" class="form-select form-select-sm" onchange="this.form.submit()">
+          {% if (animal.sexo or '').lower() == 'hembra' %}
+            <option value="leche" {{ 'selected' if chart_type == 'leche' else '' }}>Leche</option>
+          {% endif %}
+          <option value="peso" {{ 'selected' if chart_type == 'peso' else '' }}>Peso</option>
+        </select>
+      </form>
+
+      <!-- Filtro superior: depende del gráfico seleccionado -->
+      <form class="filters" method="get" action="{{ url_for('animal_graficos_route', animal_id=animal.id_animal) }}">
+        <!-- Preservar filtros de los otros bloques -->
+        {% if fecha_inicio %}<input type="hidden" name="inicio" value="{{ fecha_inicio }}">{% endif %}
+        {% if fecha_fin %}<input type="hidden" name="fin" value="{{ fecha_fin }}">{% endif %}
+        <input type="hidden" name="chart" value="{{ chart_type }}">
+
+        {% if chart_type == 'leche' and (animal.sexo or '').lower() == 'hembra' %}
+          <label for="inicio_leche" class="text-white-50 small mb-0">Desde</label>
+          <input type="date" id="inicio_leche" name="inicio_leche" class="form-control form-control-sm" value="{{ fecha_inicio_leche }}">
+          <label for="fin_leche" class="text-white-50 small mb-0">Hasta</label>
+          <input type="date" id="fin_leche" name="fin_leche" class="form-control form-control-sm" value="{{ fecha_fin_leche }}">
+          <button type="submit" class="btn btn-light btn-sm"><i class="fas fa-filter me-1"></i>Aplicar</button>
+          <a href="{{ url_for('animal_graficos_route', animal_id=animal.id_animal, inicio=fecha_inicio, fin=fecha_fin, chart='leche') }}" class="btn btn-outline-light btn-sm">Limpiar</a>
+        {% else %}
+          <label for="inicio_peso" class="text-white-50 small mb-0">Desde</label>
+          <input type="date" id="inicio_peso" name="inicio_peso" class="form-control form-control-sm" value="{{ fecha_inicio_peso }}">
+          <label for="fin_peso" class="text-white-50 small mb-0">Hasta</label>
+          <input type="date" id="fin_peso" name="fin_peso" class="form-control form-control-sm" value="{{ fecha_fin_peso }}">
+          <button type="submit" class="btn btn-light btn-sm"><i class="fas fa-filter me-1"></i>Aplicar</button>
+          <a href="{{ url_for('animal_graficos_route', animal_id=animal.id_animal, inicio=fecha_inicio, fin=fecha_fin, chart='peso') }}" class="btn btn-outline-light btn-sm">Limpiar</a>
+        {% endif %}
+      </form>
+
       <a href="{{ url_for('ver_animal_route', animal_id=animal.id_animal) }}" class="btn btn-light btn-sm"><i class="fas fa-arrow-left me-1"></i> Volver</a>
     </div>
   </div>
 
-  <!-- Solo gráficos -->
+  <!-- Gráfico superior: Leche (solo hembras) o Peso -->
   <div class="card chart-card">
-    <div class="card-header bg-primary text-white"><i class="fas fa-chart-area me-2"></i> Producción de Leche por Día</div>
-    <div class="card-body" style="min-height: 320px;">
-      {% if leche_labels and leche_labels|length > 0 %}
-        <canvas id="lecheChart" height="160"></canvas>
+    {% if chart_type == 'leche' and (animal.sexo or '').lower() == 'hembra' %}
+      <div class="card-header bg-primary text-white"><i class="fas fa-chart-area me-2"></i> Producción de Leche por Día</div>
+      <div class="card-body" style="min-height: 320px;">
+        {% if leche_labels and leche_labels|length > 0 %}
+          <canvas id="lecheChart" height="160"></canvas>
+        {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="fas fa-info-circle me-2"></i> No hay registros de leche para graficar.
+          </div>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="card-header bg-success text-white"><i class="fas fa-weight-hanging me-2"></i> Peso del Animal</div>
+      <div class="card-body" style="min-height: 320px;">
+        {% if peso_labels and peso_labels|length > 0 %}
+          <canvas id="pesoChart" height="160"></canvas>
+        {% else %}
+          <div class="text-center text-muted py-4">
+            <i class="fas fa-info-circle me-2"></i> No hay registros de peso para graficar.
+          </div>
+        {% endif %}
+      </div>
+    {% endif %}
+  </div>
+
+  <!-- Filtro pequeño: para los demás gráficos (Crías/Intervalos) -->
+  <div class="card chart-card mt-2">
+    <div class="card-header bg-info text-white"><i class="fas fa-filter me-2"></i> Filtro para los demás gráficos</div>
+    <div class="card-body py-2">
+      <form class="d-flex align-items-center gap-2" method="get" action="{{ url_for('animal_graficos_route', animal_id=animal.id_animal) }}">
+        <!-- Mantener el rango de leche cuando se aplique este filtro -->
+        {% if fecha_inicio_leche %}<input type="hidden" name="inicio_leche" value="{{ fecha_inicio_leche }}">{% endif %}
+        {% if fecha_fin_leche %}<input type="hidden" name="fin_leche" value="{{ fecha_fin_leche }}">{% endif %}
+        <label for="inicio" class="text-muted small mb-0">Desde</label>
+        <input type="date" id="inicio" name="inicio" class="form-control form-control-sm" value="{{ fecha_inicio }}">
+        <label for="fin" class="text-muted small mb-0">Hasta</label>
+        <input type="date" id="fin" name="fin" class="form-control form-control-sm" value="{{ fecha_fin }}">
+        <button type="submit" class="btn btn-outline-info btn-sm"><i class="fas fa-filter me-1"></i>Aplicar</button>
+        <a href="{{ url_for('animal_graficos_route', animal_id=animal.id_animal, inicio_leche=fecha_inicio_leche, fin_leche=fecha_fin_leche) }}" class="btn btn-info btn-sm">Limpiar</a>
+      </form>
+    </div>
+  </div>
+
+  <!-- Crías por año -->
+  <div class="card chart-card mt-4">
+    <div class="card-header bg-success text-white"><i class="fas fa-cow me-2"></i> Crías por Año</div>
+    <div class="card-body" style="min-height: 300px;">
+      {% if crias_labels and crias_labels|length > 0 %}
+        <canvas id="criasChart" height="140"></canvas>
       {% else %}
         <div class="text-center text-muted py-4">
-          <i class="fas fa-info-circle me-2"></i> No hay registros de leche para graficar.
+          <i class="fas fa-info-circle me-2"></i> No hay crías registradas en el rango seleccionado.
         </div>
       {% endif %}
     </div>
   </div>
+
+  <!-- Intervalos entre partos: solo hembras -->
+  {% if (animal.sexo or '').lower() == 'hembra' %}
+  <div class="card chart-card mt-4 narrow-card">
+    <div class="card-header bg-warning"><i class="fas fa-ruler-horizontal me-2"></i> Intervalo entre Partos (días)</div>
+    <div class="card-body" style="min-height: 300px;">
+      {% if intervalo_values and intervalo_values|length > 0 %}
+        <div class="mb-2 small">Promedio: <strong>{{ intervalo_promedio }} días</strong></div>
+        <canvas id="intervalosChart" height="120"></canvas>
+      {% else %}
+        <div class="text-center text-muted py-4">
+          <i class="fas fa-info-circle me-2"></i> No se pueden calcular intervalos (se requieren al menos dos partos).
+        </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
 
@@ -55,61 +170,177 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
+    const chartType = {{ chart_type|tojson }};
     const labels = {{ leche_labels|tojson }};
     const values = {{ leche_values|tojson }};
     const umMin = {{ leche_umbral_min|tojson }};
     const umNorm = {{ leche_umbral_norm|tojson }};
+    const pesoLabels = {{ peso_labels|tojson }};
+    const pesoValues = {{ peso_values|tojson }};
+    // Gráfico superior: leche o peso
+    if (chartType === 'leche') {
+      if (labels && labels.length > 0 && document.getElementById('lecheChart')) {
+        const ctx = document.getElementById('lecheChart').getContext('2d');
+        const len = labels.length;
+        const minSeries = Array(len).fill(umMin || null);
+        const normSeries = Array(len).fill(umNorm || null);
 
-    if (labels && labels.length > 0) {
-      const ctx = document.getElementById('lecheChart').getContext('2d');
-      const len = labels.length;
-      const minSeries = Array(len).fill(umMin || null);
-      const normSeries = Array(len).fill(umNorm || null);
-
-      new Chart(ctx, {
-        type: 'line',
-        data: {
-          labels,
-          datasets: [
-            {
-              label: 'Leche (litros)',
-              data: values,
-              borderColor: '#198754',
-              backgroundColor: 'rgba(25, 135, 84, 0.15)',
-              tension: 0.2,
-              fill: true,
+        new Chart(ctx, {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              {
+                label: 'Leche (litros)',
+                data: values,
+                borderColor: '#198754',
+                backgroundColor: 'rgba(25, 135, 84, 0.15)',
+                tension: 0.2,
+                fill: true,
+              },
+              {
+                label: 'Mínimo raza',
+                data: minSeries,
+                borderColor: '#dc3545',
+                borderDash: [6, 6],
+                pointRadius: 0,
+                fill: false,
+              },
+              {
+                label: 'Normal raza',
+                data: normSeries,
+                borderColor: '#0d6efd',
+                borderDash: [6, 6],
+                pointRadius: 0,
+                fill: false,
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { beginAtZero: true, title: { display: true, text: 'Litros por día' } },
+              x: { title: { display: true, text: 'Fecha' } }
             },
-            {
-              label: 'Mínimo raza',
-              data: minSeries,
-              borderColor: '#dc3545',
-              borderDash: [6, 6],
-              pointRadius: 0,
-              fill: false,
-            },
-            {
-              label: 'Normal raza',
-              data: normSeries,
-              borderColor: '#0d6efd',
-              borderDash: [6, 6],
-              pointRadius: 0,
-              fill: false,
+            plugins: {
+              legend: { position: 'bottom' },
+              tooltip: { mode: 'index', intersect: false }
             }
-          ]
+          }
+        });
+      }
+    } else {
+      if (pesoLabels && pesoLabels.length > 0 && document.getElementById('pesoChart')) {
+        const pesoCanvas = document.getElementById('pesoChart');
+        const ctxPeso = pesoCanvas.getContext('2d');
+        // Gradiente suave (verde, similar al de leche)
+        const h = 200;
+        const gradientPeso = ctxPeso.createLinearGradient(0, 0, 0, h);
+        gradientPeso.addColorStop(0, 'rgba(25, 135, 84, 0.35)');
+        gradientPeso.addColorStop(1, 'rgba(25, 135, 84, 0.05)');
+        new Chart(ctxPeso, {
+          type: 'line',
+          data: {
+            labels: pesoLabels,
+            datasets: [{
+              label: 'Peso (kg)',
+              data: pesoValues,
+              borderColor: '#198754',
+              backgroundColor: gradientPeso,
+              tension: 0.25,
+              fill: true,
+              pointRadius: 3,
+              pointHoverRadius: 5,
+              pointBackgroundColor: '#198754',
+              pointBorderColor: '#fff',
+              borderWidth: 2,
+              spanGaps: true,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { beginAtZero: true, title: { display: true, text: 'Kilogramos' }, grid: { color: 'rgba(0,0,0,0.06)' } },
+              x: { title: { display: true, text: 'Fecha' }, grid: { color: 'rgba(0,0,0,0.03)' } }
+            },
+            plugins: {
+              legend: { position: 'bottom' },
+              tooltip: { mode: 'index', intersect: false }
+            }
+          }
+        });
+      }
+    }
+
+    // Crías por año (barras)
+    const criasLabels = {{ crias_labels|tojson }};
+    const criasValues = {{ crias_values|tojson }};
+    if (criasLabels && criasLabels.length > 0) {
+      const ctxCrias = document.getElementById('criasChart').getContext('2d');
+      new Chart(ctxCrias, {
+        type: 'bar',
+        data: {
+          labels: criasLabels,
+          datasets: [{
+            label: 'Crías registradas',
+            data: criasValues,
+            backgroundColor: 'rgba(13, 110, 253, 0.35)',
+            borderColor: '#0d6efd',
+            borderWidth: 1,
+            categoryPercentage: 0.7,
+            barPercentage: 0.8,
+          }]
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
           scales: {
-            y: { beginAtZero: true, title: { display: true, text: 'Litros por día' } },
-            x: { title: { display: true, text: 'Fecha' } }
+            y: { beginAtZero: true, title: { display: true, text: 'Crías' }, ticks: { stepSize: 1, callback: (v) => Number.isInteger(v) ? v : '' } },
+            x: { title: { display: true, text: 'Año' }, grid: { display: false }, offset: true }
           },
-          plugins: {
-            legend: { position: 'bottom' },
-            tooltip: { mode: 'index', intersect: false }
-          }
+          plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: (ctx) => `Crías: ${ctx.parsed.y}` } } }
         }
       });
+    }
+
+    // Intervalos entre partos (línea)
+    const intLabels = {{ intervalo_labels|tojson }};
+    const intValues = {{ intervalo_values|tojson }};
+    if (intLabels && intLabels.length > 0) {
+      const elInt = document.getElementById('intervalosChart');
+      if (elInt) {
+        const ctxInt = elInt.getContext('2d');
+        new Chart(ctxInt, {
+          type: 'line',
+          data: {
+            labels: intLabels,
+            datasets: [{
+              label: 'Días entre partos',
+              data: intValues,
+              borderColor: '#b8860b',
+              backgroundColor: 'rgba(184, 134, 11, 0.2)',
+              tension: 0.25,
+              fill: true,
+              pointRadius: 3,
+              pointHoverRadius: 5,
+              spanGaps: true,
+            }]
+          },
+          options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+              y: { beginAtZero: true, title: { display: true, text: 'Días' } },
+              x: { title: { display: true, text: 'Intervalo (fecha→fecha)' }, ticks: { autoSkip: true, maxRotation: 0 }, grid: { display: false }, offset: true }
+            },
+            plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: (ctx) => `Intervalo: ${ctx.parsed.y} días` } } },
+            elements: { line: { borderWidth: 2 } },
+            layout: { padding: { left: 8, right: 8 } }
+        }
+        });
+      }
     }
   });
 </script>

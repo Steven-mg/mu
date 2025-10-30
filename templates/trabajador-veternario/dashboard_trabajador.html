@@ -3,8 +3,13 @@
 {% block title %}Panel de Trabajador - GanaControl{% endblock %}
 
 {% block page_css %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}" media="print" onload="this.media='all'">
+<noscript>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+</noscript>
 {% endblock %}
+
+{% block extra_css %}{% endblock %}
 
 {% block sidebar %}
 {% include 'components/sidebar_trabajador.html' %}
@@ -16,7 +21,7 @@
 <div class="container-fluid">
     <div class="row">
         <!-- Main Content -->
-        <main class="px-md-4 py-4">
+        <div class="content-col col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
             <!-- Header -->
             <div class="owner-header">
                 <h1 class="h2 mb-0">Panel de Trabajador</h1>
@@ -183,7 +188,7 @@
                     </div>
                 </div>
             </div>
-        </main>
+        </div>
     </div>
-}</div>
+</div>
 {% endblock %}

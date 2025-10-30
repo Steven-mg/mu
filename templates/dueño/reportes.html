@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% block title %}Reportes | Dueño de Finca{% endblock %}
+
+{% block page_css %}
+<style>
+  /* Ajustes de cabecera y tarjetas */
+  .owner-header { background: linear-gradient(90deg, #28a745, #2ecc71); color: white; border-radius: 10px; padding: 16px 20px; box-shadow: 0 4px 8px rgba(0,0,0,0.08); }
+  .owner-header h1 { font-size: 22px; margin: 0; }
+  .owner-header .subtitle { font-size: 13px; opacity: 0.9; }
+
+  /* Barra de filtros sticky debajo del navbar */
+  .filter-bar { position: sticky; top: 8px; z-index: 1010; background: #ffffff; border: 1px solid #e9ecef; border-radius: 10px; padding: 12px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+  .filter-bar .form-select, .filter-bar .form-control { border-radius: 8px; }
+  .filter-actions .btn { border-radius: 8px; }
+
+  .report-card { border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+  .report-card .card-header { background: #f8f9fa; }
+
+  .placeholder { color: #6c757d; }
+  .sticky-actions { position: sticky; bottom: 12px; z-index: 1005; }
+  .sticky-actions .btn { border-radius: 8px; }
+  .badge-role { background: #fff; color: #28a745; border: 1px solid #28a745; }
+</style>
+{% endblock %}
+
+{% block sidebar %}
+  {% include 'components/sidebar_dueno.html' %}
+{% endblock %}
+
+{% block content %}
+
+  <div class="container-fluid py-3">
+    <div class="owner-header mb-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <h1 class="mb-1">Mis Reportes</h1>
+          <div class="subtitle">Genera reportes sobre tus fincas, animales y producción.</div>
+        </div>
+        <div class="d-none d-md-block">
+          <span class="badge badge-role">Dueño de Finca</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-bar mb-3">
+      <form id="reportFilters" class="row g-2 align-items-end">
+        <div class="col-12 col-md-4">
+          <label class="form-label mb-1">Tipo de reporte</label>
+          <select class="form-select" name="reporte_tipo" required>
+            {% for r in reportes_def %}
+              <option value="{{ r.id }}">{{ r.nombre }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label mb-1">Desde</label>
+          <input type="date" class="form-control" name="desde">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label mb-1">Hasta</label>
+          <input type="date" class="form-control" name="hasta">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label mb-1">Finca</label>
+          <select class="form-select" name="finca_id">
+            <option value="0">Todas mis fincas</option>
+            {% for f in fincas %}
+              <option value="{{ f.id_finca }}">{{ f.nombre_finca }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 d-flex gap-2 filter-actions">
+          <button type="button" id="btnApply" class="btn btn-success"><i class="bi bi-funnel me-1"></i>Aplicar</button>
+          <button type="reset" class="btn btn-outline-secondary">Limpiar</button>
+          <div class="ms-auto d-flex gap-2">
+            <button type="button" id="btnTopPdf" class="btn btn-outline-primary"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+            <button type="button" id="btnTopExcel" class="btn btn-outline-primary"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="card report-card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div><i class="bi bi-graph-up-arrow me-2"></i>Vista previa</div>
+        <small class="text-muted">Ajusta filtros para ver resultados</small>
+      </div>
+      <div class="card-body" id="previewContainer">
+        <div class="placeholder">Esta es la vista inicial de reportes para dueños. Próximamente se mostrarán tablas y gráficos según el tipo de reporte seleccionado.</div>
+      </div>
+    </div>
+
+    <div class="sticky-actions mt-3 d-flex gap-2 justify-content-end">
+      <button type="button" id="btnBottomPdf" class="btn btn-outline-primary"><i class="bi bi-file-earmark-pdf me-1"></i>Exportar PDF</button>
+      <button type="button" id="btnBottomExcel" class="btn btn-outline-primary"><i class="bi bi-file-earmark-excel me-1"></i>Exportar Excel</button>
+    </div>
+  </div>
+
+  <script>
+    // Espacio para lógica futura de filtros y render del reporte.
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('reportFilters');
+      const preview = document.getElementById('previewContainer');
+      if (form) {
+        form.addEventListener('submit', (e) => { e.preventDefault(); });
+      }
+
+      const buildQuery = () => {
+        const fd = new FormData(form);
+        const params = new URLSearchParams();
+        params.set('reporte_tipo', fd.get('reporte_tipo') || 'animales_finca');
+        if (fd.get('desde')) params.set('desde', fd.get('desde'));
+        if (fd.get('hasta')) params.set('hasta', fd.get('hasta'));
+        const fincaId = fd.get('finca_id');
+        if (fincaId && fincaId !== '0') params.set('finca_id', fincaId);
+        return params.toString();
+      };
+
+      const openExport = (type) => {
+        const qs = buildQuery();
+        const base = type === 'pdf' ? "{{ url_for('exportar_reporte_pdf_dueno') }}" : "{{ url_for('exportar_reporte_excel_dueno') }}";
+        const url = qs ? `${base}?${qs}` : base;
+        window.open(url, '_blank');
+      };
+
+      const renderPreview = (dataset) => {
+        const cols = dataset.columns || [];
+        const rows = dataset.rows || [];
+        const totals = (dataset.meta && dataset.meta.totals) || null;
+        const generated = dataset.generated_at || '';
+        let html = '';
+        html += `<h5 class="mb-2">${dataset.titulo || 'Reporte'}</h5>`;
+        if (generated) html += `<small class="text-muted">Generado: ${generated}</small>`;
+        if (!cols.length) {
+          html += '<div class="placeholder mt-2">No hay columnas para mostrar.</div>';
+          preview.innerHTML = html;
+          return;
+        }
+        html += '<div class="table-responsive mt-2">';
+        html += '<table class="table table-sm table-striped table-bordered">';
+        html += '<thead><tr>' + cols.map(c => `<th>${c}</th>`).join('') + '</tr></thead>';
+        html += '<tbody>';
+        rows.forEach(r => {
+          html += '<tr>' + cols.map(c => `<td>${(r[c] ?? '')}</td>`).join('') + '</tr>';
+        });
+        if (totals) {
+          html += '<tr class="table-secondary fw-semibold">' + cols.map(c => `<td>${(totals[c] ?? '')}</td>`).join('') + '</tr>';
+        }
+        html += '</tbody></table></div>';
+        preview.innerHTML = html;
+      };
+
+      const loadPreview = async () => {
+        const qs = buildQuery();
+        const base = "{{ url_for('dataset_reporte_dueno') }}";
+        const url = qs ? `${base}?${qs}` : base;
+        preview.innerHTML = '<div class="placeholder">Cargando vista previa...</div>';
+        try {
+          const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+          const data = await res.json();
+          renderPreview(data);
+        } catch (err) {
+          preview.innerHTML = '<div class="text-danger">Error cargando vista previa.</div>';
+        }
+      };
+
+      // Botones: PDF superior sigue exportando; Excel superior ahora muestra vista previa.
+      const btnTopPdf = document.getElementById('btnTopPdf');
+      btnTopPdf && btnTopPdf.addEventListener('click', () => openExport('pdf'));
+      const btnBottomPdf = document.getElementById('btnBottomPdf');
+      btnBottomPdf && btnBottomPdf.addEventListener('click', () => openExport('pdf'));
+
+      const btnTopExcel = document.getElementById('btnTopExcel');
+      btnTopExcel && btnTopExcel.addEventListener('click', loadPreview);
+      const btnBottomExcel = document.getElementById('btnBottomExcel');
+      btnBottomExcel && btnBottomExcel.addEventListener('click', () => openExport('excel'));
+
+      const btnApply = document.getElementById('btnApply');
+      btnApply && btnApply.addEventListener('click', loadPreview);
+    });
+  </script>
+{% endblock %}

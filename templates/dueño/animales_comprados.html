@@ -8,11 +8,25 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h1 class="mb-4">Animales Comprados</h1>
-
-    <a href="{{ url_for('gestion_animales') }}" class="btn btn-outline-secondary mb-3">
-        <i class="fas fa-arrow-left me-1"></i> Volver a Gestión de Animales
-    </a>
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h1 class="mb-0">Animales Comprados</h1>
+        <div class="d-flex align-items-center gap-2">
+            {% if fincas %}
+            <form method="get" id="filtroFincaComprados" class="d-flex align-items-center">
+                <label for="finca_id" class="form-label mb-0 me-2">Finca</label>
+                <select id="finca_id" name="finca_id" class="form-select form-select-sm" style="min-width:220px" onchange="document.getElementById('filtroFincaComprados').submit()">
+                    <option value="">Todas</option>
+                    {% for f in fincas %}
+                    <option value="{{ f.id_finca }}" {% if selected_finca_id == f.id_finca %}selected{% endif %}>{{ f.nombre_finca }}</option>
+                    {% endfor %}
+                </select>
+            </form>
+            {% endif %}
+            <a href="{{ url_for('gestion_animales') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left me-1"></i> Volver a Gestión de Animales
+            </a>
+        </div>
+    </div>
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}

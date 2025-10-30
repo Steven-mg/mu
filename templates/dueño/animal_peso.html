@@ -77,6 +77,7 @@
             <th class="text-end">Peso (kg)</th>
             <th>Momento</th>
             <th class="notes-col">Notas</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
@@ -86,6 +87,14 @@
             <td class="text-end">{{ '%.2f'|format(r.peso|float) if r.peso is not none else '' }}</td>
             <td><span class="moment-badge">{{ r.tipo_momento or '' }}</span></td>
             <td class="notes-col"><span class="text-truncate">{{ r.notas or '' }}</span></td>
+            <td class="text-end">
+              <form method="POST" action="{{ url_for('eliminar_registro_peso_route', animal_id=animal.id_animal, registro_id=r.id_registro) }}" class="d-inline" onsubmit="return confirm('¿Eliminar registro de peso?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button class="btn btn-sm btn-danger" title="Eliminar registro">
+                  <i class="fas fa-trash-alt"></i>
+                </button>
+              </form>
+            </td>
           </tr>
           {% endfor %}
         </tbody>

@@ -42,7 +42,7 @@
             <i class="bi bi-people me-3"></i> Trabajadores
         </a>
         
-        <a href="#" class="d-flex align-items-center text-white text-decoration-none p-3">
+        <a href="{{ url_for('reportes_dueno') }}" class="d-flex align-items-center text-white text-decoration-none p-3 {% if request.endpoint == 'reportes_dueno' %}active{% endif %}" style="transition: all 0.3s;">
             <i class="bi bi-file-text me-3"></i> Reportes
         </a>
         

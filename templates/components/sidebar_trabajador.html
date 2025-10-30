@@ -1,38 +1,61 @@
-<nav id="sidebar" class="sidebar bg-light">
-  <div class="sidebar-header px-3 py-3">
-    <h5 class="mb-0">GanaControl</h5>
-    <small>Trabajador</small>
-  </div>
-  <ul class="list-unstyled components px-2">
-    <li class="mb-2">
-      <a href="{{ url_for('dashboard_trabajador') }}" class="d-flex align-items-center">
-        <i class="fas fa-home me-2"></i> Inicio
-      </a>
-    </li>
-    <li class="mb-2">
-      <a href="#" class="d-flex align-items-center">
-        <i class="fas fa-list me-2"></i> Actividad
-      </a>
-    </li>
-    <li class="mb-2">
-      <a href="#" class="d-flex align-items-center">
-        <i class="fas fa-notes-medical me-2"></i> Salud animal
-      </a>
-    </li>
-    <li class="mb-2">
-      <a href="#" class="d-flex align-items-center">
-        <i class="fas fa-chart-line me-2"></i> Producción
-      </a>
-    </li>
-    <li class="mb-2">
-      <a href="{{ url_for('cambiar_password_route') }}" class="d-flex align-items-center">
-        <i class="fas fa-key me-2"></i> Cambiar contraseña
-      </a>
-    </li>
-    <li class="mb-2">
-      <a href="{{ url_for('logout') }}" class="d-flex align-items-center">
-        <i class="fas fa-sign-out-alt me-2"></i> Salir
-      </a>
-    </li>
-  </ul>
-</nav>
+<div class="sidebar sidebar-trabajador text-white" style="width: 250px; height: 100vh; position: fixed; left: 0; top: 0; padding-top: 20px; background: #28a745 !important; z-index: 1030; transition: all 0.3s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+    <button id="sidebarToggle" class="btn btn-sm btn-light d-md-none position-absolute" style="top: 10px; right: 10px;">
+        <i class="bi bi-x-lg"></i>
+    </button>
+
+    <div class="text-center mb-4">
+        <div style="background-color: white; width: 140px; height: 140px; border-radius: 50%; margin: 0 auto; display: flex; justify-content: center; align-items: center;">
+            <img src="{{ url_for('static', filename='img/muuu-cow-icon.svg') }}" alt="Logo" style="width: 100px;">
+        </div>
+        <h2 class="mt-2">GanaControl</h2>
+        <small>Trabajador</small>
+    </div>
+
+    <div class="menu-title px-3 py-2 text-white-50">
+        MENÚ TRABAJADOR
+    </div>
+    <style>
+        .menu-items a:hover { background-color: rgba(255,255,255,0.2); }
+        /* Sidebar específico del trabajador: fuerza color sólido y anula gradientes globales */
+        .sidebar.sidebar-trabajador {
+            background: #28a745 !important;
+            background-image: none !important;
+            max-height: 100vh;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
+            -ms-overflow-style: none;
+        }
+        .sidebar.sidebar-trabajador::-webkit-scrollbar { width: 0px; height: 0px; }
+        .sidebar.sidebar-trabajador::-webkit-scrollbar-thumb { background: transparent; }
+        .sidebar.sidebar-trabajador::-webkit-scrollbar-track { background: transparent; }
+        .sidebar.sidebar-trabajador { scrollbar-width: none; }
+        .sidebar.sidebar-trabajador .active { background-color: rgba(255, 255, 255, 0.2); border-left: 4px solid white; }
+        .sidebar.sidebar-trabajador a { transition: all 0.3s; }
+        .sidebar.sidebar-trabajador a:hover { transform: translateX(5px); }
+    </style>
+    <div class="menu-items">
+        <a href="{{ url_for('dashboard_trabajador') }}" class="d-flex align-items-center text-white text-decoration-none p-3 {% if request.endpoint == 'dashboard_trabajador' %}active{% endif %}">
+            <i class="bi bi-speedometer2 me-3"></i> Inicio
+        </a>
+        <a href="#" class="d-flex align-items-center text-white text-decoration-none p-3">
+            <i class="bi bi-list-check me-3"></i> Actividad
+        </a>
+        <a href="#" class="d-flex align-items-center text-white text-decoration-none p-3">
+            <i class="bi bi-heart-pulse me-3"></i> Salud animal
+        </a>
+        <a href="#" class="d-flex align-items-center text-white text-decoration-none p-3">
+            <i class="bi bi-graph-up me-3"></i> Producción
+        </a>
+        <a href="{{ url_for('cambiar_password_route') }}" class="d-flex align-items-center text-white text-decoration-none p-3">
+            <i class="bi bi-key me-3"></i> Cambiar contraseña
+        </a>
+        <a href="{{ url_for('logout') }}" class="d-flex align-items-center text-white text-decoration-none p-3">
+            <i class="bi bi-box-arrow-right me-3"></i> Salir
+        </a>
+    </div>
+</div>
+
+<!-- Botón para mostrar el menú en dispositivos móviles -->
+<button id="showSidebar" class="btn btn-success d-md-none position-fixed" style="top: 10px; left: 10px; z-index: 1020; display: none;">
+    <i class="bi bi-list"></i>
+</button>

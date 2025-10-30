@@ -1,0 +1,80 @@
+<div class="sidebar sidebar-dueno text-white" style="width: 250px; height: 100vh; position: fixed; left: 0; top: 0; padding-top: 20px; background: #28a745 !important; z-index: 1030; transition: all 0.3s ease; overflow-y: auto; -webkit-overflow-scrolling: touch;">
+    <button id="sidebarToggle" class="btn btn-sm btn-light d-md-none position-absolute" style="top: 10px; right: 10px;">
+        <i class="bi bi-x-lg"></i>
+    </button>
+    
+    <div class="text-center mb-4">
+        <div style="background-color: white; width: 140px; height: 140px; border-radius: 50%; margin: 0 auto; display: flex; justify-content: center; align-items: center;">
+            <img src="{{ url_for('static', filename='img/muuu-cow-icon.svg') }}" alt="Logo" style="width: 100px;">
+        </div>
+        <h2 class="mt-2">GanaControl</h2>
+        <div class="text-white-50" style="margin-top:-6px;">Administrador Root</div>
+    </div>
+    
+    <div class="menu-title px-3 py-2 text-white-50">
+        MENÚ ADMINISTRACIÓN
+    </div>
+    <style>
+        .menu-items a:hover { background-color: rgba(255,255,255,0.2); }
+    </style>
+    <div class="menu-items">
+        <a href="{{ url_for('dashboard_root') }}" class="d-flex align-items-center text-white text-decoration-none p-3 {% if request.endpoint == 'dashboard_root' %}active{% endif %}" style="transition: all 0.3s;">
+            <i class="bi bi-speedometer2 me-3"></i> Dashboard
+        </a>
+
+        <a href="{{ url_for('admin_usuarios') }}" class="d-flex align-items-center text-white text-decoration-none p-3 {% if request.endpoint in ['admin_usuarios','crear_usuario_route','editar_usuario_route','eliminar_usuario_route'] %}active{% endif %}" style="transition: all 0.3s;">
+            <i class="bi bi-people me-3"></i> Gestión de Usuarios
+        </a>
+
+        <a href="{{ url_for('admin_fincas') }}" class="d-flex align-items-center text-white text-decoration-none p-3 {% if request.endpoint == 'admin_fincas' %}active{% endif %}" style="transition: all 0.3s;">
+            <i class="bi bi-house me-3"></i> Gestión de Fincas
+        </a>
+
+        <a href="{{ url_for('gestion_animales') }}" class="d-flex align-items-center text-white text-decoration-none p-3 {% if request.endpoint in ['gestion_animales','ver_animales_finca_route','ver_animales_fuera_route','ver_animales_fuera_global_route'] %}active{% endif %}" style="transition: all 0.3s;">
+            <i class="bi bi-truck me-3"></i> Gestión de Ganado
+        </a>
+
+        <a href="{{ url_for('admin_reportes') }}" class="d-flex align-items-center text-white text-decoration-none p-3 {% if request.endpoint == 'admin_reportes' %}active{% endif %}">
+            <i class="bi bi-graph-up me-3"></i> Reportes
+        </a>
+
+        <a href="#" class="d-flex align-items-center text-white text-decoration-none p-3">
+            <i class="bi bi-gear me-3"></i> Configuración
+        </a>
+
+        <a href="{{ url_for('logout') }}" class="d-flex align-items-center text-white text-decoration-none p-3">
+            <i class="bi bi-box-arrow-right me-3"></i> Cerrar Sesión
+        </a>
+    </div>
+</div>
+
+<!-- Botón para mostrar el menú en dispositivos móviles -->
+<button id="showSidebar" class="btn btn-success d-md-none position-fixed" style="top: 10px; left: 10px; z-index: 1020; display: none;">
+    <i class="bi bi-list"></i>
+    
+</button>
+
+<style>
+    .sidebar.sidebar-dueno { background: #28a745 !important; background-image: none !important; max-height: 100vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+    .sidebar.sidebar-dueno .active { background-color: rgba(255, 255, 255, 0.2); border-left: 4px solid white; }
+    .sidebar.sidebar-dueno a:hover { background-color: rgba(255, 255, 255, 0.1); }
+    @media (max-width: 767.98px) {
+        .sidebar.sidebar-dueno { transform: translateX(-100%); height: 100vh; max-height: 100vh; overflow-y: auto; padding-bottom: 60px; }
+        .sidebar.sidebar-dueno.show { transform: translateX(0); }
+        #showSidebar { display: block !important; }
+    }
+    .menu-items a { margin-bottom: 5px; }
+    .menu-items { display: flex; flex-direction: column; }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const sidebarToggle = document.getElementById('sidebarToggle');
+        const showSidebar = document.getElementById('showSidebar');
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebarToggle && showSidebar && sidebar) {
+            sidebarToggle.addEventListener('click', function() { sidebar.classList.remove('show'); });
+            showSidebar.addEventListener('click', function() { sidebar.classList.add('show'); });
+        }
+    });
+</script>

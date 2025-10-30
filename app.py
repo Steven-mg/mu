@@ -1,7 +1,7 @@
 from dotenv import load_dotenv
 load_dotenv()  # Cargar variables de entorno
 
-from flask import render_template, request, session, flash, redirect, url_for, jsonify
+from flask import render_template, request, session, flash, redirect, url_for, jsonify, send_file, Response
 from werkzeug.security import generate_password_hash, check_password_hash
 from forms.login_form import LoginForm
 from flask_login import login_required, current_user, logout_user  # Añadir logout_user
@@ -21,7 +21,7 @@ from modelo.models import (
     TipoServicioSexual,
 )  # Agregar modelos usados por actualizaciones ORM
 from controlador.controlador_actividad import obtener_actividades_recientes  # Importar la función
-from datetime import datetime  # Añadir esta importación
+from datetime import datetime, date  # Añadir esta importación
 import time
 from sqlalchemy import text, Table, MetaData, update
 
@@ -767,7 +767,7 @@ from controlador.controlador_animal import (
     ver_foto_animal, ver_animales_finca, ver_animales_fuera, ver_animales_fuera_global,
     api_madurez_sexual_por_raza, documentos_geneticos, agregar_documento_genetico,
     ver_documento_genetico, descargar_documento_genetico, eliminar_documento_genetico,
-    procedimientos_animal, eliminar_servicio_salud, eliminar_servicio_sexual,
+    procedimientos_animal, eliminar_servicio_salud, eliminar_servicio_sexual, eliminar_registro_peso,
     genealogia_animal, historial_procedimientos, gestion_produccion, gestion_produccion_finca,
     consumo_animal, biologicos_animal, ver_produccion_animal,
     # Importar vistas dedicadas
@@ -796,11 +796,488 @@ dashboard_dueno = requiere_rol(2)(dashboard_dueno)  # Accesible para roles 2 y 3
 dashboard_trabajador = requiere_rol(1)(dashboard_trabajador)  # Accesible para roles 1, 2 y 3
 dashboard_trabajador = requiere_rol(1)(dashboard_trabajador)  # Accesible para roles 1, 2 y 3
 
+# Asegurar que los decoradores aplicados después de la definición afecten las rutas registradas
+app.view_functions['dashboard_root'] = login_required(dashboard_root)
+app.view_functions['dashboard_dueno'] = dashboard_dueno
+app.view_functions['dashboard_trabajador'] = login_required(dashboard_trabajador)
+
 # Rutas de gestión de usuarios (solo para admin)
 @app.route('/admin/usuarios')
 @login_required
 def admin_usuarios():
     return listar_usuarios()
+
+# Vista de reportes para administrador root
+@app.route('/admin/reportes')
+@login_required
+def admin_reportes():
+    # Datos base para filtros (fincas del sistema)
+    fincas = Finca.query.all()
+    reportes_def = [
+        { 'id': 'resumen', 'nombre': 'Resumen del sistema' },
+        { 'id': 'usuarios_rol', 'nombre': 'Usuarios por rol' },
+        { 'id': 'fincas_dueno', 'nombre': 'Fincas por dueño' },
+        { 'id': 'animales_finca', 'nombre': 'Animales por finca' },
+        { 'id': 'animales_sexo', 'nombre': 'Animales por sexo' },
+        { 'id': 'produccion_finca', 'nombre': 'Producción por finca' },
+    ]
+    return render_template('root/reportes.html', fincas=fincas, reportes_def=reportes_def)
+
+# Vista de reportes para dueño de finca
+@app.route('/reportes', endpoint='reportes_dueno')
+@login_required
+@requiere_rol(2)
+def reportes_dueno():
+    # Fincas del dueño actual
+    from modelo.models import Finca, UsuarioFinca
+    fincas = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()
+
+    # Definición inicial de tipos de reporte para el dueño
+    reportes_def = [
+        { 'id': 'resumen_personal', 'nombre': 'Resumen de mis fincas' },
+        { 'id': 'animales_finca', 'nombre': 'Animales por finca' },
+        { 'id': 'animales_sexo', 'nombre': 'Animales por sexo' },
+        { 'id': 'produccion_finca', 'nombre': 'Producción por finca' },
+        { 'id': 'procedimientos_por_tipo', 'nombre': 'Procedimientos por tipo' },
+    ]
+
+    return render_template('dueño/reportes.html', fincas=fincas, reportes_def=reportes_def)
+
+# Utilidades para exportación de reportes del dueño
+def _parse_date(val):
+    if not val:
+        return None
+    try:
+        # Espera formato yyyy-mm-dd del input type="date"
+        return datetime.strptime(val, '%Y-%m-%d').date()
+    except Exception:
+        return None
+
+def _dataset_dueno(reporte_tipo: str, finca_id: int | None, desde: date | None, hasta: date | None):
+    from modelo.models import Animal, ProductosAnimal, Productos, Finca, UsuarioFinca, Raza, Potrero
+    # Asegurar que solo se consulten fincas del dueño
+    finca_ids = [rel.finca_id for rel in UsuarioFinca.query.filter_by(usuario_id=current_user.id).all()]
+    def within_owner(query):
+        return query.filter(Animal.id_finca.in_(finca_ids))
+
+    if reporte_tipo == 'animales_finca':
+        q = Animal.query
+        q = within_owner(q)
+        if finca_id and finca_id != 0:
+            q = q.filter(Animal.id_finca == finca_id)
+        animales = q.all()
+        data = []
+        for a in animales:
+            # Raza puede ser None si datos inconsistentes
+            raza_nombre = getattr(a.raza, 'nombre_raza', '') if hasattr(a, 'raza') else ''
+            data.append({
+                'ID': a.id_animal,
+                'Nombre': a.nombre_animal,
+                'Sexo': a.sexo,
+                'Raza': raza_nombre,
+                'Finca': getattr(a.finca, 'nombre_finca', ''),
+                'Ubicación': a.ubicacion_animal
+            })
+        return {
+            'titulo': 'Animales por finca',
+            'columns': ['ID', 'Nombre', 'Sexo', 'Raza', 'Finca', 'Ubicación'],
+            'rows': data,
+        }
+    elif reporte_tipo == 'produccion_finca':
+        # Detalle de producción con joins
+        q = ProductosAnimal.query.join(Animal, ProductosAnimal.id_animal == Animal.id_animal).join(Productos, ProductosAnimal.id_producto == Productos.id_producto)
+        q = q.filter(Animal.id_finca.in_(finca_ids))
+        if finca_id and finca_id != 0:
+            q = q.filter(Animal.id_finca == finca_id)
+        if desde:
+            q = q.filter(ProductosAnimal.fecha >= desde)
+        if hasta:
+            q = q.filter(ProductosAnimal.fecha <= hasta)
+        regs = q.all()
+        data = []
+        total = 0.0
+        for r in regs:
+            finca_nombre = getattr(r.animal.finca, 'nombre_finca', '') if hasattr(r.animal, 'finca') else ''
+            producto = getattr(r.producto, 'nombre_producto', '') if hasattr(r, 'producto') else ''
+            total += float(getattr(r, 'cantidad', 0) or 0)
+            data.append({
+                'Fecha': r.fecha.isoformat(),
+                'Producto': producto,
+                'Cantidad': float(getattr(r, 'cantidad', 0) or 0),
+                'Animal': getattr(r.animal, 'nombre_animal', ''),
+                'Finca': finca_nombre,
+            })
+        return {
+            'titulo': 'Producción por finca',
+            'columns': ['Fecha', 'Producto', 'Cantidad', 'Animal', 'Finca'],
+            'rows': data,
+            'meta': { 'total_cantidad': total }
+        }
+    elif reporte_tipo == 'resumen_personal':
+        # Resumen enriquecido por finca del dueño
+        fincas = Finca.query.filter(Finca.id_finca.in_(finca_ids)).all()
+        rows = []
+        # Acumuladores globales para totales y promedios
+        totals = {
+            'Potreros': 0,
+            'Animales': 0,
+            'Machos': 0,
+            'Hembras': 0,
+            'En finca': 0,
+            'Fuera de finca': 0,
+            'Sin potrero': 0,
+            'Producción total': 0.0,
+        }
+        total_age_years_sum = 0.0
+        total_age_count = 0
+        global_razas_set = set()
+        global_produce_set = set()
+
+        for f in fincas:
+            # Cargar animales de la finca para cálculos derivados
+            animales_finca = Animal.query.filter(Animal.id_finca == f.id_finca).all()
+            total_animales = len(animales_finca)
+            machos = sum(1 for a in animales_finca if (a.sexo or '').lower() == 'macho')
+            hembras = sum(1 for a in animales_finca if (a.sexo or '').lower() == 'hembra')
+            en_finca = sum(1 for a in animales_finca if (a.ubicacion_animal or '').lower() == 'en finca')
+            fuera_finca = sum(1 for a in animales_finca if (a.ubicacion_animal or '').lower() == 'fuera de la finca')
+            sin_potrero = sum(1 for a in animales_finca if not getattr(a, 'id_potrero', None))
+
+            # Edad media (años)
+            edades = []
+            for a in animales_finca:
+                if getattr(a, 'fecha_nacimiento', None):
+                    try:
+                        edades.append((date.today() - a.fecha_nacimiento).days / 365.25)
+                    except Exception:
+                        pass
+                # Razas distintas a nivel global
+                if getattr(a, 'id_raza', None):
+                    global_razas_set.add(a.id_raza)
+            edad_media = round(sum(edades) / len(edades), 2) if edades else 0.0
+
+            # Potreros en la finca
+            potreros = Potrero.query.filter(Potrero.id_finca == f.id_finca).count()
+
+            # Producción total (filtrada por rango si aplica)
+            try:
+                q_sum = db.session.query(db.func.sum(ProductosAnimal.cantidad)).join(
+                    Animal, ProductosAnimal.id_animal == Animal.id_animal
+                ).filter(Animal.id_finca == f.id_finca)
+                if desde:
+                    q_sum = q_sum.filter(ProductosAnimal.fecha >= desde)
+                if hasta:
+                    q_sum = q_sum.filter(ProductosAnimal.fecha <= hasta)
+                produccion_total = float(q_sum.scalar() or 0.0)
+            except Exception:
+                produccion_total = 0.0
+
+            # Tipos de producción (texto): leche, carne, estiercol
+            try:
+                q_prod = (
+                    db.session.query(Productos.nombre_producto)
+                    .join(ProductosAnimal, Productos.id_producto == ProductosAnimal.id_producto)
+                    .join(Animal, ProductosAnimal.id_animal == Animal.id_animal)
+                    .filter(Animal.id_finca == f.id_finca)
+                )
+                if desde:
+                    q_prod = q_prod.filter(ProductosAnimal.fecha >= desde)
+                if hasta:
+                    q_prod = q_prod.filter(ProductosAnimal.fecha <= hasta)
+                nombres_prod = [n[0] for n in q_prod.distinct().all()]
+            except Exception:
+                nombres_prod = []
+
+            def _cat(nombre: str) -> str | None:
+                n = (nombre or '').strip().lower()
+                if 'leche' in n:
+                    return 'leche'
+                if 'carne' in n:
+                    return 'carne'
+                # cubrir "estiércol" y "estiercol"
+                if 'estiércol' in n or 'estiercol' in n:
+                    return 'estiercol'
+                # animal vivo
+                if 'animal vivo' in n or (n == 'animal'):
+                    return 'animal vivo'
+                # biológicos registrados mediante ProductosAnimal
+                if 'semen' in n:
+                    return 'semen'
+                if 'embrion' in n or 'embri' in n:
+                    return 'embrion'
+                return None
+
+            cats = {c for c in (_cat(x) for x in nombres_prod) if c}
+            global_produce_set.update(cats)
+            produce_text = ', '.join(sorted(cats)) if cats else '—'
+
+            # Registrar fila
+            rows.append({
+                'Finca': f.nombre_finca,
+                'Potreros': potreros,
+                'Animales': total_animales,
+                'Machos': machos,
+                'Hembras': hembras,
+                'En finca': en_finca,
+                'Fuera de finca': fuera_finca,
+                'Sin potrero': sin_potrero,
+                'Edad media (años)': edad_media,
+                'Razas': len({a.id_raza for a in animales_finca if getattr(a, 'id_raza', None)}),
+                'Producción total': produccion_total,
+                'Se produce': produce_text,
+            })
+
+            # Actualizar acumuladores globales
+            totals['Potreros'] += potreros
+            totals['Animales'] += total_animales
+            totals['Machos'] += machos
+            totals['Hembras'] += hembras
+            totals['En finca'] += en_finca
+            totals['Fuera de finca'] += fuera_finca
+            totals['Sin potrero'] += sin_potrero
+            totals['Producción total'] += produccion_total
+            total_age_years_sum += sum(edades)
+            total_age_count += len(edades)
+
+        # Totales y promedios globales
+        totals['Edad media (años)'] = round(total_age_years_sum / total_age_count, 2) if total_age_count else 0.0
+        totals['Razas'] = len(global_razas_set)
+        totals['Se produce'] = ', '.join(sorted(global_produce_set)) if global_produce_set else '—'
+
+        return {
+            'titulo': 'Resumen de mis fincas',
+            'columns': [
+                'Finca', 'Potreros', 'Animales', 'Machos', 'Hembras',
+                'En finca', 'Fuera de finca', 'Sin potrero',
+                'Edad media (años)', 'Razas', 'Producción total', 'Se produce'
+            ],
+            'rows': rows,
+            'meta': {
+                'totals': {
+                    'Finca': 'TOTAL',
+                    **totals
+                }
+            }
+        }
+    else:
+        # Fallback: devolver estructura vacía
+        return {
+            'titulo': 'Reporte',
+            'columns': [],
+            'rows': []
+        }
+
+def _make_excel_response(dataset: dict, filename: str):
+    # Preferir openpyxl para Excel estilizado; fallback a XlsxWriter y luego CSV
+    import io
+    try:
+        from openpyxl import Workbook
+        from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+        from openpyxl.utils import get_column_letter
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = 'Datos'
+
+        # Estilos
+        title_font = Font(bold=True, size=14)
+        header_font = Font(bold=True)
+        header_fill = PatternFill(start_color='D9EAD3', end_color='D9EAD3', fill_type='solid')
+        thin = Side(style='thin', color='999999')
+        border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+        # Título y fecha
+        ws.cell(row=1, column=1, value=dataset.get('titulo', 'Reporte')).font = title_font
+        ws.cell(row=2, column=1, value=f"Generado: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+
+        cols = dataset.get('columns', [])
+        rows = dataset.get('rows', [])
+
+        # Encabezados
+        for c_idx, col in enumerate(cols, start=1):
+            cell = ws.cell(row=3, column=c_idx, value=col)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.border = border
+            cell.alignment = Alignment(horizontal='left')
+
+        # Datos
+        for r_idx, row in enumerate(rows, start=4):
+            for c_idx, col in enumerate(cols, start=1):
+                cell = ws.cell(row=r_idx, column=c_idx, value=row.get(col, ''))
+                cell.border = border
+                cell.alignment = Alignment(horizontal='left')
+
+        last_row = 3 + max(1, len(rows) + 1)
+
+        # Totales si existen
+        meta = dataset.get('meta') or {}
+        totals = meta.get('totals') or {}
+        if totals and cols:
+            total_row = 3 + len(rows) + 1
+            for c_idx, col in enumerate(cols, start=1):
+                cell = ws.cell(row=total_row, column=c_idx, value=totals.get(col, ''))
+                cell.font = Font(bold=True)
+                cell.border = border
+
+        # Freeze panes y filtro
+        ws.freeze_panes = 'A4'
+        if cols:
+            last_col_letter = get_column_letter(len(cols))
+            ws.auto_filter.ref = f"A3:{last_col_letter}{3 + len(rows)}"
+
+        # Auto ancho según contenido
+        for c_idx, col in enumerate(cols, start=1):
+            max_len = len(str(col))
+            for r in rows:
+                max_len = max(max_len, len(str(r.get(col, ''))))
+            ws.column_dimensions[get_column_letter(c_idx)].width = min(max_len + 2, 30)
+
+        output = io.BytesIO()
+        wb.save(output)
+        output.seek(0)
+        return send_file(output, as_attachment=True, download_name=f"{filename}.xlsx", mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    except Exception:
+        try:
+            import xlsxwriter
+            output = io.BytesIO()
+            workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+            ws = workbook.add_worksheet('Datos')
+            title_fmt = workbook.add_format({'bold': True, 'font_size': 14})
+            header_fmt = workbook.add_format({'bold': True, 'bg_color': '#D9EAD3', 'border': 1})
+            cell_fmt = workbook.add_format({'border': 1})
+            total_fmt = workbook.add_format({'bold': True, 'border': 1})
+            # Título
+            ws.write(0, 0, dataset.get('titulo', 'Reporte'), title_fmt)
+            # Fecha de generación
+            ws.write(1, 0, f"Generado: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}")
+            # Encabezados
+            for col_idx, col in enumerate(dataset.get('columns', [])):
+                ws.write(2, col_idx, col, header_fmt)
+            # Filas
+            for row_idx, row in enumerate(dataset.get('rows', []), start=3):
+                for col_idx, col in enumerate(dataset.get('columns', [])):
+                    ws.write(row_idx, col_idx, row.get(col, ''), cell_fmt)
+            last_data_row = 3 + len(dataset.get('rows', []))
+            # Auto ancho
+            for col_idx in range(len(dataset.get('columns', []))):
+                ws.set_column(col_idx, col_idx, 18)
+            # Filtro y congelar encabezado
+            ws.autofilter(2, 0, max(2, last_data_row), max(0, len(dataset.get('columns', [])) - 1))
+            ws.freeze_panes(3, 0)
+            # Resumen si aplica
+            meta = dataset.get('meta') or {}
+            if 'total_cantidad' in meta:
+                ws.write(1, 0, 'Total cantidad', header_fmt)
+                ws.write(1, 1, meta['total_cantidad'], cell_fmt)
+            # Fila de totales organizada según columnas
+            totals = (meta.get('totals') or {})
+            if totals and dataset.get('columns'):
+                for col_idx, col in enumerate(dataset.get('columns', [])):
+                    ws.write(last_data_row, col_idx, totals.get(col, ''), total_fmt)
+            workbook.close()
+            output.seek(0)
+            return send_file(output, as_attachment=True, download_name=f"{filename}.xlsx", mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        except Exception:
+            # Fallback CSV
+            import csv
+            si = io.StringIO()
+            writer = csv.writer(si)
+            writer.writerow([dataset.get('titulo', 'Reporte')])
+            writer.writerow([f"Generado: {datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')}"])
+            writer.writerow(dataset.get('columns', []))
+            for row in dataset.get('rows', []):
+                writer.writerow([row.get(col, '') for col in dataset.get('columns', [])])
+            totals = (dataset.get('meta', {}) or {}).get('totals')
+            if totals and dataset.get('columns'):
+                writer.writerow([totals.get(col, '') for col in dataset.get('columns', [])])
+            output = io.BytesIO(si.getvalue().encode('utf-8'))
+            return send_file(output, as_attachment=True, download_name=f"{filename}.csv", mimetype='text/csv')
+
+def _make_pdf_response(dataset: dict, filename: str):
+    # Intentar con reportlab para PDF estilizado; si no está, usar HTML como fallback
+    try:
+        import io
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib import colors
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+
+        buffer = io.BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        elements = []
+        styles = getSampleStyleSheet()
+        title = Paragraph(dataset.get('titulo', 'Reporte'), styles['Title'])
+        elements.append(title)
+        elements.append(Spacer(1, 12))
+        cols = dataset.get('columns', [])
+        rows = dataset.get('rows', [])
+        table_data = [cols] + [[row.get(c, '') for c in cols] for row in rows]
+        tbl = Table(table_data)
+        tbl.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#D9EAD3')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.black),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+        ]))
+        elements.append(tbl)
+        doc.build(elements)
+        buffer.seek(0)
+        return send_file(buffer, as_attachment=True, download_name=f"{filename}.pdf", mimetype='application/pdf')
+    except Exception:
+        # Fallback sencillo a HTML
+        html = ['<html><head><meta charset="utf-8"><title>Reporte</title><style>table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px}th{background:#D9EAD3}</style></head><body>']
+        html.append(f"<h2>{dataset.get('titulo','Reporte')}</h2>")
+        cols = dataset.get('columns', [])
+        html.append('<table>')
+        if cols:
+            html.append('<thead><tr>' + ''.join(f'<th>{c}</th>' for c in cols) + '</tr></thead>')
+        html.append('<tbody>')
+        for row in dataset.get('rows', []):
+            html.append('<tr>' + ''.join(f'<td>{row.get(c, '')}</td>' for c in cols) + '</tr>')
+        html.append('</tbody></table></body></html>')
+        return Response('\n'.join(html), mimetype='text/html')
+
+# Dataset JSON para vista previa (dueño)
+@app.route('/reportes/dataset', methods=['GET'], endpoint='dataset_reporte_dueno')
+@login_required
+@requiere_rol(2)
+def dataset_reporte_dueno():
+    """Devuelve el dataset del reporte en formato JSON para vista previa en línea."""
+    reporte_tipo = request.args.get('reporte_tipo', 'animales_finca')
+    finca_id = request.args.get('finca_id', type=int)
+    desde = _parse_date(request.args.get('desde'))
+    hasta = _parse_date(request.args.get('hasta'))
+    dataset = _dataset_dueno(reporte_tipo, finca_id, desde, hasta)
+    dataset['generated_at'] = datetime.utcnow().strftime('%Y-%m-%d %H:%M UTC')
+    return jsonify(dataset)
+
+# Exportación Excel para dueño
+@app.route('/reportes/export/excel', methods=['GET'], endpoint='exportar_reporte_excel_dueno')
+@login_required
+@requiere_rol(2)
+def exportar_reporte_excel_dueno():
+    reporte_tipo = request.args.get('reporte_tipo', 'animales_finca')
+    finca_id = request.args.get('finca_id', type=int)
+    desde = _parse_date(request.args.get('desde'))
+    hasta = _parse_date(request.args.get('hasta'))
+    dataset = _dataset_dueno(reporte_tipo, finca_id, desde, hasta)
+    filename = f"{reporte_tipo}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+    return _make_excel_response(dataset, filename)
+
+# Exportación PDF para dueño
+@app.route('/reportes/export/pdf', methods=['GET'], endpoint='exportar_reporte_pdf_dueno')
+@login_required
+@requiere_rol(2)
+def exportar_reporte_pdf_dueno():
+    reporte_tipo = request.args.get('reporte_tipo', 'animales_finca')
+    finca_id = request.args.get('finca_id', type=int)
+    desde = _parse_date(request.args.get('desde'))
+    hasta = _parse_date(request.args.get('hasta'))
+    dataset = _dataset_dueno(reporte_tipo, finca_id, desde, hasta)
+    filename = f"{reporte_tipo}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
+    return _make_pdf_response(dataset, filename)
 
 @app.route('/admin/usuario/crear', methods=['GET', 'POST'])
 @login_required
@@ -1009,6 +1486,11 @@ def eliminar_servicio_salud_route(animal_id, servicio_id):
 def eliminar_servicio_sexual_route(animal_id, servicio_id):
     return eliminar_servicio_sexual(animal_id, servicio_id)
 
+@app.route('/animal/<int:animal_id>/peso/<int:registro_id>/eliminar', methods=['POST'], endpoint='eliminar_registro_peso_route')
+@login_required
+def eliminar_registro_peso_route(animal_id, registro_id):
+    return eliminar_registro_peso(animal_id, registro_id)
+
 # Ruta para servir la foto del animal desde BD
 @app.route('/animal/<int:animal_id>/foto')
 @login_required
@@ -1087,6 +1569,7 @@ admin_usuarios = requiere_rol(3)(admin_usuarios)
 crear_usuario_route = requiere_rol(3)(crear_usuario_route)
 editar_usuario_route = requiere_rol(3)(editar_usuario_route)
 eliminar_usuario_route = requiere_rol(3)(eliminar_usuario_route)
+admin_reportes = requiere_rol(3)(admin_reportes)
 
 # Ruta para administración de fincas (solo para admin)
 @app.route('/admin/fincas')
@@ -1230,6 +1713,7 @@ descargar_documento_genetico_route = requiere_rol(2)(descargar_documento_genetic
 eliminar_documento_genetico_route = requiere_rol(2)(eliminar_documento_genetico_route)
 eliminar_servicio_salud_route = requiere_rol(2)(eliminar_servicio_salud_route)
 eliminar_servicio_sexual_route = requiere_rol(2)(eliminar_servicio_sexual_route)
+eliminar_registro_peso_route = requiere_rol(2)(eliminar_registro_peso_route)
 animal_consumo_route = requiere_rol(2)(animal_consumo_route)
 animal_biologicos_route = requiere_rol(2)(animal_biologicos_route)
 animal_produccion_route = requiere_rol(2)(animal_produccion_route)

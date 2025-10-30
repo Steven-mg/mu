@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}Reportes | Admin Root{% endblock %}
+
+{% block page_css %}
+<style>
+  .main-content { margin-left: 250px; transition: margin-left 0.3s ease; }
+  @media (max-width: 767.98px) { .main-content { margin-left: 0; } }
+
+  .admin-header { background: linear-gradient(90deg, #28a745, #2ecc71); color: white; border-radius: 10px; padding: 18px 22px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+  .admin-header h1 { font-size: 24px; margin: 0; }
+  .admin-header .subtitle { font-size: 14px; opacity: 0.9; }
+
+  .filter-bar { position: sticky; top: 0; z-index: 1010; background: #ffffff; border: 1px solid #e9ecef; border-radius: 10px; padding: 14px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+  .filter-bar .form-select, .filter-bar .form-control { border-radius: 8px; }
+  .filter-actions .btn { border-radius: 8px; }
+
+  .report-card { border-radius: 10px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
+  .report-card .card-header { background: #f8f9fa; }
+
+  .placeholder { color: #6c757d; }
+</style>
+{% endblock %}
+
+{% block content %}
+  {% include 'components/navbar.html' %}
+  {% block sidebar %}
+    {% include 'components/sidebar_root.html' %}
+  {% endblock %}
+
+  <div class="container-fluid main-content py-3">
+    <div class="admin-header mb-3">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <h1 class="mb-1">Reportes del Sistema</h1>
+          <div class="subtitle">Genera reportes globales y por finca. Selecciona filtros y exporta.</div>
+        </div>
+        <div class="d-none d-md-block">
+          <span class="badge bg-light text-dark">Administrador Root</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="filter-bar mb-3">
+      <form id="reportFilters" class="row g-2 align-items-end">
+        <div class="col-12 col-md-4">
+          <label class="form-label mb-1">Tipo de reporte</label>
+          <select class="form-select" name="reporte_tipo" required>
+            {% for r in reportes_def %}
+              <option value="{{ r.id }}">{{ r.nombre }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label mb-1">Desde</label>
+          <input type="date" class="form-control" name="desde">
+        </div>
+        <div class="col-6 col-md-2">
+          <label class="form-label mb-1">Hasta</label>
+          <input type="date" class="form-control" name="hasta">
+        </div>
+        <div class="col-12 col-md-4">
+          <label class="form-label mb-1">Finca</label>
+          <select class="form-select" name="finca_id">
+            <option value="0">Todas las fincas</option>
+            {% for f in fincas %}
+              <option value="{{ f.id_finca }}">{{ f.nombre }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-12 d-flex gap-2 filter-actions">
+          <button type="button" class="btn btn-success"><i class="bi bi-funnel me-1"></i>Aplicar</button>
+          <button type="reset" class="btn btn-outline-secondary">Limpiar</button>
+          <div class="ms-auto d-flex gap-2">
+            <button type="button" class="btn btn-outline-primary"><i class="bi bi-file-earmark-pdf me-1"></i>PDF</button>
+            <button type="button" class="btn btn-outline-primary"><i class="bi bi-file-earmark-excel me-1"></i>Excel</button>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <div class="card report-card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <div><i class="bi bi-graph-up-arrow me-2"></i>Vista previa</div>
+        <small class="text-muted">Ajusta filtros para ver resultados</small>
+      </div>
+      <div class="card-body">
+        <div class="placeholder">Este módulo de reportes está en fase inicial. Próximamente verás tablas y gráficos según el tipo de reporte seleccionado.</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Espacio para lógica futura de filtros y render de reporte.
+    document.addEventListener('DOMContentLoaded', () => {
+      const form = document.getElementById('reportFilters');
+      if (form) {
+        form.addEventListener('submit', (e) => { e.preventDefault(); });
+      }
+    });
+  </script>
+{% endblock %}

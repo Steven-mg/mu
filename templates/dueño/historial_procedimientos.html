@@ -55,6 +55,7 @@
                 <td>{{ s.costo }}</td>
                 <td>
                   <form method="POST" action="{{ url_for('eliminar_servicio_salud_route', servicio_id=s.id_servicio_salud, animal_id=animal.id_animal) }}" class="d-inline" onsubmit="return confirm('¿Eliminar servicio de salud?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn btn-sm btn-danger">Eliminar</button>
                   </form>
                 </td>
@@ -87,6 +88,7 @@
                 <td>{{ x.costo_total }}</td>
                 <td>
                   <form method="POST" action="{{ url_for('eliminar_servicio_sexual_route', servicio_id=x.id_servicio, animal_id=animal.id_animal) }}" class="d-inline" onsubmit="return confirm('¿Eliminar servicio sexual?');">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <button class="btn btn-sm btn-danger">Eliminar</button>
                   </form>
                 </td>

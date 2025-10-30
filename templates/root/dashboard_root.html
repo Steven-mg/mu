@@ -123,47 +123,11 @@
 </nav>
 {% endblock %}
 
+{% block sidebar %}{% include 'components/sidebar_root.html' %}{% endblock %}
+
 {% block content %}
 <div class="container-fluid">
     <div class="row">
-        <!-- Sidebar -->
-        <div class="col-md-3 col-lg-2 d-md-block sidebar p-0">
-            <div class="position-sticky">
-                <ul class="nav flex-column">
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link active py-3 px-3" href="#">
-                            <i class="fas fa-tachometer-alt me-2"></i> Dashboard
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link py-3 px-3" href="#">
-                            <i class="fas fa-users me-2"></i> Gestión de Usuarios
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link py-3 px-3" href="#">
-                            <i class="fas fa-farm me-2"></i> Gestión de Fincas
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link py-3 px-3" href="#">
-                            <i class="fas fa-cow me-2"></i> Gestión de Ganado
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link py-3 px-3" href="#">
-                            <i class="fas fa-chart-bar me-2"></i> Reportes
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link sidebar-link py-3 px-3" href="#">
-                            <i class="fas fa-cog me-2"></i> Configuración
-                        </a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-
         <!-- Main Content -->
         <div class="col-md-9 ms-sm-auto col-lg-10 px-md-4 py-4">
             <div class="admin-header">
@@ -262,7 +226,7 @@
                                 <li><i class="fas fa-check-circle text-success me-2"></i> Asignar roles y permisos</li>
                                 <li><i class="fas fa-check-circle text-success me-2"></i> Gestionar accesos</li>
                             </ul>
-                            <a href="#" class="btn btn-primary mt-2">
+                            <a href="{{ url_for('admin_usuarios') }}" class="btn btn-primary mt-2">
                                 <i class="fas fa-cog me-1"></i> Administrar
                             </a>
                         </div>
@@ -280,7 +244,7 @@
                                 <li><i class="fas fa-check-circle text-success me-2"></i> Asignar propietarios</li>
                                 <li><i class="fas fa-check-circle text-success me-2"></i> Gestionar ubicaciones</li>
                             </ul>
-                            <a href="#" class="btn btn-success mt-2">
+                            <a href="{{ url_for('admin_fincas') }}" class="btn btn-success mt-2">
                                 <i class="fas fa-cog me-1"></i> Administrar
                             </a>
                         </div>

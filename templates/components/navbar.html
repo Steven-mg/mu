@@ -8,10 +8,10 @@
             <span class="navbar-toggler-icon"></span>
         </button>
         <div class="collapse navbar-collapse justify-content-end" id="navbarNav">
-            {% if 'usuario_id' in session and session['tipo_usuario'] == 2 %}
-            <!-- Navbar mínimo para dueño logueado: solo nombre y Cerrar Sesión -->
+            {% if 'usuario_id' in session %}
+            <!-- Navbar mínimo para usuario autenticado: nombre y Cerrar Sesión -->
             <div class="d-flex align-items-center ms-auto">
-                <span class="me-3" style="color: white; font-weight: 500;">{{ session['nik_name'] }}</span>
+                <span class="me-3" style="color: white; font-weight: 500;">{{ session.get('nik_name', 'Usuario') }}</span>
                 <a class="btn btn-light btn-sm rounded-pill fw-semibold" href="{{ url_for('logout') }}" style="color: #28a745; border: 2px solid white; padding: 6px 16px;">
                     Cerrar Sesión
                 </a>

@@ -220,20 +220,33 @@ def ver_animales_fuera(finca_id):
 def ver_animales_fuera_global():
     """Listar todos los animales registrados como fuera de la finca en las fincas del usuario"""
     # Fincas del usuario
-    fincas_usuario = Finca.query.join(UsuarioFinca).filter(UsuarioFinca.usuario_id == current_user.id).all()
+    fincas_usuario = (Finca.query
+                      .join(UsuarioFinca)
+                      .filter(UsuarioFinca.usuario_id == current_user.id)
+                      .all())
     finca_ids = [f.id_finca for f in fincas_usuario]
+
+    # Filtro opcional por finca vía query string
+    selected_finca_id = request.args.get('finca_id', type=int)
 
     if not finca_ids:
         animales = []
     else:
-        animales = (Animal.query
-                    .filter(
-                        Animal.id_finca.in_(finca_ids),
-                        Animal.ubicacion_animal == 'fuera de la finca'
-                    )
-                    .all())
+        query = (Animal.query
+                 .filter(
+                     Animal.id_finca.in_(finca_ids),
+                     Animal.ubicacion_animal == 'fuera de la finca'
+                 ))
+        if selected_finca_id:
+            query = query.filter(Animal.id_finca == selected_finca_id)
+        animales = query.all()
 
-    return render_template('dueño/ver_animales_fuera_global.html', animales=animales)
+    return render_template(
+        'dueño/ver_animales_fuera_global.html',
+        animales=animales,
+        fincas=fincas_usuario,
+        selected_finca_id=selected_finca_id
+    )
 
 @login_required
 def procedimientos_animal(animal_id):
@@ -526,6 +539,31 @@ def eliminar_servicio_sexual(animal_id, servicio_id):
     db.session.commit()
     flash('Servicio sexual eliminado', 'success')
     return redirect(url_for('procedimientos_animal_route', animal_id=animal_id))
+
+@login_required
+def eliminar_registro_peso(animal_id, registro_id):
+    """Eliminar un registro de peso de un animal específico."""
+    reg = RegistroPeso.query.get_or_404(registro_id)
+    # Validar pertenencia del registro al animal
+    if reg.id_animal != animal_id:
+        flash('El registro de peso no pertenece al animal indicado.', 'danger')
+        return redirect(url_for('animal_peso_route', animal_id=animal_id))
+
+    # Validar acceso del usuario a la finca del animal
+    animal = Animal.query.get_or_404(animal_id)
+    relacion = UsuarioFinca.query.filter_by(usuario_id=current_user.id, finca_id=animal.id_finca).first()
+    if not relacion and current_user.tipo_usuario != 3:
+        flash('No tienes permisos para eliminar este registro de peso.', 'danger')
+        return redirect(url_for('animal_peso_route', animal_id=animal_id))
+
+    try:
+        db.session.delete(reg)
+        db.session.commit()
+        flash('Registro de peso eliminado', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error al eliminar el registro de peso: {e}', 'danger')
+    return redirect(url_for('animal_peso_route', animal_id=animal_id))
 
 @login_required
 def consumo_animal(animal_id):
@@ -1158,18 +1196,55 @@ def ver_graficos_animal(animal_id):
     """Vista dedicada para gráficos del animal (sin tabla de producción)."""
     animal = Animal.query.get_or_404(animal_id)
 
+    # Filtros por rango de fechas
+    # General (para crías e intervalos): ?inicio=YYYY-MM-DD&fin=YYYY-MM-DD
+    inicio_str = request.args.get('inicio')
+    fin_str = request.args.get('fin')
+    # Específico para leche: ?inicio_leche=YYYY-MM-DD&fin_leche=YYYY-MM-DD
+    inicio_leche_str = request.args.get('inicio_leche')
+    fin_leche_str = request.args.get('fin_leche')
+    # Específico para peso: ?inicio_peso=YYYY-MM-DD&fin_peso=YYYY-MM-DD
+    inicio_peso_str = request.args.get('inicio_peso')
+    fin_peso_str = request.args.get('fin_peso')
+    # Selector de gráfico superior: leche | peso
+    chart_type = (request.args.get('chart') or '').strip().lower()
+
+    def _parse_date(s):
+        try:
+            return datetime.strptime(s, '%Y-%m-%d').date()
+        except Exception:
+            return None
+
+    inicio_date = _parse_date(inicio_str) if inicio_str else None
+    fin_date = _parse_date(fin_str) if fin_str else None
+    inicio_leche_date = _parse_date(inicio_leche_str) if inicio_leche_str else None
+    fin_leche_date = _parse_date(fin_leche_str) if fin_leche_str else None
+    inicio_peso_date = _parse_date(inicio_peso_str) if inicio_peso_str else None
+    fin_peso_date = _parse_date(fin_peso_str) if fin_peso_str else None
+    # Si el usuario invierte el rango, corregirlo
+    if inicio_date and fin_date and inicio_date > fin_date:
+        inicio_date, fin_date = fin_date, inicio_date
+    if inicio_leche_date and fin_leche_date and inicio_leche_date > fin_leche_date:
+        inicio_leche_date, fin_leche_date = fin_leche_date, inicio_leche_date
+    if inicio_peso_date and fin_peso_date and inicio_peso_date > fin_peso_date:
+        inicio_peso_date, fin_peso_date = fin_peso_date, inicio_peso_date
+
     # Agregación: producción de leche por día
     def _es_leche(nombre: str) -> bool:
         n = (nombre or '').lower()
         return 'leche' in n
 
     try:
-        todas_prods = (
+        q = (
             ProductosAnimal.query.options(joinedload(ProductosAnimal.producto))
             .filter(ProductosAnimal.id_animal == animal_id)
-            .order_by(ProductosAnimal.fecha.asc())
-            .all()
         )
+        # Aplicar SOLO el rango de leche para la producción de leche
+        if inicio_leche_date:
+            q = q.filter(ProductosAnimal.fecha >= inicio_leche_date)
+        if fin_leche_date:
+            q = q.filter(ProductosAnimal.fecha <= fin_leche_date)
+        todas_prods = q.order_by(ProductosAnimal.fecha.asc()).all()
     except Exception:
         todas_prods = []
 
@@ -1185,6 +1260,38 @@ def ver_graficos_animal(animal_id):
 
     labels_leche = sorted(leche_por_dia.keys())
     values_leche = [round(leche_por_dia[d], 2) for d in labels_leche]
+
+    # Valores por defecto para los selectores de fechas
+    # General (crías/intervalos)
+    fecha_inicio = inicio_str or None
+    fecha_fin = fin_str or None
+    # Leche (propio)
+    fecha_inicio_leche = inicio_leche_str or (labels_leche[0] if labels_leche else None)
+    fecha_fin_leche = fin_leche_str or (labels_leche[-1] if labels_leche else None)
+    # Peso (propio)
+    peso_labels = []
+    peso_values = []
+    try:
+        qp = RegistroPeso.query.filter(RegistroPeso.id_animal == animal_id)
+        if inicio_peso_date:
+            qp = qp.filter(RegistroPeso.fecha_registro >= inicio_peso_date)
+        if fin_peso_date:
+            qp = qp.filter(RegistroPeso.fecha_registro <= fin_peso_date)
+        registros = qp.order_by(RegistroPeso.fecha_registro.asc()).all()
+        for r in registros:
+            try:
+                peso_labels.append(r.fecha_registro.strftime('%Y-%m-%d'))
+            except Exception:
+                peso_labels.append(str(r.fecha_registro))
+            try:
+                peso_values.append(round(float(r.peso or 0), 2))
+            except Exception:
+                peso_values.append(0)
+    except Exception:
+        peso_labels = []
+        peso_values = []
+    fecha_inicio_peso = inicio_peso_str or (peso_labels[0] if peso_labels else None)
+    fecha_fin_peso = fin_peso_str or (peso_labels[-1] if peso_labels else None)
 
     # Umbrales por raza
     umbral_min = None
@@ -1218,6 +1325,62 @@ def ver_graficos_animal(animal_id):
         except Exception:
             estado_msg = None
 
+    # --- Crías por año e intervalos entre partos ---
+    crias_labels = []
+    crias_values = []
+    intervalo_labels = []
+    intervalo_values = []
+    intervalo_promedio = None
+    try:
+        # Obtener crías por relación de madre/padre
+        if (animal.sexo or '').lower() == 'hembra':
+            hijos_q = Animal.query.filter(Animal.id_madre == animal.id_animal)
+        else:
+            hijos_q = Animal.query.filter(Animal.id_padre == animal.id_animal)
+
+        if inicio_date:
+            hijos_q = hijos_q.filter(Animal.fecha_nacimiento >= inicio_date)
+        if fin_date:
+            hijos_q = hijos_q.filter(Animal.fecha_nacimiento <= fin_date)
+
+        hijos = hijos_q.order_by(Animal.fecha_nacimiento.asc()).all()
+
+        from collections import defaultdict
+        por_anio = defaultdict(int)
+        fechas_nac = []
+        for h in hijos:
+            if h.fecha_nacimiento:
+                try:
+                    y = h.fecha_nacimiento.year
+                    por_anio[y] += 1
+                    fechas_nac.append(h.fecha_nacimiento)
+                except Exception:
+                    continue
+
+        # Conteo por año
+        crias_labels = sorted(por_anio.keys())
+        crias_values = [por_anio[y] for y in crias_labels]
+
+        # Intervalos entre partos (días)
+        fechas_nac.sort()
+        if len(fechas_nac) >= 2:
+            for i in range(1, len(fechas_nac)):
+                d1 = fechas_nac[i-1]
+                d2 = fechas_nac[i]
+                intervalo = (d2 - d1).days
+                intervalo_values.append(intervalo)
+                intervalo_labels.append(f"{d1.strftime('%Y-%m-%d')} → {d2.strftime('%Y-%m-%d')}")
+            try:
+                intervalo_promedio = round(sum(intervalo_values) / len(intervalo_values), 1)
+            except Exception:
+                intervalo_promedio = None
+    except Exception:
+        pass
+
+    # Determinar gráfico superior por defecto si no se especifica
+    if chart_type not in ('leche', 'peso'):
+        chart_type = 'leche' if (animal.sexo or '').lower() == 'hembra' else 'peso'
+
     return render_template(
         'dueño/animal_graficos.html',
         animal=animal,
@@ -1228,6 +1391,21 @@ def ver_graficos_animal(animal_id):
         leche_avg_7d=avg_7d,
         leche_estado_tipo=estado_tipo,
         leche_estado_msg=estado_msg,
+        fecha_inicio=fecha_inicio,
+        fecha_fin=fecha_fin,
+        fecha_inicio_leche=fecha_inicio_leche,
+        fecha_fin_leche=fecha_fin_leche,
+        # Peso
+        peso_labels=peso_labels,
+        peso_values=peso_values,
+        fecha_inicio_peso=fecha_inicio_peso,
+        fecha_fin_peso=fecha_fin_peso,
+        chart_type=chart_type,
+        crias_labels=crias_labels,
+        crias_values=crias_values,
+        intervalo_labels=intervalo_labels,
+        intervalo_values=intervalo_values,
+        intervalo_promedio=intervalo_promedio,
     )
 
 # Páginas dedicadas solicitadas: Peso, Ciclo y Salud

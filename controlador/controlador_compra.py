@@ -1,7 +1,7 @@
 from flask import render_template, redirect, url_for, flash, request
 from flask_login import login_required, current_user
 from config import app, db, allowed_document, registrar_actividad
-from modelo.models import Animal, CompraAnimales
+from modelo.models import Animal, CompraAnimales, Finca, UsuarioFinca
 from forms.compra_form import CompraAnimalForm
 from datetime import date
 from werkzeug.utils import secure_filename
@@ -11,9 +11,26 @@ import time
 @app.route('/animales_comprados')
 @login_required
 def listar_animales_comprados():
-    # Obtener todos los animales con origen "comprado"
-    animales_comprados = Animal.query.filter_by(origen='comprado').all()
-    return render_template('dueño/animales_comprados.html', animales=animales_comprados)
+    # Fincas del usuario
+    fincas_usuario = (Finca.query
+                      .join(UsuarioFinca)
+                      .filter(UsuarioFinca.usuario_id == current_user.id)
+                      .all())
+
+    selected_finca_id = request.args.get('finca_id', type=int)
+
+    # Animales comprados, opcionalmente filtrados por finca
+    query = Animal.query.filter_by(origen='comprado')
+    if selected_finca_id:
+        query = query.filter(Animal.id_finca == selected_finca_id)
+    animales_comprados = query.all()
+
+    return render_template(
+        'dueño/animales_comprados.html',
+        animales=animales_comprados,
+        fincas=fincas_usuario,
+        selected_finca_id=selected_finca_id
+    )
 
 @app.route('/editar_compra/<int:id_animal>', methods=['GET', 'POST'])
 @login_required
