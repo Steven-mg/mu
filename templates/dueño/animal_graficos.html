@@ -22,12 +22,18 @@
   .filters label { white-space: nowrap; }
   .chart-card { border: 1px solid #e9ecef; border-radius: 8px; }
   /* Hacer el gráfico de intervalos más compacto */
-  .narrow-card { max-width: 900px; margin: 0 auto; }
+  .narrow-card { max-width: 720px; margin: 0 auto; }
   /* Estética del header al anclar */
   .header { backdrop-filter: saturate(140%) brightness(105%); }
   /* Evitar desplazamiento lateral del bloque de filtros en pantallas pequeñas */
   .header .filters { position: relative; }
   .header .form-select.form-select-sm { min-width: 110px; }
+  /* Estilos móviles para filtros colapsables */
+  @media (max-width: 576px) {
+    .filters input[type="date"] { width: 100%; }
+    .filters-mobile { display: flex; flex-direction: column; gap: .5rem; }
+    .filters-mobile label { white-space: nowrap; }
+  }
 </style>
 {% endblock %}
 
@@ -42,49 +48,105 @@
       {% if leche_estado_msg and chart_type == 'leche' and (animal.sexo or '').lower() == 'hembra' %}
         <span class="status-badge {{ leche_estado_tipo }}">{{ leche_estado_msg }}</span>
       {% endif %}
+      <!-- Botón de colapso para móviles -->
+      <button class="btn btn-light btn-sm d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#filtersCollapse" aria-expanded="false" aria-controls="filtersCollapse">
+        <i class="fas fa-sliders-h me-1"></i> Filtros
+      </button>
 
-      <!-- Selector tipo de gráfico -->
-      <form class="d-flex align-items-center gap-2" method="get" action="{{ url_for('animal_graficos_route', animal_id=animal.id_animal) }}">
-        {% if fecha_inicio %}<input type="hidden" name="inicio" value="{{ fecha_inicio }}">{% endif %}
-        {% if fecha_fin %}<input type="hidden" name="fin" value="{{ fecha_fin }}">{% endif %}
-        {% if fecha_inicio_leche %}<input type="hidden" name="inicio_leche" value="{{ fecha_inicio_leche }}">{% endif %}
-        {% if fecha_fin_leche %}<input type="hidden" name="fin_leche" value="{{ fecha_fin_leche }}">{% endif %}
-        {% if fecha_inicio_peso %}<input type="hidden" name="inicio_peso" value="{{ fecha_inicio_peso }}">{% endif %}
-        {% if fecha_fin_peso %}<input type="hidden" name="fin_peso" value="{{ fecha_fin_peso }}">{% endif %}
-        <label class="text-white-50 small mb-0">Gráfico</label>
-        <select name="chart" class="form-select form-select-sm" onchange="this.form.submit()">
-          {% if (animal.sexo or '').lower() == 'hembra' %}
-            <option value="leche" {{ 'selected' if chart_type == 'leche' else '' }}>Leche</option>
+      <!-- Controles visibles en escritorio -->
+      <div class="d-none d-md-flex align-items-center gap-2">
+        <!-- Selector tipo de gráfico (desktop) -->
+        <form class="d-flex align-items-center gap-2" method="get" action="{{ url_for('animal_graficos_route', animal_id=animal.id_animal) }}">
+          {% if fecha_inicio %}<input type="hidden" name="inicio" value="{{ fecha_inicio }}">{% endif %}
+          {% if fecha_fin %}<input type="hidden" name="fin" value="{{ fecha_fin }}">{% endif %}
+          {% if fecha_inicio_leche %}<input type="hidden" name="inicio_leche" value="{{ fecha_inicio_leche }}">{% endif %}
+          {% if fecha_fin_leche %}<input type="hidden" name="fin_leche" value="{{ fecha_fin_leche }}">{% endif %}
+          {% if fecha_inicio_peso %}<input type="hidden" name="inicio_peso" value="{{ fecha_inicio_peso }}">{% endif %}
+          {% if fecha_fin_peso %}<input type="hidden" name="fin_peso" value="{{ fecha_fin_peso }}">{% endif %}
+          <label class="text-white-50 small mb-0">Gráfico</label>
+          <select name="chart" class="form-select form-select-sm" onchange="this.form.submit()">
+            {% if (animal.sexo or '').lower() == 'hembra' %}
+              <option value="leche" {{ 'selected' if chart_type == 'leche' else '' }}>Leche</option>
+            {% endif %}
+            <option value="peso" {{ 'selected' if chart_type == 'peso' else '' }}>Peso</option>
+          </select>
+        </form>
+
+        <!-- Filtro superior (desktop) -->
+        <form class="filters" method="get" action="{{ url_for('animal_graficos_route', animal_id=animal.id_animal) }}">
+          {% if fecha_inicio %}<input type="hidden" name="inicio" value="{{ fecha_inicio }}">{% endif %}
+          {% if fecha_fin %}<input type="hidden" name="fin" value="{{ fecha_fin }}">{% endif %}
+          <input type="hidden" name="chart" value="{{ chart_type }}">
+
+          {% if chart_type == 'leche' and (animal.sexo or '').lower() == 'hembra' %}
+            <label for="inicio_leche" class="text-white-50 small mb-0">Desde</label>
+            <input type="date" id="inicio_leche" name="inicio_leche" class="form-control form-control-sm" value="{{ fecha_inicio_leche }}">
+            <label for="fin_leche" class="text-white-50 small mb-0">Hasta</label>
+            <input type="date" id="fin_leche" name="fin_leche" class="form-control form-control-sm" value="{{ fecha_fin_leche }}">
+            <button type="submit" class="btn btn-light btn-sm"><i class="fas fa-filter me-1"></i>Aplicar</button>
+            <a href="{{ url_for('animal_graficos_route', animal_id=animal.id_animal, inicio=fecha_inicio, fin=fecha_fin, chart='leche') }}" class="btn btn-outline-light btn-sm">Limpiar</a>
+          {% else %}
+            <label for="inicio_peso" class="text-white-50 small mb-0">Desde</label>
+            <input type="date" id="inicio_peso" name="inicio_peso" class="form-control form-control-sm" value="{{ fecha_inicio_peso }}">
+            <label for="fin_peso" class="text-white-50 small mb-0">Hasta</label>
+            <input type="date" id="fin_peso" name="fin_peso" class="form-control form-control-sm" value="{{ fecha_fin_peso }}">
+            <button type="submit" class="btn btn-light btn-sm"><i class="fas fa-filter me-1"></i>Aplicar</button>
+            <a href="{{ url_for('animal_graficos_route', animal_id=animal.id_animal, inicio=fecha_inicio, fin=fecha_fin, chart='peso') }}" class="btn btn-outline-light btn-sm">Limpiar</a>
           {% endif %}
-          <option value="peso" {{ 'selected' if chart_type == 'peso' else '' }}>Peso</option>
-        </select>
-      </form>
+        </form>
 
-      <!-- Filtro superior: depende del gráfico seleccionado -->
-      <form class="filters" method="get" action="{{ url_for('animal_graficos_route', animal_id=animal.id_animal) }}">
-        <!-- Preservar filtros de los otros bloques -->
-        {% if fecha_inicio %}<input type="hidden" name="inicio" value="{{ fecha_inicio }}">{% endif %}
-        {% if fecha_fin %}<input type="hidden" name="fin" value="{{ fecha_fin }}">{% endif %}
-        <input type="hidden" name="chart" value="{{ chart_type }}">
+        <a href="{{ url_for('ver_animal_route', animal_id=animal.id_animal) }}" class="btn btn-light btn-sm"><i class="fas fa-arrow-left me-1"></i> Volver</a>
+      </div>
+    </div>
+    <!-- Controles colapsables para móviles -->
+    <div class="collapse d-md-none mt-2" id="filtersCollapse">
+      <div class="d-flex flex-column gap-2">
+        <!-- Selector tipo de gráfico (mobile) -->
+        <form class="d-flex flex-column gap-2" method="get" action="{{ url_for('animal_graficos_route', animal_id=animal.id_animal) }}">
+          {% if fecha_inicio %}<input type="hidden" name="inicio" value="{{ fecha_inicio }}">{% endif %}
+          {% if fecha_fin %}<input type="hidden" name="fin" value="{{ fecha_fin }}">{% endif %}
+          {% if fecha_inicio_leche %}<input type="hidden" name="inicio_leche" value="{{ fecha_inicio_leche }}">{% endif %}
+          {% if fecha_fin_leche %}<input type="hidden" name="fin_leche" value="{{ fecha_fin_leche }}">{% endif %}
+          {% if fecha_inicio_peso %}<input type="hidden" name="inicio_peso" value="{{ fecha_inicio_peso }}">{% endif %}
+          {% if fecha_fin_peso %}<input type="hidden" name="fin_peso" value="{{ fecha_fin_peso }}">{% endif %}
+          <label class="text-white-50 small mb-0">Gráfico</label>
+          <select name="chart" class="form-select form-select-sm" onchange="this.form.submit()">
+            {% if (animal.sexo or '').lower() == 'hembra' %}
+              <option value="leche" {{ 'selected' if chart_type == 'leche' else '' }}>Leche</option>
+            {% endif %}
+            <option value="peso" {{ 'selected' if chart_type == 'peso' else '' }}>Peso</option>
+          </select>
+        </form>
 
-        {% if chart_type == 'leche' and (animal.sexo or '').lower() == 'hembra' %}
-          <label for="inicio_leche" class="text-white-50 small mb-0">Desde</label>
-          <input type="date" id="inicio_leche" name="inicio_leche" class="form-control form-control-sm" value="{{ fecha_inicio_leche }}">
-          <label for="fin_leche" class="text-white-50 small mb-0">Hasta</label>
-          <input type="date" id="fin_leche" name="fin_leche" class="form-control form-control-sm" value="{{ fecha_fin_leche }}">
-          <button type="submit" class="btn btn-light btn-sm"><i class="fas fa-filter me-1"></i>Aplicar</button>
-          <a href="{{ url_for('animal_graficos_route', animal_id=animal.id_animal, inicio=fecha_inicio, fin=fecha_fin, chart='leche') }}" class="btn btn-outline-light btn-sm">Limpiar</a>
-        {% else %}
-          <label for="inicio_peso" class="text-white-50 small mb-0">Desde</label>
-          <input type="date" id="inicio_peso" name="inicio_peso" class="form-control form-control-sm" value="{{ fecha_inicio_peso }}">
-          <label for="fin_peso" class="text-white-50 small mb-0">Hasta</label>
-          <input type="date" id="fin_peso" name="fin_peso" class="form-control form-control-sm" value="{{ fecha_fin_peso }}">
-          <button type="submit" class="btn btn-light btn-sm"><i class="fas fa-filter me-1"></i>Aplicar</button>
-          <a href="{{ url_for('animal_graficos_route', animal_id=animal.id_animal, inicio=fecha_inicio, fin=fecha_fin, chart='peso') }}" class="btn btn-outline-light btn-sm">Limpiar</a>
-        {% endif %}
-      </form>
+        <!-- Filtro superior (mobile, apilado) -->
+        <form class="filters-mobile" method="get" action="{{ url_for('animal_graficos_route', animal_id=animal.id_animal) }}">
+          {% if fecha_inicio %}<input type="hidden" name="inicio" value="{{ fecha_inicio }}">{% endif %}
+          {% if fecha_fin %}<input type="hidden" name="fin" value="{{ fecha_fin }}">{% endif %}
+          <input type="hidden" name="chart" value="{{ chart_type }}">
 
-      <a href="{{ url_for('ver_animal_route', animal_id=animal.id_animal) }}" class="btn btn-light btn-sm"><i class="fas fa-arrow-left me-1"></i> Volver</a>
+          {% if chart_type == 'leche' and (animal.sexo or '').lower() == 'hembra' %}
+            <label for="inicio_leche" class="text-white-50 small mb-0">Desde</label>
+            <input type="date" id="inicio_leche" name="inicio_leche" class="form-control form-control-sm" value="{{ fecha_inicio_leche }}">
+            <label for="fin_leche" class="text-white-50 small mb-0">Hasta</label>
+            <input type="date" id="fin_leche" name="fin_leche" class="form-control form-control-sm" value="{{ fecha_fin_leche }}">
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-light btn-sm flex-fill"><i class="fas fa-filter me-1"></i>Aplicar</button>
+              <a href="{{ url_for('animal_graficos_route', animal_id=animal.id_animal, inicio=fecha_inicio, fin=fecha_fin, chart='leche') }}" class="btn btn-outline-light btn-sm flex-fill">Limpiar</a>
+            </div>
+          {% else %}
+            <label for="inicio_peso" class="text-white-50 small mb-0">Desde</label>
+            <input type="date" id="inicio_peso" name="inicio_peso" class="form-control form-control-sm" value="{{ fecha_inicio_peso }}">
+            <label for="fin_peso" class="text-white-50 small mb-0">Hasta</label>
+            <input type="date" id="fin_peso" name="fin_peso" class="form-control form-control-sm" value="{{ fecha_fin_peso }}">
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-light btn-sm flex-fill"><i class="fas fa-filter me-1"></i>Aplicar</button>
+              <a href="{{ url_for('animal_graficos_route', animal_id=animal.id_animal, inicio=fecha_inicio, fin=fecha_fin, chart='peso') }}" class="btn btn-outline-light btn-sm flex-fill">Limpiar</a>
+            </div>
+          {% endif %}
+        </form>
+
+        <a href="{{ url_for('ver_animal_route', animal_id=animal.id_animal) }}" class="btn btn-light btn-sm"><i class="fas fa-arrow-left me-1"></i> Volver</a>
+      </div>
     </div>
   </div>
 
@@ -149,12 +211,12 @@
 
   <!-- Intervalos entre partos: solo hembras -->
   {% if (animal.sexo or '').lower() == 'hembra' %}
-  <div class="card chart-card mt-4 narrow-card">
-    <div class="card-header bg-warning"><i class="fas fa-ruler-horizontal me-2"></i> Intervalo entre Partos (días)</div>
-    <div class="card-body" style="min-height: 300px;">
+  <div class="card chart-card mt-1 narrow-card">
+    <div class="card-header bg-warning"><i class="fas fa-ruler-horizontal me-2"></i> Intervalo entre Partos (meses)</div>
+    <div class="card-body" style="min-height: 110px;">
       {% if intervalo_values and intervalo_values|length > 0 %}
-        <div class="mb-2 small">Promedio: <strong>{{ intervalo_promedio }} días</strong></div>
-        <canvas id="intervalosChart" height="120"></canvas>
+        <div class="mb-0 small">Promedio: <strong>{{ (intervalo_promedio / 30.4375)|round(1) }} meses</strong></div>
+        <canvas id="intervalosChart" height="60"></canvas>
       {% else %}
         <div class="text-center text-muted py-4">
           <i class="fas fa-info-circle me-2"></i> No se pueden calcular intervalos (se requieren al menos dos partos).
@@ -305,39 +367,39 @@
       });
     }
 
-    // Intervalos entre partos (línea)
+    // Intervalos entre partos (barras)
     const intLabels = {{ intervalo_labels|tojson }};
     const intValues = {{ intervalo_values|tojson }};
     if (intLabels && intLabels.length > 0) {
       const elInt = document.getElementById('intervalosChart');
       if (elInt) {
         const ctxInt = elInt.getContext('2d');
+        // Convertir días a meses (promedio gregoriano de 30.4375 días/mes)
+        const intValuesMonths = (intValues || []).map(v => +(v / 30.4375).toFixed(1));
         new Chart(ctxInt, {
-          type: 'line',
+          type: 'bar',
           data: {
             labels: intLabels,
             datasets: [{
-              label: 'Días entre partos',
-              data: intValues,
-              borderColor: '#b8860b',
-              backgroundColor: 'rgba(184, 134, 11, 0.2)',
-              tension: 0.25,
-              fill: true,
-              pointRadius: 3,
-              pointHoverRadius: 5,
-              spanGaps: true,
+              label: 'Meses entre partos',
+              data: intValuesMonths,
+              backgroundColor: 'rgba(255, 193, 7, 0.35)',
+              borderColor: '#ffc107',
+              borderWidth: 1,
+              categoryPercentage: 0.65,
+              barPercentage: 0.7,
             }]
           },
           options: {
             responsive: true,
             maintainAspectRatio: false,
             scales: {
-              y: { beginAtZero: true, title: { display: true, text: 'Días' } },
-              x: { title: { display: true, text: 'Intervalo (fecha→fecha)' }, ticks: { autoSkip: true, maxRotation: 0 }, grid: { display: false }, offset: true }
+              y: { beginAtZero: true, title: { display: false }, ticks: { stepSize: 1, font: { size: 9 } }, grid: { display: false }, suggestedMax: 18, grace: '10%' },
+              x: { title: { display: false }, ticks: { autoSkip: true, maxRotation: 0, font: { size: 9 } }, grid: { display: false }, offset: true }
             },
-            plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: (ctx) => `Intervalo: ${ctx.parsed.y} días` } } },
-            elements: { line: { borderWidth: 2 } },
-            layout: { padding: { left: 8, right: 8 } }
+            plugins: { legend: { display: false }, tooltip: { callbacks: { label: (ctx) => `Intervalo: ${ctx.parsed.y} meses` } } },
+            elements: { bar: { borderWidth: 1 } },
+            layout: { padding: { left: 0, right: 0, top: 0, bottom: 0 } }
         }
         });
       }

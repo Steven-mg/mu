@@ -4,7 +4,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from flask import render_template, redirect, url_for, flash, request, jsonify, make_response
 from flask_login import login_required, current_user
-from modelo.models import Finca, UsuarioFinca, Potrero, RotacionPotrero, GrupoAnimal, Animal, AnimalGrupo, Usuario, Trabajador
+from modelo.models import Finca, UsuarioFinca, Potrero, RotacionPotrero, GrupoAnimal, Animal, AnimalGrupo, Usuario, Trabajador, Raza
 from sqlalchemy.orm import joinedload
 from forms.finca_form import FincaForm
 from forms.potrero_form import PotreroForm
@@ -1053,10 +1053,47 @@ def gestionar_grupo(grupo_id):
 
     animales_disponibles = [a for a in animales_disponibles_query.all() if a.id_animal not in ids_en_alguna_relacion]
 
+    # Razas presentes entre los animales disponibles (para filtro en UI)
+    try:
+        razas_dict = {}
+        for a in animales_disponibles:
+            if a.raza and getattr(a.raza, 'id_raza', None):
+                razas_dict[a.raza.id_raza] = a.raza
+        razas_disponibles = sorted(list(razas_dict.values()), key=lambda r: (getattr(r, 'nombre_raza', '') or '').lower())
+    except Exception:
+        razas_disponibles = []
+
+    # Map de madurez sexual por animal disponible
+    def _es_maduro(a: Animal) -> bool:
+        # Calcular edad en meses y comparar con umbral por raza y sexo
+        try:
+            fn = a.fecha_nacimiento
+            hoy = datetime.now().date()
+            meses = (hoy.year - fn.year) * 12 + (hoy.month - fn.month)
+            if hoy.day < fn.day:
+                meses -= 1
+        except Exception:
+            return False
+
+        try:
+            umbral = None
+            if a.raza:
+                umbral = a.raza.madurez_sexual_hembras_meses if a.sexo == 'Hembra' else a.raza.madurez_sexual_machos_meses
+            if umbral is None:
+                umbral = 12
+        except Exception:
+            umbral = 12
+        try:
+            return meses >= int(umbral)
+        except Exception:
+            return False
+
+    madurez_map = {a.id_animal: _es_maduro(a) for a in animales_disponibles}
+
     # Potrero de retorno opcional para el botón "Volver"
     potrero_id = request.args.get('potrero_id', type=int)
 
-    return render_template('dueño/gestionar_grupo.html', grupo=grupo, animales_grupo=animales_grupo, animales_disponibles=animales_disponibles, potrero_id=potrero_id)
+    return render_template('dueño/gestionar_grupo.html', grupo=grupo, animales_grupo=animales_grupo, animales_disponibles=animales_disponibles, razas_disponibles=razas_disponibles, madurez_map=madurez_map, potrero_id=potrero_id)
 
 @login_required
 def eliminar_grupo(grupo_id):

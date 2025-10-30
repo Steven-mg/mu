@@ -93,6 +93,25 @@
                             <strong>Animales Disponibles en la Finca</strong>
                         </div>
                         <div class="card-body">
+                            <div class="d-flex align-items-center gap-3 mb-3">
+                                <div style="min-width:220px;">
+                                    <label for="filtroRazaDisponibles" class="form-label mb-1 text-muted">Filtrar por raza</label>
+                                    <select id="filtroRazaDisponibles" class="form-select form-select-sm">
+                                        <option value="">Todas las razas</option>
+                                        {% for r in razas_disponibles %}
+                                        <option value="{{ r.id_raza }}">{{ r.nombre_raza }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div style="min-width:220px;">
+                                    <label for="filtroMadurezDisponibles" class="form-label mb-1 text-muted">Madurez sexual</label>
+                                    <select id="filtroMadurezDisponibles" class="form-select form-select-sm">
+                                        <option value="">Todos</option>
+                                        <option value="1">Maduros</option>
+                                        <option value="0">No maduros</option>
+                                    </select>
+                                </div>
+                            </div>
                             <div class="table-responsive">
                                 <table class="table table-striped">
                                     <thead>
@@ -104,10 +123,10 @@
                                             <th>Acciones</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
+                                    <tbody id="tbodyDisponibles">
                                         {% if animales_disponibles %}
                                             {% for animal in animales_disponibles %}
-                                            <tr>
+                                            <tr data-raza-id="{{ animal.id_raza }}" data-maduro="{{ 1 if madurez_map.get(animal.id_animal) else 0 }}">
                                                 <td>{{ animal.id_animal }}</td>
                                                 <td>{{ animal.nombre_animal }}</td>
                                                 <td>{{ animal.raza.nombre_raza if animal.raza else 'Sin raza' }}</td>
@@ -194,5 +213,28 @@ function quitarAnimal(animalId) {
         mostrarAlerta('Error al quitar el animal', 'danger');
     });
 }
+
+// Filtros de "Animales Disponibles": por raza y madurez sexual
+const filtroRazaDisponibles = document.getElementById('filtroRazaDisponibles');
+const filtroMadurezDisponibles = document.getElementById('filtroMadurezDisponibles');
+function aplicarFiltrosDisponibles() {
+    const razaSel = (filtroRazaDisponibles && filtroRazaDisponibles.value) || '';
+    const madurezSel = (filtroMadurezDisponibles && filtroMadurezDisponibles.value) || '';
+    const tbody = document.getElementById('tbodyDisponibles');
+    if (!tbody) return;
+    const filas = tbody.querySelectorAll('tr');
+    filas.forEach(tr => {
+        const razaId = (tr.getAttribute('data-raza-id') || '').toString();
+        const maduro = tr.getAttribute('data-maduro');
+        let visible = true;
+        if (razaSel && razaId !== razaSel) visible = false;
+        if (madurezSel !== '' && maduro !== madurezSel) visible = false;
+        tr.style.display = visible ? '' : 'none';
+    });
+}
+if (filtroRazaDisponibles) filtroRazaDisponibles.addEventListener('change', aplicarFiltrosDisponibles);
+if (filtroMadurezDisponibles) filtroMadurezDisponibles.addEventListener('change', aplicarFiltrosDisponibles);
+// Aplicar al cargar
+document.addEventListener('DOMContentLoaded', aplicarFiltrosDisponibles);
 </script>
 {% endblock %}

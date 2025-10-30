@@ -926,7 +926,6 @@ def _dataset_dueno(reporte_tipo: str, finca_id: int | None, desde: date | None, 
             'En finca': 0,
             'Fuera de finca': 0,
             'Sin potrero': 0,
-            'Producción total': 0.0,
         }
         total_age_years_sum = 0.0
         total_age_count = 0
@@ -958,19 +957,6 @@ def _dataset_dueno(reporte_tipo: str, finca_id: int | None, desde: date | None, 
 
             # Potreros en la finca
             potreros = Potrero.query.filter(Potrero.id_finca == f.id_finca).count()
-
-            # Producción total (filtrada por rango si aplica)
-            try:
-                q_sum = db.session.query(db.func.sum(ProductosAnimal.cantidad)).join(
-                    Animal, ProductosAnimal.id_animal == Animal.id_animal
-                ).filter(Animal.id_finca == f.id_finca)
-                if desde:
-                    q_sum = q_sum.filter(ProductosAnimal.fecha >= desde)
-                if hasta:
-                    q_sum = q_sum.filter(ProductosAnimal.fecha <= hasta)
-                produccion_total = float(q_sum.scalar() or 0.0)
-            except Exception:
-                produccion_total = 0.0
 
             # Tipos de producción (texto): leche, carne, estiercol
             try:
@@ -1023,7 +1009,6 @@ def _dataset_dueno(reporte_tipo: str, finca_id: int | None, desde: date | None, 
                 'Sin potrero': sin_potrero,
                 'Edad media (años)': edad_media,
                 'Razas': len({a.id_raza for a in animales_finca if getattr(a, 'id_raza', None)}),
-                'Producción total': produccion_total,
                 'Se produce': produce_text,
             })
 
@@ -1035,7 +1020,6 @@ def _dataset_dueno(reporte_tipo: str, finca_id: int | None, desde: date | None, 
             totals['En finca'] += en_finca
             totals['Fuera de finca'] += fuera_finca
             totals['Sin potrero'] += sin_potrero
-            totals['Producción total'] += produccion_total
             total_age_years_sum += sum(edades)
             total_age_count += len(edades)
 
@@ -1049,7 +1033,7 @@ def _dataset_dueno(reporte_tipo: str, finca_id: int | None, desde: date | None, 
             'columns': [
                 'Finca', 'Potreros', 'Animales', 'Machos', 'Hembras',
                 'En finca', 'Fuera de finca', 'Sin potrero',
-                'Edad media (años)', 'Razas', 'Producción total', 'Se produce'
+                'Edad media (años)', 'Razas', 'Se produce'
             ],
             'rows': rows,
             'meta': {
@@ -1263,6 +1247,21 @@ def exportar_reporte_excel_dueno():
     desde = _parse_date(request.args.get('desde'))
     hasta = _parse_date(request.args.get('hasta'))
     dataset = _dataset_dueno(reporte_tipo, finca_id, desde, hasta)
+    # Solicitud: remover "Producción total" únicamente del Excel en "Resumen de mis fincas"
+    if reporte_tipo == 'resumen_personal':
+        col_remove = 'Producción total'
+        # Filtrar columnas
+        dataset['columns'] = [c for c in (dataset.get('columns') or []) if c != col_remove]
+        # Remover campo de cada fila
+        for r in (dataset.get('rows') or []):
+            if isinstance(r, dict):
+                r.pop(col_remove, None)
+        # Remover de totales si existe
+        meta = dataset.get('meta') or {}
+        totals = meta.get('totals')
+        if isinstance(totals, dict):
+            totals.pop(col_remove, None)
+        dataset['meta'] = meta
     filename = f"{reporte_tipo}_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
     return _make_excel_response(dataset, filename)
 
