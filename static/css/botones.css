@@ -81,3 +81,15 @@
     transform: translateY(-3px);
     box-shadow: 0 4px 8px rgba(111, 66, 193, 0.3);
 }
+
+/* Botón Excel (verde claro) */
+.btn-excel-light {
+    border-color: #2ecc71 !important; /* Verde claro */
+    color: #2ecc71 !important;
+}
+.btn-excel-light:hover,
+.btn-excel-light:focus {
+    background-color: #2ecc71 !important;
+    color: #fff !important;
+    box-shadow: 0 4px 8px rgba(46, 204, 113, 0.3);
+}
